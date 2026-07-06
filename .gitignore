@@ -1,4 +1,5 @@
 /resolver/target
+/tools/target
 /target
 **/*.rs.bk
 .DS_Store
