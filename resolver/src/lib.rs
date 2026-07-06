@@ -39,6 +39,13 @@
 //! Revision History
 //! - 2026-07-06: extracted as the RLPS reference resolver (r14n) from Squillo OS
 //!   `the Squillo OS policy engine` (an internal design memo §PS.R / an internal design memo).
+//! - 2026-07-06: + `receipt` module (ISO 27560 / W3C DPV + Kantara CR v1.1) and
+//!   `Strictness::as_str` — additive; mirror to the Squillo twin (roadmap item 3).
+
+// ── Modules ──────────────────────────────────────────────────────────────────
+
+/// ISO/IEC TS 27560 + W3C DPV decision-receipt serialization (spec §8).
+pub mod receipt;
 
 // ── Value types ──────────────────────────────────────────────────────────────
 
@@ -102,6 +109,17 @@ impl Strictness {
       "as_configured" => Self::AsConfigured,
       "minimal" => Self::Minimal,
       other => Self::Other(::std::string::String::from(other)),
+    }
+  }
+
+  /// The wire string for this posture (inverse of [`Strictness::parse`]) —
+  /// surfaced verbatim in decision receipts (never collapsed; audit evidence).
+  pub fn as_str(&self) -> &str {
+    match self {
+      Self::Aggressive => "aggressive",
+      Self::AsConfigured => "as_configured",
+      Self::Minimal => "minimal",
+      Self::Other(other) => other,
     }
   }
 }

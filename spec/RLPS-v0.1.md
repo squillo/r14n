@@ -145,7 +145,10 @@ to `aggressive` over the caller's declared universe and MUST flag the decision a
 
 - **ISO/IEC TS 27560 + W3C DPV** — the decision receipt SHOULD serialize natively as a 27560 +
   DPV Consent Record; a flat Kantara CR v1.1 shim MAY be emitted. RLPS mints recording controls in
-  an **RLPS-owned namespace** that MUST degrade gracefully if DPV does not adopt them.
+  an **RLPS-owned namespace** that MUST degrade gracefully if DPV does not adopt them (v0.1
+  namespace: `https://rlps.squillo.com/ns#`; term registry `/docs/namespace.md`; reference
+  serializer: the resolver's `receipt` module; worked AI-Act §50 example:
+  `/docs/examples/receipt-ai-act-50.json`).
 - **NIST OSCAL** — the pack structure mirrors OSCAL Catalog→Profile→Baseline; the Control Catalog
   MAY be expressed as an OSCAL catalog.
 - **EU AI Act Art. 50** — `ai_disclosure` is an `obligation` control for AI-notetaker sessions in

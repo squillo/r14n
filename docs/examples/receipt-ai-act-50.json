@@ -1,0 +1,139 @@
+{
+  "dpv_27560": {
+    "@context": {
+      "@vocab": "https://rlps.squillo.com/ns#",
+      "dpv": "https://w3id.org/dpv#",
+      "rlps": "https://rlps.squillo.com/ns#"
+    },
+    "@type": "rlps:ControlDecisionReceipt",
+    "ai_disclosure": {
+      "disclosed_at": "2026-08-02T08:59:00Z",
+      "legal_basis_hint": "eu_ai_act_article_50",
+      "method": "in_meeting_announcement"
+    },
+    "decision": {
+      "escalation": {
+        "gpc_signal": false,
+        "ieee7012_no_recording": false
+      },
+      "posture": "aggressive",
+      "required_controls": [
+        "ai_disclosure",
+        "announcement",
+        "aph_mandate",
+        "attestation",
+        "indicator_mount",
+        "signal_notice"
+      ],
+      "verdict": "permit"
+    },
+    "disclaimer": "NOT LEGAL ADVICE. This receipt records a control decision and its provenance; it is not a statement of law or a compliance claim. 'aggressive' != 'compliant'.",
+    "event": [
+      {
+        "event_state": "permit",
+        "event_time": "2026-08-02T09:00:00Z",
+        "event_type": "rlps:ControlDecision"
+      },
+      {
+        "event_state": "in_meeting_announcement",
+        "event_time": "2026-08-02T08:59:00Z",
+        "event_type": "rlps:AiDisclosure"
+      }
+    ],
+    "jurisdiction": {
+      "attribution_source": "operator_declared",
+      "dpv:hasJurisdiction": [
+        "DE"
+      ]
+    },
+    "pii_controller": {
+      "@type": "dpv:DataController",
+      "id": "Example Operator GmbH"
+    },
+    "pii_principal": {
+      "@type": "dpv:DataSubject",
+      "id": "participant:example"
+    },
+    "processing": {
+      "@type": "rlps:RegulatedActivity",
+      "domain": "recording_consent",
+      "operations": [
+        "rlps:AudioRecording",
+        "rlps:VoiceRecording"
+      ],
+      "subject": "twin_attend"
+    },
+    "provenance": {
+      "advisory_only": true,
+      "fell_back": false,
+      "legal_review_status": null,
+      "pack_source": "<aggressive-default>",
+      "profile": "aggressive"
+    },
+    "record": {
+      "issued_at": "2026-08-02T09:00:00Z",
+      "language": "de",
+      "record_id": "urn:rlps:receipt:example:ai-act-50",
+      "schema_version": "rlps-receipt/0.1+iso27560"
+    }
+  },
+  "kantara_cr_v1_1": {
+    "collectionMethod": "rlps_resolver",
+    "consentReceiptID": "urn:rlps:receipt:example:ai-act-50",
+    "consentTimestamp": 1785661200,
+    "jurisdiction": "DE",
+    "language": "de",
+    "piiControllers": [
+      {
+        "piiController": "Example Operator GmbH"
+      }
+    ],
+    "piiPrincipalId": "participant:example",
+    "policyUrl": "https://example.invalid/privacy",
+    "rlps": {
+      "advisory_only": true,
+      "ai_disclosure": {
+        "disclosed_at": "2026-08-02T08:59:00Z",
+        "method": "in_meeting_announcement"
+      },
+      "disclaimer": "NOT LEGAL ADVICE. This receipt records a control decision and its provenance; it is not a statement of law or a compliance claim. 'aggressive' != 'compliant'.",
+      "fell_back": false,
+      "gpc_signal": false,
+      "legal_review_status": null,
+      "pack_source": "<aggressive-default>",
+      "posture": "aggressive",
+      "required_controls": [
+        "ai_disclosure",
+        "announcement",
+        "aph_mandate",
+        "attestation",
+        "indicator_mount",
+        "signal_notice"
+      ]
+    },
+    "sensitive": false,
+    "services": [
+      {
+        "purposes": [
+          {
+            "consentType": "EXPLICIT",
+            "piiCategory": [
+              "rlps:AudioRecording",
+              "rlps:VoiceRecording"
+            ],
+            "primaryPurpose": true,
+            "purpose": "twin_attend",
+            "purposeCategory": [
+              "recording_consent"
+            ],
+            "termination": "per_pack_effective_until",
+            "thirdPartyDisclosure": false
+          }
+        ],
+        "service": "recording_consent"
+      }
+    ],
+    "spiCat": [],
+    "version": "KI-CR-v1.1.0"
+  }
+}
