@@ -1,0 +1,57 @@
+# regloc — Regulatory Localization
+
+> **`r14n : compliance controls :: i18n : strings`**
+
+**regloc** is the home of the **Regulatory Localization Pack Specification (RLPS)** — an open,
+human-readable, machine-readable format for expressing *which compliance controls are required*
+for a given **(regulatory-profile × jurisdiction × subject)**, with a fail-closed default, a
+posture selector, and legal-review provenance.
+
+Where **i18n** maps `locales/<lang>/<feature>.toml` → localized strings, **RLPS** maps
+`packs/<profile>/<domain>.r14n.toml` → **required controls**. A translation key is a stable id
+for a user-facing string; an RLPS **control key** is a stable id for a required compliance action.
+
+```
+i18n:  translation key  → localized string      locales/<lang>/<feature>.toml
+r14n:  control key       → required / prohibited  packs/<profile>/<domain>.r14n.toml
+```
+
+## ⚠ This is NOT legal advice
+
+RLPS is a **data-interchange and configuration standard**, not legal counsel. A pack is a
+machine-readable *template of controls*; it does not tell you what the law is, and selecting a
+posture that under-restricts a jurisdiction's law is the **consuming operator's** responsibility.
+**"aggressive" ≠ "compliant."** See [`docs/not-legal-advice.md`](docs/not-legal-advice.md).
+
+## Status
+
+**v0.1 — draft. Reference-implementation-first.** This repository is the working existence proof;
+the resolver already ships inside [Squillo OS](https://squillo.com) as `the Squillo OS policy engine`.
+
+**What's here now (counsel-safe subset):**
+- [`spec/RLPS-v0.1.md`](spec/RLPS-v0.1.md) — the normative specification.
+- [`schema/`](schema/) — JSON Schema for `.r14n.toml` packs + the resolver I/O + receipt mapping.
+- [`catalog/`](catalog/) — the canonical CONTROL CATALOG (control keys + deontic kind + facets).
+- [`resolver/`](resolver/) — the Rust reference resolver (embeddable crate).
+- [`packs/`](packs/) — **only** Squillo's own `aggressive` + `minimal` baselines (posture demos, NOT jurisdiction claims).
+
+**Deliberately NOT here yet (held for licensed counsel):** real jurisdiction packs
+(`wiretap/us` 50-state matrix, `gdpr/eu`, `ccpa-cpra/us/ca`, …). Any pack claiming a real
+jurisdiction MUST carry a `reviewing_attorney_of_record` + bar number and be attested by licensed
+counsel — see the spec §Governance. **This repo is not public until that legal review is complete.**
+
+## Honest positioning
+
+RLPS is **not** the first attempt to make compliance machine-readable — see the related work in the
+spec (NIST OSCAL, W3C DPV / ISO 27560, Policy Cards, LegalRuleML, OPA/Cedar). RLPS occupies one
+specific, un-owned layer: the **control-prescription layer**, authored in i18n-ergonomic TOML a
+compliance officer *and* an engineer can diff in a PR, with an RFC-4647 jurisdiction-negotiation
+algorithm and a fail-closed floor. It interoperates with those standards rather than replacing them.
+
+## License
+
+Dual: the **spec text, catalog, and schemas** are **CC BY 4.0**; the **reference resolver and
+tooling code** are **Apache-2.0**. See [`LICENSE`](LICENSE) (code) and [`LICENSE-SPEC`](LICENSE-SPEC) (docs).
+
+---
+*Reference: Squillo OS an internal design memo. Research provenance: adversarially-verified workflow (5 web sweeps + synthesis + critique).*

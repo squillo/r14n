@@ -1,0 +1,54 @@
+# RLPS Control Catalog — domain: recording_consent
+#
+# The canonical, jurisdiction-neutral declaration of the control keys a recording-
+# consent pack may reference, each with a deontic KIND and faceted sub-fields. Packs
+# reference these keys; they do NOT redefine them. NOT LEGAL ADVICE — a control is a
+# stable identifier for a required action, not a statement of any jurisdiction's law.
+#
+# kind ∈ { permit | obligation | prohibition }
+
+[domain]
+name = "recording_consent"
+description = "Controls governing whether and how a meeting/audio session may be recorded."
+
+[control.attestation]
+kind = "obligation"
+title = "Recording-consent attestation"
+description = "The recording party affirms they have consent / a lawful right to record."
+trigger = "before_capture"
+mechanism = "explicit_user_affirmation"
+subject_rights = ["withdraw"]
+legal_basis_hint = "one_party_or_all_party_consent"
+
+[control.signal_notice]
+kind = "obligation"
+title = "Recording signal active"
+description = "The conference recording signal is verified active to all participants."
+trigger = "before_capture"
+mechanism = "platform_verified_signal"
+
+[control.indicator_mount]
+kind = "obligation"
+title = "Local recording indicator mounted"
+description = "The local recording indicator is verified visible to the recording user."
+trigger = "before_capture"
+mechanism = "ui_verified_indicator"
+
+[control.announcement]
+kind = "obligation"
+title = "Notetaker-present announcement"
+description = "An in-meeting announcement that a recording/notetaking agent is present."
+trigger = "on_join"
+mechanism = "in_meeting_notice"
+
+[control.aph_mandate]
+kind = "permit"
+title = "Delegate/agent authorization mandate"
+description = "A valid standing mandate authorizes a delegate/twin to act (record) on the user's behalf."
+trigger = "before_capture"
+mechanism = "authorization_grant"
+
+# ── Reserved for future domains (declared, not yet used by shipped packs) ──
+# ai_disclosure  (EU AI Act Art.50 — obligation; trigger=before_capture; mechanism=ai_notice)
+# voice_biometric (GDPR Art.9 special-category gate — obligation; SEPARATE from recording)
+# data_retention (obligation; retention window + deletion path)

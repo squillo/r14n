@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: CC-BY-4.0
+# Regulatory policy pack — domain: recording_consent — profile: aggressive
+#
+# The fail-closed baseline. `strictness = "aggressive"` means the caller's full
+# per-rail control UNIVERSE is required regardless of the tables below — ship this
+# until counsel signs a relaxed per-jurisdiction pack (an internal design memo.md).
+#
+# Control vocabulary (must match the gate's keys — an internal component
+# jurisdiction_policy_consent_gate CTRL_*):
+#   attestation      — user affirms consent/right to record (Rail-L) or provenance (Rail-I)
+#   signal_notice    — conference recording signal verified active (Rail-T)
+#   indicator_mount  — local recording indicator verified mounted (Rail-T)
+#   announcement     — in-meeting "assistant present" announcement (Rail-W)
+#   aph_mandate      — APH mandate present (delegate/twin rails)
+
+[meta]
+strictness = "aggressive"
+description = "Fail-closed baseline — the full per-rail control universe, every jurisdiction."
+
+[meta.legal_review]
+status = "not_required"   # aggressive over-restricts; never under-restricts
+
+[subject.local_piggyback]
+controls = ["attestation", "aph_mandate"]
+
+[subject.telepresence]
+controls = ["signal_notice", "indicator_mount", "aph_mandate"]
+
+[subject.twin_attend]
+controls = ["announcement", "aph_mandate"]
+
+[subject.import]
+controls = ["attestation", "aph_mandate"]
+
+[legally_required]
+controls = ["attestation", "signal_notice", "indicator_mount", "announcement", "aph_mandate"]

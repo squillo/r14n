@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: CC-BY-4.0
+# Regulatory policy pack — domain: recording_consent — profile: minimal
+#
+# The floor: `strictness = "minimal"` requires ONLY [legally_required]. Intended for
+# jurisdictions where counsel has confirmed the minimum, or internal testing. USE WITH
+# CARE — least-restrictive profile the system offers. Subject tables retained for
+# readability but IGNORED under minimal strictness.
+
+[meta]
+strictness = "minimal"
+description = "Least-restrictive floor — only legally-required controls are enforced."
+
+[meta.legal_review]
+status = "requires_signoff"
+counsel = "TBD"
+
+# Only these are enforced under minimal strictness.
+[legally_required]
+controls = ["attestation"]
+
+[subject.local_piggyback]
+controls = ["attestation"]
+
+[subject.telepresence]
+controls = ["signal_notice"]
+
+[subject.twin_attend]
+controls = ["announcement"]
+
+[subject.import]
+controls = ["attestation"]

@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/squillo/regloc/schema/pack.schema.json",
+  "title": "RLPS Pack (.r14n.toml)",
+  "description": "A Regulatory Localization Pack: (profile x jurisdiction) -> required compliance controls for one domain. NOT LEGAL ADVICE.",
+  "type": "object",
+  "required": ["meta"],
+  "additionalProperties": false,
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": ["strictness"],
+      "additionalProperties": true,
+      "properties": {
+        "strictness": {
+          "type": "string",
+          "enum": ["aggressive", "as_configured", "minimal"],
+          "description": "The posture selector (wire field name: 'strictness'). Fail-closed; NOT a legal ordering; 'aggressive' != 'compliant'."
+        },
+        "description": { "type": "string" },
+        "inherits": {
+          "type": "string",
+          "description": "Parent profile tag (RFC-4647 hierarchical, e.g. 'gdpr/eu') for delta-only inheritance."
+        },
+        "effective_from": { "type": "string", "format": "date" },
+        "effective_until": { "type": "string", "format": "date" },
+        "last_reviewed_against_guidance": {
+          "type": "string",
+          "format": "date",
+          "description": "Interpretation-currency date (case-law / DPA guidance), distinct from statutory effective dates."
+        },
+        "legal_review": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": ["not_required", "draft", "requires_signoff", "approved"]
+            },
+            "reviewing_attorney_of_record": { "type": "string" },
+            "jurisdiction": { "type": "string" },
+            "bar_credential": { "type": "string" },
+            "review_date": { "type": "string", "format": "date" },
+            "regulation_article": { "type": "string" },
+            "signature_ed25519": { "type": "string" }
+          },
+          "allOf": [
+            {
+              "$comment": "Any pack claiming a real jurisdiction (inherits a non-root regime) MUST name a reviewing attorney of record + bar credential. Enforced by the linter, not expressible in pure JSON Schema across files.",
+              "if": { "properties": { "status": { "const": "approved" } } },
+              "then": { "required": ["reviewing_attorney_of_record", "jurisdiction", "bar_credential", "review_date"] }
+            }
+          ]
+        }
+      }
+    },
+    "subject": {
+      "type": "object",
+      "description": "Per-subject required-control tables (governs under 'as_configured').",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["controls"],
+        "additionalProperties": false,
+        "properties": {
+          "controls": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+        }
+      }
+    },
+    "legally_required": {
+      "type": "object",
+      "description": "The fail-closed floor (governs under 'minimal'; the mandatory catch-all).",
+      "required": ["controls"],
+      "additionalProperties": false,
+      "properties": {
+        "controls": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+      }
+    }
+  }
+}

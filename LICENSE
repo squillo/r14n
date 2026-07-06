@@ -1,0 +1,17 @@
+Copyright 2026 Squillo and the regloc contributors.
+
+DUAL LICENSE (SPDX: Apache-2.0 AND CC-BY-4.0):
+
+- CODE (the reference resolver under /resolver, and any tooling under /tools) is
+  licensed under the Apache License, Version 2.0 (SPDX: Apache-2.0).
+  Canonical text: https://www.apache.org/licenses/LICENSE-2.0
+
+- SPECIFICATION TEXT, SCHEMAS, and the CONTROL CATALOG (/spec, /schema, /catalog,
+  /docs) are licensed under Creative Commons Attribution 4.0 International
+  (SPDX: CC-BY-4.0). Canonical text: https://creativecommons.org/licenses/by/4.0/
+
+- PACKS (/packs) carry their own SPDX headers; contributors may choose CC0-1.0 or
+  CC-BY-4.0 for pack data.
+
+The full canonical license texts will be vendored into this repository (LICENSE-APACHE,
+LICENSE-CC-BY) before public release. NOT LEGAL ADVICE — see docs/not-legal-advice.md.

@@ -1,0 +1,23 @@
+# RLPS reference resolver — the embeddable crate that any application links to load
+# .r14n.toml packs and resolve (profile, jurisdiction, subject) -> required controls.
+# Extracted VERBATIM from Squillo OS `the Squillo OS policy engine` (the live existence
+# proof); fully generic (serde + toml + std only, ZERO Squillo deps).
+#
+# License: Apache-2.0 (code). The spec text + schemas are CC BY 4.0 (see /LICENSE-SPEC).
+
+[package]
+name = "regloc"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "RLPS reference resolver — jurisdiction-negotiated, fail-closed regulatory-policy packs (r14n : controls :: i18n : strings)"
+repository = "https://github.com/squillo/regloc"
+keywords = ["compliance", "policy", "regulatory", "consent", "localization"]
+categories = ["config", "internationalization"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
+
+[dev-dependencies]
+tempfile = "3"
