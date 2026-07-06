@@ -1,0 +1,129 @@
+{
+  "suite": "rlps-conformance/0.1",
+  "level": 1,
+  "description": "Minimal-viable (spec 9.1): parse packs, resolve aggressive, fail closed. NOT LEGAL ADVICE.",
+  "vectors": [
+    {
+      "name": "aggressive_pack_requires_full_universe",
+      "description": "Spec 3: aggressive requires the caller's full declared universe regardless of tables.",
+      "capabilities": ["pack_parse", "posture_selection"],
+      "packs": {
+        "aggressive/recording_consent.r14n.toml": "[meta]\nstrictness = \"aggressive\"\n\n[meta.legal_review]\nstatus = \"not_required\"\n\n[subject.telepresence]\ncontrols = [\"signal_notice\"]\n\n[legally_required]\ncontrols = [\"attestation\"]\n"
+      },
+      "query": {
+        "domain": "recording_consent",
+        "profile": "aggressive",
+        "jurisdiction": "all_party",
+        "subject": "telepresence",
+        "universe": ["attestation", "signal_notice", "aph_mandate"],
+        "posture_override": null
+      },
+      "expect": {
+        "required_controls": ["aph_mandate", "attestation", "signal_notice"],
+        "fell_back": false,
+        "legal_review_status": "not_required"
+      }
+    },
+    {
+      "name": "missing_pack_falls_back_full_universe_loudly",
+      "description": "Spec 5: absence resolves to the most-restrictive outcome with a loud fallen-back flag.",
+      "capabilities": ["fail_closed_fallback"],
+      "packs": {},
+      "query": {
+        "domain": "recording_consent",
+        "profile": "nonexistent",
+        "jurisdiction": "unknown",
+        "subject": "telepresence",
+        "universe": ["attestation", "signal_notice", "aph_mandate"],
+        "posture_override": null
+      },
+      "expect": {
+        "required_controls": ["aph_mandate", "attestation", "signal_notice"],
+        "fell_back": true,
+        "legal_review_status": null
+      }
+    },
+    {
+      "name": "malformed_pack_falls_back_full_universe_loudly",
+      "description": "Spec 5: a malformed pack MUST degrade to aggressive-over-universe, flagged fallen-back.",
+      "capabilities": ["pack_parse", "fail_closed_fallback"],
+      "packs": {
+        "broken/recording_consent.r14n.toml": "this is [ not toml at all\n"
+      },
+      "query": {
+        "domain": "recording_consent",
+        "profile": "broken",
+        "jurisdiction": "all_party",
+        "subject": "telepresence",
+        "universe": ["attestation", "signal_notice"],
+        "posture_override": null
+      },
+      "expect": {
+        "required_controls": ["attestation", "signal_notice"],
+        "fell_back": true,
+        "legal_review_status": null
+      }
+    },
+    {
+      "name": "unknown_posture_string_fails_closed_to_universe",
+      "description": "Spec 3: posture is forward-additive; an unrecognized wire value must not relax below the universe.",
+      "capabilities": ["pack_parse", "posture_selection"],
+      "packs": {
+        "future/recording_consent.r14n.toml": "[meta]\nstrictness = \"turbo\"\n\n[subject.telepresence]\ncontrols = [\"signal_notice\"]\n\n[legally_required]\ncontrols = [\"attestation\"]\n"
+      },
+      "query": {
+        "domain": "recording_consent",
+        "profile": "future",
+        "jurisdiction": "all_party",
+        "subject": "telepresence",
+        "universe": ["attestation", "signal_notice"],
+        "posture_override": null
+      },
+      "expect": {
+        "required_controls": ["attestation", "signal_notice"],
+        "fell_back": false
+      }
+    },
+    {
+      "name": "r14n_toml_extension_filename_resolves",
+      "description": "Spec 2.2/2.5: the on-disk pack name is <domain>.r14n.toml and MUST resolve.",
+      "capabilities": ["pack_parse", "posture_selection"],
+      "packs": {
+        "floor_only/recording_consent.r14n.toml": "[meta]\nstrictness = \"minimal\"\n\n[meta.legal_review]\nstatus = \"requires_signoff\"\n\n[legally_required]\ncontrols = [\"signal_notice\"]\n"
+      },
+      "query": {
+        "domain": "recording_consent",
+        "profile": "floor_only",
+        "jurisdiction": "all_party",
+        "subject": "telepresence",
+        "universe": ["attestation", "signal_notice", "aph_mandate"],
+        "posture_override": null
+      },
+      "expect": {
+        "required_controls": ["signal_notice"],
+        "fell_back": false,
+        "legal_review_status": "requires_signoff"
+      }
+    },
+    {
+      "name": "table_controls_intersected_with_caller_universe",
+      "description": "A pack can never demand a control the caller cannot enforce: resolved sets intersect the declared universe.",
+      "capabilities": ["pack_parse", "posture_selection"],
+      "packs": {
+        "intersect/recording_consent.r14n.toml": "[meta]\nstrictness = \"as_configured\"\n\n[subject.telepresence]\ncontrols = [\"signal_notice\", \"control_the_caller_lacks\"]\n\n[legally_required]\ncontrols = [\"signal_notice\"]\n"
+      },
+      "query": {
+        "domain": "recording_consent",
+        "profile": "intersect",
+        "jurisdiction": "all_party",
+        "subject": "telepresence",
+        "universe": ["attestation", "signal_notice"],
+        "posture_override": null
+      },
+      "expect": {
+        "required_controls": ["signal_notice"],
+        "fell_back": false
+      }
+    }
+  ]
+}

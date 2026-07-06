@@ -89,6 +89,15 @@
       "properties": {
         "controls": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
       }
+    },
+    "prohibited": {
+      "type": "object",
+      "description": "Controls this profile FORBIDS — the data-minimization guard input (spec section 3): no posture may ADD a control listed here; resolvers subtract it from every resolved set. Must not intersect legally_required (linter rule).",
+      "required": ["controls"],
+      "additionalProperties": false,
+      "properties": {
+        "controls": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+      }
     }
   }
 }

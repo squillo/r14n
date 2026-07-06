@@ -1,0 +1,275 @@
+{
+  "suite": "rlps-conformance/0.1",
+  "level": 3,
+  "description": "Comprehensive-with-provenance (spec 9.3): trust-root taint + ISO 27560 / DPV + Kantara receipt emission. expect_receipt / expect_kantara are RFC 6901 JSON-pointer -> value assertions against the serialized receipts. NOT LEGAL ADVICE.",
+  "vectors": [
+    {
+      "name": "fallback_decision_is_advisory_only_in_receipt",
+      "description": "Spec 5 + 6: a fallen-back decision MUST carry the taint into the receipt.",
+      "capabilities": ["trust_root_taint", "receipt_27560"],
+      "packs": {},
+      "query": {
+        "domain": "recording_consent",
+        "profile": "nonexistent",
+        "jurisdiction": "unknown",
+        "subject": "telepresence",
+        "universe": ["attestation", "signal_notice"],
+        "posture_override": null
+      },
+      "expect": {
+        "fell_back": true
+      },
+      "receipt_context": {
+        "record_id": "vec-l3-fallback",
+        "issued_at": "2026-07-06T00:00:00Z",
+        "issued_at_unix": 1783641600,
+        "language": "en",
+        "pii_principal_id": "principal-1",
+        "pii_controller": "Vector Operator",
+        "policy_url": null,
+        "domain": "recording_consent",
+        "subject": "telepresence",
+        "operations": ["rlps:AudioRecording"],
+        "jurisdictions": [],
+        "attribution_source": "unknown",
+        "gpc_signal": false,
+        "ieee7012_no_recording": false,
+        "sensitive": false,
+        "spi_cat": [],
+        "ai_disclosure": null,
+        "pack_sha256": null
+      },
+      "expect_receipt": {
+        "/provenance/fell_back": true,
+        "/provenance/advisory_only": true,
+        "/decision/posture": "aggressive",
+        "/jurisdiction/attribution_source": "unknown"
+      }
+    },
+    {
+      "name": "self_attested_pack_is_advisory_only_in_receipt",
+      "description": "Spec 6: an unattested/self-attested (non-approved) pack renders decisions advisory-only.",
+      "capabilities": ["trust_root_taint", "receipt_27560"],
+      "packs": {
+        "draft_pack/recording_consent.r14n.toml": "[meta]\nstrictness = \"as_configured\"\n\n[meta.legal_review]\nstatus = \"draft\"\n\n[subject.telepresence]\ncontrols = [\"signal_notice\"]\n\n[legally_required]\ncontrols = [\"attestation\"]\n"
+      },
+      "query": {
+        "domain": "recording_consent",
+        "profile": "draft_pack",
+        "jurisdiction": "all_party",
+        "subject": "telepresence",
+        "universe": ["attestation", "signal_notice"],
+        "posture_override": null
+      },
+      "expect": {
+        "required_controls": ["signal_notice"],
+        "fell_back": false,
+        "legal_review_status": "draft"
+      },
+      "receipt_context": {
+        "record_id": "vec-l3-draft",
+        "issued_at": "2026-07-06T00:00:00Z",
+        "issued_at_unix": 1783641600,
+        "language": "en",
+        "pii_principal_id": "principal-2",
+        "pii_controller": "Vector Operator",
+        "policy_url": null,
+        "domain": "recording_consent",
+        "subject": "telepresence",
+        "operations": ["rlps:AudioRecording"],
+        "jurisdictions": ["US-CA"],
+        "attribution_source": "operator_declared",
+        "gpc_signal": false,
+        "ieee7012_no_recording": false,
+        "sensitive": false,
+        "spi_cat": [],
+        "ai_disclosure": null,
+        "pack_sha256": null
+      },
+      "expect_receipt": {
+        "/provenance/fell_back": false,
+        "/provenance/advisory_only": true,
+        "/provenance/legal_review_status": "draft"
+      }
+    },
+    {
+      "name": "approved_pack_receipt_carries_posture_sha_and_controls",
+      "description": "Spec 2.7 + 6: the receipt records the posture value (never collapsed), the pack SHA, and the required set; approved review is not advisory.",
+      "capabilities": ["trust_root_taint", "receipt_27560"],
+      "packs": {
+        "approved_pack/recording_consent.r14n.toml": "[meta]\nstrictness = \"as_configured\"\n\n[meta.legal_review]\nstatus = \"approved\"\n\n[subject.telepresence]\ncontrols = [\"signal_notice\"]\n\n[legally_required]\ncontrols = [\"attestation\"]\n"
+      },
+      "query": {
+        "domain": "recording_consent",
+        "profile": "approved_pack",
+        "jurisdiction": "all_party",
+        "subject": "telepresence",
+        "universe": ["attestation", "signal_notice"],
+        "posture_override": null
+      },
+      "expect": {
+        "required_controls": ["signal_notice"],
+        "fell_back": false,
+        "legal_review_status": "approved"
+      },
+      "receipt_context": {
+        "record_id": "vec-l3-approved",
+        "issued_at": "2026-07-06T00:00:00Z",
+        "issued_at_unix": 1783641600,
+        "language": "en",
+        "pii_principal_id": "principal-3",
+        "pii_controller": "Vector Operator",
+        "policy_url": "https://example.invalid/privacy",
+        "domain": "recording_consent",
+        "subject": "telepresence",
+        "operations": ["rlps:AudioRecording"],
+        "jurisdictions": ["US-CA"],
+        "attribution_source": "operator_declared",
+        "gpc_signal": false,
+        "ieee7012_no_recording": false,
+        "sensitive": false,
+        "spi_cat": [],
+        "ai_disclosure": null,
+        "pack_sha256": "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
+      },
+      "expect_receipt": {
+        "/provenance/advisory_only": false,
+        "/provenance/pack_sha256": "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+        "/decision/posture": "as_configured",
+        "/decision/required_controls": ["signal_notice"]
+      }
+    },
+    {
+      "name": "ai_act_50_disclosure_logged_with_timestamp_and_method",
+      "description": "Spec 8 (EU AI Act Art. 50): the receipt MUST log disclosure timestamp + method for AI-notetaker sessions.",
+      "capabilities": ["receipt_27560"],
+      "packs": {
+        "aggressive/recording_consent.r14n.toml": "[meta]\nstrictness = \"aggressive\"\n\n[meta.legal_review]\nstatus = \"not_required\"\n\n[legally_required]\ncontrols = [\"attestation\"]\n"
+      },
+      "query": {
+        "domain": "recording_consent",
+        "profile": "aggressive",
+        "jurisdiction": "all_party",
+        "subject": "twin_attend",
+        "universe": ["attestation", "announcement", "ai_disclosure"],
+        "posture_override": null
+      },
+      "expect": {
+        "required_controls": ["ai_disclosure", "announcement", "attestation"],
+        "fell_back": false
+      },
+      "receipt_context": {
+        "record_id": "vec-l3-ai-act",
+        "issued_at": "2026-08-02T09:00:00Z",
+        "issued_at_unix": 1785661200,
+        "language": "de",
+        "pii_principal_id": "participant-4",
+        "pii_controller": "Vector Operator GmbH",
+        "policy_url": null,
+        "domain": "recording_consent",
+        "subject": "twin_attend",
+        "operations": ["rlps:AudioRecording", "rlps:VoiceRecording"],
+        "jurisdictions": ["DE"],
+        "attribution_source": "operator_declared",
+        "gpc_signal": false,
+        "ieee7012_no_recording": false,
+        "sensitive": false,
+        "spi_cat": [],
+        "ai_disclosure": { "disclosed_at": "2026-08-02T08:59:00Z", "method": "in_meeting_announcement" },
+        "pack_sha256": null
+      },
+      "expect_receipt": {
+        "/ai_disclosure/disclosed_at": "2026-08-02T08:59:00Z",
+        "/ai_disclosure/method": "in_meeting_announcement",
+        "/event/1/event_type": "rlps:AiDisclosure"
+      }
+    },
+    {
+      "name": "kantara_cr_v1_1_shim_shape",
+      "description": "Spec 8: the flat Kantara CR v1.1 shim carries the record id, epoch timestamp, service/purpose mapping, and the RLPS extension block.",
+      "capabilities": ["receipt_kantara"],
+      "packs": {
+        "draft_pack/recording_consent.r14n.toml": "[meta]\nstrictness = \"as_configured\"\n\n[meta.legal_review]\nstatus = \"draft\"\n\n[subject.telepresence]\ncontrols = [\"signal_notice\"]\n\n[legally_required]\ncontrols = [\"attestation\"]\n"
+      },
+      "query": {
+        "domain": "recording_consent",
+        "profile": "draft_pack",
+        "jurisdiction": "all_party",
+        "subject": "telepresence",
+        "universe": ["attestation", "signal_notice"],
+        "posture_override": null
+      },
+      "expect": {
+        "required_controls": ["signal_notice"]
+      },
+      "receipt_context": {
+        "record_id": "vec-l3-kantara",
+        "issued_at": "2026-07-06T00:00:00Z",
+        "issued_at_unix": 1783641600,
+        "language": "en",
+        "pii_principal_id": "principal-5",
+        "pii_controller": "Vector Operator",
+        "policy_url": null,
+        "domain": "recording_consent",
+        "subject": "telepresence",
+        "operations": ["rlps:AudioRecording"],
+        "jurisdictions": ["US-CA"],
+        "attribution_source": "operator_declared",
+        "gpc_signal": false,
+        "ieee7012_no_recording": false,
+        "sensitive": false,
+        "spi_cat": [],
+        "ai_disclosure": null,
+        "pack_sha256": null
+      },
+      "expect_kantara": {
+        "/version": "KI-CR-v1.1.0",
+        "/consentReceiptID": "vec-l3-kantara",
+        "/consentTimestamp": 1783641600,
+        "/policyUrl": "urn:rlps:policy:unspecified",
+        "/services/0/service": "recording_consent",
+        "/services/0/purposes/0/purpose": "telepresence",
+        "/rlps/posture": "as_configured",
+        "/rlps/advisory_only": true
+      }
+    },
+    {
+      "name": "revoked_reviewer_key_taints_decision_advisory_only",
+      "description": "Spec 6 revocation semantics: from revoked_at forward, packs signed by the revoked key are unattested - decisions advisory-only.",
+      "capabilities": ["trust_root_revocation"],
+      "reviewer_directory": {
+        "directory_version": "1",
+        "keys": [
+          {
+            "key_id": "reviewer-1",
+            "public_key_ed25519": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+            "reviewer_identity": "Example Counsel LLP",
+            "jurisdiction": "US-CA",
+            "credential_type": "bar_license",
+            "credential_id": "0000000",
+            "valid_from": "2026-01-01",
+            "revocation": { "revoked_at": "2026-06-01", "reason": "credential_lapsed" }
+          }
+        ]
+      },
+      "packs": {
+        "signed_pack/recording_consent.r14n.toml": "[meta]\nstrictness = \"as_configured\"\n\n[meta.legal_review]\nstatus = \"approved\"\nreviewing_attorney_of_record = \"Example Counsel LLP\"\njurisdiction = \"US-CA\"\nbar_credential = \"0000000\"\nreview_date = \"2026-02-01\"\nsignature_key_id = \"reviewer-1\"\n\n[subject.telepresence]\ncontrols = [\"signal_notice\"]\n\n[legally_required]\ncontrols = [\"attestation\"]\n"
+      },
+      "query": {
+        "domain": "recording_consent",
+        "profile": "signed_pack",
+        "jurisdiction": "all_party",
+        "subject": "telepresence",
+        "universe": ["attestation", "signal_notice"],
+        "posture_override": null,
+        "decision_date": "2026-07-01"
+      },
+      "expect": {
+        "required_controls": ["signal_notice"]
+      },
+      "expect_receipt": {
+        "/provenance/advisory_only": true
+      }
+    }
+  ]
+}

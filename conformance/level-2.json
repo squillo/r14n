@@ -1,0 +1,255 @@
+{
+  "suite": "rlps-conformance/0.1",
+  "level": 2,
+  "description": "Configured (spec 9.2): RFC-4647 negotiation + delta-merge + all three postures + most-restrictive merge. Vectors for capabilities the reference resolver does not yet implement are authored ahead of implementation (spec 4 is normative regardless). NOT LEGAL ADVICE.",
+  "vectors": [
+    {
+      "name": "as_configured_honors_subject_table",
+      "description": "Spec 3: as_configured applies exactly the resolved subject table.",
+      "capabilities": ["posture_selection"],
+      "packs": {
+        "us_all_party/recording_consent.r14n.toml": "[meta]\nstrictness = \"as_configured\"\n\n[meta.legal_review]\nstatus = \"draft\"\n\n[subject.telepresence]\ncontrols = [\"signal_notice\", \"aph_mandate\"]\n\n[legally_required]\ncontrols = [\"attestation\"]\n"
+      },
+      "query": {
+        "domain": "recording_consent",
+        "profile": "us_all_party",
+        "jurisdiction": "all_party",
+        "subject": "telepresence",
+        "universe": ["attestation", "signal_notice", "aph_mandate"],
+        "posture_override": null
+      },
+      "expect": {
+        "required_controls": ["aph_mandate", "signal_notice"],
+        "fell_back": false,
+        "legal_review_status": "draft"
+      }
+    },
+    {
+      "name": "unknown_subject_fails_closed_to_universe",
+      "description": "Spec 3: a subject absent from an as_configured pack MUST fail closed (full universe).",
+      "capabilities": ["fail_closed_unknown_subject"],
+      "packs": {
+        "p/recording_consent.r14n.toml": "[meta]\nstrictness = \"as_configured\"\n\n[subject.telepresence]\ncontrols = [\"signal_notice\"]\n\n[legally_required]\ncontrols = [\"attestation\"]\n"
+      },
+      "query": {
+        "domain": "recording_consent",
+        "profile": "p",
+        "jurisdiction": "all_party",
+        "subject": "import",
+        "universe": ["attestation", "signal_notice", "aph_mandate"],
+        "posture_override": null
+      },
+      "expect": {
+        "required_controls": ["aph_mandate", "attestation", "signal_notice"],
+        "fell_back": false
+      }
+    },
+    {
+      "name": "minimal_requires_only_the_floor",
+      "description": "Spec 3: minimal requires only [legally_required].",
+      "capabilities": ["posture_selection"],
+      "packs": {
+        "us_one_party/recording_consent.r14n.toml": "[meta]\nstrictness = \"minimal\"\n\n[meta.legal_review]\nstatus = \"requires_signoff\"\n\n[subject.local_piggyback]\ncontrols = [\"attestation\", \"signal_notice\"]\n\n[legally_required]\ncontrols = [\"attestation\"]\n"
+      },
+      "query": {
+        "domain": "recording_consent",
+        "profile": "us_one_party",
+        "jurisdiction": "one_party",
+        "subject": "local_piggyback",
+        "universe": ["attestation", "signal_notice", "aph_mandate"],
+        "posture_override": null
+      },
+      "expect": {
+        "required_controls": ["attestation"],
+        "fell_back": false
+      }
+    },
+    {
+      "name": "global_override_forces_aggressive_over_relaxed_pack",
+      "description": "Spec 3: a resolver MAY accept a global override; when set to aggressive it wins over the pack's posture.",
+      "capabilities": ["posture_override"],
+      "packs": {
+        "relaxed/recording_consent.r14n.toml": "[meta]\nstrictness = \"as_configured\"\n\n[subject.telepresence]\ncontrols = [\"signal_notice\"]\n\n[legally_required]\ncontrols = [\"attestation\"]\n"
+      },
+      "query": {
+        "domain": "recording_consent",
+        "profile": "relaxed",
+        "jurisdiction": "all_party",
+        "subject": "telepresence",
+        "universe": ["attestation", "signal_notice", "aph_mandate"],
+        "posture_override": "aggressive"
+      },
+      "expect": {
+        "required_controls": ["aph_mandate", "attestation", "signal_notice"],
+        "fell_back": false
+      }
+    },
+    {
+      "name": "prohibited_control_never_added_under_aggressive",
+      "description": "Spec 3 data-minimization guard: aggressive = union of permitted-or-required, never prohibited.",
+      "capabilities": ["data_minimization_guard"],
+      "packs": {
+        "dm/recording_consent.r14n.toml": "[meta]\nstrictness = \"aggressive\"\n\n[subject.telepresence]\ncontrols = [\"signal_notice\", \"aph_mandate\"]\n\n[legally_required]\ncontrols = [\"attestation\"]\n\n[prohibited]\ncontrols = [\"aph_mandate\"]\n"
+      },
+      "query": {
+        "domain": "recording_consent",
+        "profile": "dm",
+        "jurisdiction": "all_party",
+        "subject": "telepresence",
+        "universe": ["attestation", "signal_notice", "aph_mandate"],
+        "posture_override": null
+      },
+      "expect": {
+        "required_controls": ["attestation", "signal_notice"],
+        "fell_back": false
+      }
+    },
+    {
+      "name": "prohibited_control_subtracted_from_subject_table",
+      "description": "Spec 3 guard applies to EVERY posture's resolved set, including as_configured tables.",
+      "capabilities": ["data_minimization_guard"],
+      "packs": {
+        "dm2/recording_consent.r14n.toml": "[meta]\nstrictness = \"as_configured\"\n\n[subject.telepresence]\ncontrols = [\"signal_notice\", \"aph_mandate\"]\n\n[legally_required]\ncontrols = [\"signal_notice\"]\n\n[prohibited]\ncontrols = [\"aph_mandate\"]\n"
+      },
+      "query": {
+        "domain": "recording_consent",
+        "profile": "dm2",
+        "jurisdiction": "all_party",
+        "subject": "telepresence",
+        "universe": ["attestation", "signal_notice", "aph_mandate"],
+        "posture_override": null
+      },
+      "expect": {
+        "required_controls": ["signal_notice"],
+        "fell_back": false
+      }
+    },
+    {
+      "name": "rfc4647_progressive_truncation_resolves_parent_profile",
+      "description": "Spec 4.1: gdpr/eu/de negotiates to gdpr/eu when no de-specific pack exists.",
+      "capabilities": ["rfc4647_negotiation"],
+      "packs": {
+        "gdpr/eu/recording_consent.r14n.toml": "[meta]\nstrictness = \"as_configured\"\n\n[meta.legal_review]\nstatus = \"draft\"\n\n[subject.telepresence]\ncontrols = [\"signal_notice\"]\n\n[legally_required]\ncontrols = [\"attestation\"]\n"
+      },
+      "query": {
+        "domain": "recording_consent",
+        "profile": "gdpr/eu/de",
+        "jurisdiction": "all_party",
+        "subject": "telepresence",
+        "universe": ["attestation", "signal_notice", "aph_mandate"],
+        "posture_override": null
+      },
+      "expect": {
+        "required_controls": ["signal_notice"],
+        "fell_back": false
+      }
+    },
+    {
+      "name": "delta_merge_child_overrides_only_its_deviations",
+      "description": "Spec 4.2 (algorithm step 2): CLDR delta-only inheritance — the child pack stores only deviations; unlisted subjects come from the parent.",
+      "capabilities": ["rfc4647_negotiation", "delta_merge"],
+      "packs": {
+        "gdpr/recording_consent.r14n.toml": "[meta]\nstrictness = \"as_configured\"\n\n[subject.telepresence]\ncontrols = [\"signal_notice\"]\n\n[subject.import]\ncontrols = [\"attestation\"]\n\n[legally_required]\ncontrols = [\"attestation\"]\n",
+        "gdpr/eu/recording_consent.r14n.toml": "[meta]\nstrictness = \"as_configured\"\ninherits = \"gdpr\"\n\n[subject.telepresence]\ncontrols = [\"signal_notice\", \"attestation\"]\n\n[legally_required]\ncontrols = [\"attestation\"]\n"
+      },
+      "query": {
+        "domain": "recording_consent",
+        "profile": "gdpr/eu",
+        "jurisdiction": "all_party",
+        "subject": "import",
+        "universe": ["attestation", "signal_notice", "aph_mandate"],
+        "posture_override": null
+      },
+      "expect": {
+        "required_controls": ["attestation"],
+        "fell_back": false
+      }
+    },
+    {
+      "name": "most_restrictive_merge_unions_required_sets",
+      "description": "Spec 4.2: a session spanning jurisdictions resolves each independently and unions the required sets.",
+      "capabilities": ["most_restrictive_merge"],
+      "packs": {
+        "us_one_party/recording_consent.r14n.toml": "[meta]\nstrictness = \"as_configured\"\n\n[subject.telepresence]\ncontrols = [\"attestation\"]\n\n[legally_required]\ncontrols = [\"attestation\"]\n",
+        "us_all_party/recording_consent.r14n.toml": "[meta]\nstrictness = \"as_configured\"\n\n[subject.telepresence]\ncontrols = [\"signal_notice\"]\n\n[legally_required]\ncontrols = [\"signal_notice\"]\n"
+      },
+      "query": {
+        "domain": "recording_consent",
+        "profile": "us_one_party",
+        "jurisdictions": ["us_one_party", "us_all_party"],
+        "jurisdiction": "multi",
+        "subject": "telepresence",
+        "universe": ["attestation", "signal_notice", "aph_mandate"],
+        "posture_override": null
+      },
+      "expect": {
+        "required_controls": ["attestation", "signal_notice"],
+        "fell_back": false,
+        "verdict": "permit"
+      }
+    },
+    {
+      "name": "deontic_conflict_required_vs_prohibited_blocks",
+      "description": "Spec 4.2.3: required in one applicable jurisdiction + prohibited in another is unsatisfiable - verdict MUST be block, never silently dropped.",
+      "capabilities": ["most_restrictive_merge", "deontic_conflict"],
+      "packs": {
+        "j_requires/recording_consent.r14n.toml": "[meta]\nstrictness = \"as_configured\"\n\n[subject.telepresence]\ncontrols = [\"aph_mandate\"]\n\n[legally_required]\ncontrols = [\"aph_mandate\"]\n",
+        "j_prohibits/recording_consent.r14n.toml": "[meta]\nstrictness = \"as_configured\"\n\n[subject.telepresence]\ncontrols = [\"signal_notice\"]\n\n[legally_required]\ncontrols = [\"signal_notice\"]\n\n[prohibited]\ncontrols = [\"aph_mandate\"]\n"
+      },
+      "query": {
+        "domain": "recording_consent",
+        "profile": "j_requires",
+        "jurisdictions": ["j_requires", "j_prohibits"],
+        "jurisdiction": "multi",
+        "subject": "telepresence",
+        "universe": ["attestation", "signal_notice", "aph_mandate"],
+        "posture_override": null
+      },
+      "expect": {
+        "verdict": "block"
+      }
+    },
+    {
+      "name": "gpc_signal_escalates_subject_to_aggressive",
+      "description": "Spec 4 (step 5): a Sec-GPC: 1 signal escalates the subject to aggressive regardless of configured posture.",
+      "capabilities": ["gpc_escalation"],
+      "packs": {
+        "gpc/recording_consent.r14n.toml": "[meta]\nstrictness = \"minimal\"\n\n[legally_required]\ncontrols = [\"attestation\"]\n"
+      },
+      "query": {
+        "domain": "recording_consent",
+        "profile": "gpc",
+        "jurisdiction": "all_party",
+        "subject": "telepresence",
+        "universe": ["attestation", "signal_notice", "aph_mandate"],
+        "posture_override": null,
+        "gpc_signal": true
+      },
+      "expect": {
+        "required_controls": ["aph_mandate", "attestation", "signal_notice"],
+        "fell_back": false
+      }
+    },
+    {
+      "name": "per_domain_posture_override_is_most_specific",
+      "description": "Spec 3 per-domain posture: a per-domain override wins over the global override and the pack's declared posture.",
+      "capabilities": ["per_domain_posture"],
+      "packs": {
+        "pd/recording_consent.r14n.toml": "[meta]\nstrictness = \"aggressive\"\n\n[subject.telepresence]\ncontrols = [\"signal_notice\"]\n\n[legally_required]\ncontrols = [\"attestation\"]\n"
+      },
+      "query": {
+        "domain": "recording_consent",
+        "profile": "pd",
+        "jurisdiction": "all_party",
+        "subject": "telepresence",
+        "universe": ["attestation", "signal_notice", "aph_mandate"],
+        "posture_override": "aggressive",
+        "per_domain_posture_overrides": { "recording_consent": "minimal" }
+      },
+      "expect": {
+        "required_controls": ["attestation"],
+        "fell_back": false
+      }
+    }
+  ]
+}

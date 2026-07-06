@@ -34,8 +34,9 @@ An implementation MUST model these seven entities:
    `gdpr/eu/de`). Resolved by RFC-4647 progressive-subtag truncation with delta-only inheritance.
 5. **Pack** — one `<domain>.r14n.toml` for one profile. MUST contain `[meta]` (with `posture`
    and an effective-date envelope), MAY declare an inheritance parent, MUST provide a
-   `[legally_required]` floor, and MUST carry a `[meta.legal_review]` block. A pack is
-   content-addressed and temporally bounded.
+   `[legally_required]` floor, MAY declare a `[prohibited]` table (controls the profile forbids —
+   the §3 data-minimization guard's wire input; it MUST NOT intersect the floor), and MUST carry
+   a `[meta.legal_review]` block. A pack is content-addressed and temporally bounded.
 6. **Decision** — the resolver output for a query `(profile, jurisdiction, domain, subject,
    posture)` → `{ required_controls, verdict ∈ {permit, block} }`.
 7. **Provenance** — (a) pack-provenance `[meta.legal_review]`; (b) decision-provenance, a receipt
@@ -48,7 +49,8 @@ A pack MUST declare the **posture selector** — wire field `[meta].strictness` 
 and it is deliberately NOT a legal ordering). A resolver MAY accept a global override.
 
 - `aggressive` — the resolver MUST require the caller's full declared control universe. It MUST
-  NOT add a control a resolved jurisdiction pack marks `prohibition` (data-minimization guard).
+  NOT add a control a resolved jurisdiction pack marks `prohibition` (data-minimization guard;
+  wire input: the pack's `[prohibited]` table, subtracted from EVERY posture's resolved set).
   Implementations MUST document that `aggressive` MAY over-collect and is not a compliance claim.
 - `as_configured` — the resolver MUST apply exactly the resolved `[subject.<name>].controls` set.
   A subject absent from the pack MUST fail closed (require the full universe).

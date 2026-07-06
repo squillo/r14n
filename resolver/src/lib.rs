@@ -41,6 +41,9 @@
 //!   `the Squillo OS policy engine` (an internal design memo §PS.R / an internal design memo).
 //! - 2026-07-06: + `receipt` module (ISO 27560 / W3C DPV + Kantara CR v1.1) and
 //!   `Strictness::as_str` — additive; mirror to the Squillo twin (roadmap item 3).
+//! - 2026-07-06: pack_path prefers `<domain>.r14n.toml` (falls back `.toml`);
+//!   `[prohibited]` table enforced as the §3 data-minimization guard across ALL
+//!   postures — behavior additions; mirror to the Squillo twin (items 4/5 prep).
 
 // ── Modules ──────────────────────────────────────────────────────────────────
 
@@ -230,6 +233,10 @@ struct PolicyPackToml {
   subject: ::std::collections::BTreeMap<::std::string::String, ControlList>,
   #[serde(default)]
   legally_required: ::std::option::Option<ControlList>,
+  /// Controls this profile FORBIDS (spec §3 data-minimization guard input):
+  /// no posture may ADD a control listed here.
+  #[serde(default)]
+  prohibited: ::std::option::Option<ControlList>,
 }
 
 #[derive(::serde::Deserialize)]
@@ -271,11 +278,17 @@ impl TomlRegulatoryPolicyAdapter {
     Self { root, strictness_override }
   }
 
+  /// Prefer the RLPS pack extension `<domain>.r14n.toml`; fall back to the
+  /// legacy `<domain>.toml` (backward compatible — Squillo's `policies/` trees
+  /// keep resolving unchanged).
   fn pack_path(&self, query: &RegulatoryQuery) -> ::std::path::PathBuf {
-    self
-      .root
-      .join(&query.profile.0)
-      .join(::std::format!("{}.toml", query.domain))
+    let dir = self.root.join(&query.profile.0);
+    let r14n = dir.join(::std::format!("{}.r14n.toml", query.domain));
+    if r14n.is_file() {
+      r14n
+    } else {
+      dir.join(::std::format!("{}.toml", query.domain))
+    }
   }
 
   /// Aggressive fallback decision (fail-closed) with loud provenance.
@@ -350,6 +363,19 @@ impl RegulatoryPolicyPort for TomlRegulatoryPolicyAdapter {
         })
         .unwrap_or_default(),
       Strictness::Other(_) => query.universe.clone(),
+    };
+
+    // Data-minimization guard (RLPS spec §3): no posture may ADD a control the
+    // resolved pack marks prohibited — subtract [prohibited] from EVERY posture's
+    // set, including Aggressive ("aggressive" = union of permitted-or-required,
+    // never prohibited).
+    let required: ::std::collections::BTreeSet<ControlKey> = match &pack.prohibited {
+      ::std::option::Option::Some(p) => {
+        let prohibited: ::std::collections::BTreeSet<ControlKey> =
+          p.controls.iter().map(|s| ControlKey(s.clone())).collect();
+        required.into_iter().filter(|k| !prohibited.contains(k)).collect()
+      }
+      ::std::option::Option::None => required,
     };
 
     let legal_review_status = pack.meta.legal_review.and_then(|r| r.status);
@@ -494,5 +520,60 @@ mod tests {
     // "import" is absent from the pack ⇒ require the whole universe.
     let d = super::RegulatoryPolicyPort::required_controls(&p, &query("p", "import"));
     ::std::assert_eq!(d.required, universe());
+  }
+
+  #[test]
+  fn r14n_toml_extension_is_preferred_over_legacy_toml() {
+    let tmp = ::tempfile::tempdir().expect("tmp");
+    let dir = tmp.path().join("baseline");
+    ::std::fs::create_dir_all(&dir).expect("mkdir");
+    // Both files exist; the .r14n.toml one must win.
+    ::std::fs::write(
+      dir.join("recording_consent.r14n.toml"),
+      "[meta]\nstrictness = \"minimal\"\n[legally_required]\ncontrols = [\"signal_notice\"]\n",
+    )
+    .expect("write r14n pack");
+    ::std::fs::write(
+      dir.join("recording_consent.toml"),
+      "[meta]\nstrictness = \"minimal\"\n[legally_required]\ncontrols = [\"aph_mandate\"]\n",
+    )
+    .expect("write legacy pack");
+    let p = super::TomlRegulatoryPolicyAdapter::new(
+      tmp.path().to_path_buf(),
+      ::std::option::Option::None,
+    );
+    let d = super::RegulatoryPolicyPort::required_controls(&p, &query("baseline", "telepresence"));
+    let expect: ::std::collections::BTreeSet<super::ControlKey> =
+      [ck("signal_notice")].into_iter().collect();
+    ::std::assert_eq!(d.required, expect, ".r14n.toml pack must govern");
+    ::std::assert!(d.provenance.source.ends_with("recording_consent.r14n.toml"));
+  }
+
+  #[test]
+  fn prohibited_controls_are_never_required_even_under_aggressive() {
+    let tmp = ::tempfile::tempdir().expect("tmp");
+    let dir = tmp.path().join("dm_guard");
+    ::std::fs::create_dir_all(&dir).expect("mkdir");
+    // The pack prohibits aph_mandate; aggressive must NOT add it (spec §3:
+    // aggressive = union of permitted-or-required, never prohibited).
+    ::std::fs::write(
+      dir.join("recording_consent.r14n.toml"),
+      "[meta]\nstrictness = \"aggressive\"\n\
+       [subject.telepresence]\ncontrols = [\"signal_notice\", \"aph_mandate\"]\n\
+       [legally_required]\ncontrols = [\"user_attestation\"]\n\
+       [prohibited]\ncontrols = [\"aph_mandate\"]\n",
+    )
+    .expect("write pack");
+    let p = super::TomlRegulatoryPolicyAdapter::new(
+      tmp.path().to_path_buf(),
+      ::std::option::Option::None,
+    );
+    let d = super::RegulatoryPolicyPort::required_controls(&p, &query("dm_guard", "telepresence"));
+    let expect: ::std::collections::BTreeSet<super::ControlKey> =
+      [ck("user_attestation"), ck("all_party_consent"), ck("signal_notice")]
+        .into_iter()
+        .collect();
+    ::std::assert_eq!(d.required, expect, "universe minus prohibited");
+    ::std::assert!(!d.required.contains(&ck("aph_mandate")));
   }
 }
