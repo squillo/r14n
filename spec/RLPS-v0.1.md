@@ -55,15 +55,49 @@ and it is deliberately NOT a legal ordering). A resolver MAY accept a global ove
 - `minimal` — the resolver MUST require only `[legally_required]`. Selecting `minimal` for a real
   jurisdiction SHOULD require an attested legal sign-off.
 
+**Per-domain posture.** A single global posture lever is insufficient: one session may span
+domains with different appropriate postures (e.g. `recording_consent` at `as_configured` while
+`voice_biometric` stays `aggressive`). A resolver MUST support a per-domain posture override and
+MUST apply precedence *most-specific-wins*: per-domain override → global override → the pack's
+declared posture. Each domain MUST be resolved independently; a resolver MUST NOT merge control
+sets across domains (a `recording_consent` decision never satisfies a `voice_biometric` control).
+The data-minimization guard (§3, `aggressive`) applies per domain after posture selection.
+
 ## 4. Resolution algorithm (normative)
 
 A conforming resolver MUST, in order: (1) negotiate the profile by RFC-4647 lookup
 (`gdpr/eu/de → gdpr/eu → gdpr → root`); (2) delta-merge down the inheritance chain; (3) apply the
-posture to select the governing table; (4) on a session spanning jurisdictions, select the
-**most-restrictive applicable** jurisdiction; (5) escalate a subject to `aggressive` on a
-`Sec-GPC: 1` signal or an IEEE-7012 `NoRecording` term. It MUST return `verdict = block` when: no
-pack matches, the pack is outside its effective-date envelope, the floor is missing, OR
-**jurisdiction attribution is ambiguous**.
+posture to select the governing table (per-domain precedence per §3); (4) on a session spanning
+jurisdictions, apply the **most-restrictive merge** (§4.2); (5) escalate a subject to
+`aggressive` on a `Sec-GPC: 1` signal or an IEEE-7012 `NoRecording` term. It MUST return
+`verdict = block` when: no pack matches, the pack is outside its effective-date envelope, the
+floor is missing, OR **jurisdiction attribution is ambiguous** (§4.1).
+
+### 4.1 Jurisdiction attribution is an INPUT (normative)
+
+Jurisdiction attribution is an explicit, provenance-carrying **input** to the resolver — never
+an inference the resolver makes. The caller MUST supply the set of applicable jurisdictions
+together with an attribution source (e.g. `operator_declared`, `participant_geo`,
+`network_transit`, `unknown`); the decision receipt MUST record both. Attribution is
+**ambiguous** when the caller supplies no jurisdictions, marks the source `unknown`, or supplies
+claims it flags as conflicting. Ambiguous attribution MUST resolve fail-closed: `verdict =
+block` — or, at an infallible interface, `aggressive` over the caller's declared universe with
+the fallen-back flag set (§5). Genuinely contested attribution (VoIP transit states, a remote
+employee's location) is acknowledged as unsolved; RLPS standardizes the *selection* given the
+input, not the attribution itself.
+
+### 4.2 Cross-jurisdiction merge + conflict rule (normative)
+
+On a session spanning jurisdictions `J1..Jn`, a resolver MUST resolve the query independently
+against each applicable jurisdiction's pack chain, then merge **most-restrictively**:
+
+1. The merged `required` set is the **union** of the per-jurisdiction required sets.
+2. The merged verdict is `block` if **any** per-jurisdiction resolution blocks.
+3. **Deontic conflict:** if a control is required by one applicable jurisdiction and marked
+   `prohibition` by another, the query is not simultaneously satisfiable — the verdict MUST be
+   `block`, and the receipt MUST record the conflicting control key and both jurisdictions. A
+   resolver MUST NOT resolve such a conflict by silently dropping either side.
+4. The merge operates within one domain only; §3's per-domain independence still holds.
 
 ## 5. Fail-closed (normative)
 
@@ -82,15 +116,30 @@ to `aggressive` over the caller's declared universe and MUST flag the decision a
 - A registry MUST publish a reviewer-key directory with `jurisdiction` + `credential_type` fields
   and a revocation mechanism. The spec mandates the provenance *envelope*, not who is a valid
   signer (code-signing trust model).
+- **Directory schema:** the normative reviewer-key directory schema is
+  `/registry/reviewer-key.schema.json`. Each entry MUST carry `key_id`, `public_key_ed25519`,
+  `reviewer_identity`, `jurisdiction`, `credential_type`, `credential_id`, and `valid_from`;
+  MAY carry `valid_until`. The directory document MUST itself be signed by the steward key and
+  SHOULD be content-addressed. A directory entry proves *who* may attest — it is NOT a warranty
+  of review quality (see `/docs/not-legal-advice.md`).
+- **Revocation semantics:** an entry is revoked by adding a `revocation` block (`revoked_at`,
+  `reason`). From `revoked_at` forward a resolver MUST treat packs signed by that key as
+  unattested (advisory-only, `unverified_provenance` taint). Decisions issued before
+  `revoked_at` are not retroactively invalidated, but a receipt verifier SHOULD surface that
+  the signing key has since been revoked. Key expiry (`valid_until` passed) MUST be handled
+  identically to revocation for new decisions.
 
 ## 7. Temporal validity (normative split)
 
 - **Text-in-effect** (solved): `[meta] effective_from` / `effective_until` + content-addressed
   supersession.
-- **Interpretation-current** (unsolved — MUST NOT be claimed solved): a pack MUST carry
-  `last_reviewed_against_guidance`; a resolver SHOULD surface staleness rather than silently trust
-  an in-window pack. Interpretive drift (case-law, DPA guidance) is out of scope for v0.1 beyond
-  surfacing it.
+- **Interpretation-current** (unsolved — MUST NOT be claimed solved): a pack claiming a real
+  jurisdiction MUST carry `last_reviewed_against_guidance` (other packs SHOULD); a resolver
+  SHOULD surface staleness rather than silently trust an in-window pack. When the field is
+  present the decision receipt MUST carry it; a resolver MAY accept a caller-supplied staleness
+  threshold, and packs older than the threshold MUST be flagged in provenance (staleness alone
+  does not force `block` — it is surfaced, not adjudicated). Interpretive drift (case-law, DPA
+  guidance) is out of scope for v0.1 beyond surfacing it.
 
 ## 8. Interoperability (normative mappings)
 

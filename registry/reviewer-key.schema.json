@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/squillo/r14n/registry/reviewer-key.schema.json",
+  "title": "RLPS Reviewer-Key Directory",
+  "description": "The trust-root directory of keys authorized to attest RLPS packs (spec section 6). An entry proves WHO may sign, not that any review was correct or that the reviewer was qualified for a given matter. NOT LEGAL ADVICE. Revoked or expired keys render newly-resolved decisions advisory-only (unverified_provenance taint); prior decisions are not retroactively invalidated.",
+  "type": "object",
+  "required": ["directory_version", "steward", "keys"],
+  "additionalProperties": false,
+  "properties": {
+    "directory_version": {
+      "type": "string",
+      "description": "Monotonic version of this directory document (content-addressed supersession)."
+    },
+    "published_at": { "type": "string", "format": "date-time" },
+    "steward": {
+      "type": "object",
+      "description": "The neutral steward that maintains this directory. The directory document MUST be signed by the steward key over its canonical JSON form (RFC 8785 JCS) with the 'signature_ed25519' field absent.",
+      "required": ["identity", "public_key_ed25519", "signature_ed25519"],
+      "additionalProperties": false,
+      "properties": {
+        "identity": { "type": "string" },
+        "public_key_ed25519": {
+          "type": "string",
+          "description": "Base64 (unpadded) 32-byte Ed25519 public key.",
+          "pattern": "^[A-Za-z0-9+/]{43}$"
+        },
+        "signature_ed25519": {
+          "type": "string",
+          "description": "Base64 (unpadded) 64-byte Ed25519 signature over the canonicalized directory.",
+          "pattern": "^[A-Za-z0-9+/]{86}$"
+        }
+      }
+    },
+    "keys": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "key_id",
+          "public_key_ed25519",
+          "reviewer_identity",
+          "jurisdiction",
+          "credential_type",
+          "credential_id",
+          "valid_from"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "key_id": {
+            "type": "string",
+            "description": "Stable identifier referenced by pack [meta.legal_review] signatures."
+          },
+          "public_key_ed25519": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9+/]{43}$"
+          },
+          "reviewer_identity": {
+            "type": "string",
+            "description": "Human-readable reviewer or firm name."
+          },
+          "jurisdiction": {
+            "type": "string",
+            "description": "The jurisdiction the credential covers (ISO 3166-1/-2, e.g. 'US-CA', 'DE'). A key MUST NOT be treated as a trust root for packs claiming other jurisdictions."
+          },
+          "credential_type": {
+            "type": "string",
+            "enum": ["bar_license", "solicitor", "notary", "dpo", "in_house_counsel", "other"],
+            "description": "Kind of legal credential. 'other' requires credential_note."
+          },
+          "credential_id": {
+            "type": "string",
+            "description": "Bar number / registration identifier for the credential."
+          },
+          "credential_note": { "type": "string" },
+          "valid_from": { "type": "string", "format": "date" },
+          "valid_until": {
+            "type": "string",
+            "format": "date",
+            "description": "Expiry. Past this date the key is treated as revoked for new decisions."
+          },
+          "revocation": {
+            "type": "object",
+            "required": ["revoked_at", "reason"],
+            "additionalProperties": false,
+            "properties": {
+              "revoked_at": { "type": "string", "format": "date" },
+              "reason": {
+                "type": "string",
+                "enum": [
+                  "key_compromise",
+                  "credential_lapsed",
+                  "credential_revoked",
+                  "reviewer_request",
+                  "steward_action",
+                  "other"
+                ]
+              },
+              "note": { "type": "string" }
+            }
+          }
+        },
+        "if": { "properties": { "credential_type": { "const": "other" } } },
+        "then": { "required": ["credential_note"] }
+      }
+    }
+  }
+}

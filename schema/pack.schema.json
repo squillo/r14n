@@ -11,6 +11,21 @@
       "type": "object",
       "required": ["strictness"],
       "additionalProperties": true,
+      "allOf": [
+        {
+          "$comment": "Spec section 7 (temporal split): an approved (real-jurisdiction) pack MUST state its interpretation-currency date.",
+          "if": {
+            "properties": {
+              "legal_review": {
+                "properties": { "status": { "const": "approved" } },
+                "required": ["status"]
+              }
+            },
+            "required": ["legal_review"]
+          },
+          "then": { "required": ["last_reviewed_against_guidance"] }
+        }
+      ],
       "properties": {
         "strictness": {
           "type": "string",
