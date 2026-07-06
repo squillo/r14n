@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/squillo/regloc/schema/pack.schema.json",
+  "$id": "https://github.com/squillo/r14n/schema/pack.schema.json",
   "title": "RLPS Pack (.r14n.toml)",
   "description": "A Regulatory Localization Pack: (profile x jurisdiction) -> required compliance controls for one domain. NOT LEGAL ADVICE.",
   "type": "object",

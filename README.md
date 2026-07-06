@@ -1,8 +1,8 @@
-# regloc — Regulatory Localization
+# r14n — Regulatory Localization
 
 > **`r14n : compliance controls :: i18n : strings`**
 
-**regloc** is the home of the **Regulatory Localization Pack Specification (RLPS)** — an open,
+**r14n** is the home of the **Regulatory Localization Pack Specification (RLPS)** — an open,
 human-readable, machine-readable format for expressing *which compliance controls are required*
 for a given **(regulatory-profile × jurisdiction × subject)**, with a fail-closed default, a
 posture selector, and legal-review provenance.

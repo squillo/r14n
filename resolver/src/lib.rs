@@ -1,4 +1,4 @@
-//! # regloc — the RLPS reference resolver (`r14n : controls :: i18n : strings`)
+//! # r14n — the RLPS reference resolver (`r14n : controls :: i18n : strings`)
 //!
 //! Compliance rules should be no more hardcoded than user-facing strings are.
 //! Where i18n maps `locales/<lang>/<feature>.toml` → localized strings, RLPS maps
@@ -37,7 +37,7 @@
 //! they are not required by RLPS and may be relaxed in future resolver revisions.
 //!
 //! Revision History
-//! - 2026-07-06: extracted as the RLPS reference resolver (regloc) from Squillo OS
+//! - 2026-07-06: extracted as the RLPS reference resolver (r14n) from Squillo OS
 //!   `the Squillo OS policy engine` (an internal design memo §PS.R / an internal design memo).
 
 // ── Value types ──────────────────────────────────────────────────────────────

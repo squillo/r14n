@@ -1,6 +1,6 @@
 # NOT LEGAL ADVICE
 
-**RLPS (regloc) is a data-interchange and configuration standard. It is not legal advice, and no
+**RLPS (r14n) is a data-interchange and configuration standard. It is not legal advice, and no
 part of this project — the specification, the resolver, the schemas, the control catalog, or any
 pack — constitutes legal advice or creates an attorney–client relationship.**
 

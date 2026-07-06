@@ -6,12 +6,12 @@
 # License: Apache-2.0 (code). The spec text + schemas are CC BY 4.0 (see /LICENSE-SPEC).
 
 [package]
-name = "regloc"
+name = "r14n"
 version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
 description = "RLPS reference resolver — jurisdiction-negotiated, fail-closed regulatory-policy packs (r14n : controls :: i18n : strings)"
-repository = "https://github.com/squillo/regloc"
+repository = "https://github.com/squillo/r14n"
 keywords = ["compliance", "policy", "regulatory", "consent", "localization"]
 categories = ["config", "internationalization"]
 
