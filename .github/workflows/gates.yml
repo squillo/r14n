@@ -1,0 +1,46 @@
+# RLPS gates — council-audit missing-item: all 50+ tests, the shipped-packs
+# lint, and the schema-vs-producers checks previously ran only when someone
+# remembered. This runs them on every push/PR. NOT LEGAL ADVICE.
+name: gates
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  resolver:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: resolver
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test --locked
+
+  tools:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: tools test suite
+        run: cargo test --locked
+        working-directory: tools
+      - name: lint the shipped baseline packs
+        run: |
+          cargo run --quiet --manifest-path tools/Cargo.toml -- validate \
+            packs/aggressive/recording_consent.r14n.toml \
+            packs/minimal/recording_consent.r14n.toml \
+            --catalog catalog/recording_consent.catalog.toml
+
+  schemas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install jsonschema
+      - name: validate producers against their schemas
+        run: python scripts/check-schemas.py

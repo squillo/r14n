@@ -223,7 +223,7 @@ fn conformance_level_2_configured_supported_subset() {
   ::std::assert_eq!(ran, 8, "level-2 supported-vector count drifted");
   ::std::assert_eq!(
     skipped.len(),
-    6,
+    8,
     "level-2 skip count drifted (capability implemented? update SUPPORTED + counts): {skipped:?}"
   );
 }
@@ -236,4 +236,59 @@ fn conformance_level_3_comprehensive_supported_subset() {
   let (ran, skipped) = run_suite("level-3.json");
   ::std::assert_eq!(ran, 5, "level-3 supported-vector count drifted");
   ::std::assert_eq!(skipped.len(), 1, "level-3 skip count drifted: {skipped:?}");
+}
+
+/// The complete capability vocabulary the conformance suite recognizes (spec §9
+/// levels). A vector tag outside this set is a typo that would be silently
+/// SKIPPED forever by every harness — this vocabulary is the guard.
+const KNOWN_CAPABILITIES: &[&str] = &[
+  // Level 1
+  "pack_parse",
+  "posture_selection",
+  "fail_closed_fallback",
+  // Level 2
+  "fail_closed_unknown_subject",
+  "posture_override",
+  "data_minimization_guard",
+  "temporal_envelope",
+  "rfc4647_negotiation",
+  "delta_merge",
+  "most_restrictive_merge",
+  "deontic_conflict",
+  "gpc_escalation",
+  "ieee7012_escalation",
+  "ambiguous_attribution",
+  "per_domain_posture",
+  // Level 3
+  "trust_root_taint",
+  "receipt_27560",
+  "receipt_kantara",
+  "trust_root_revocation",
+];
+
+/// Why: council-audit missing-item — a typo'd capability string in a new vector
+/// makes it permanently skipped by every harness while the author bumps the
+/// pinned skip count believing it authored-ahead. This asserts every tag in
+/// every level file belongs to the known vocabulary, and that the resolver's
+/// SUPPORTED set is itself a subset of that vocabulary.
+#[test]
+fn every_vector_capability_is_in_the_known_vocabulary() {
+  for file in ["level-1.json", "level-2.json", "level-3.json"] {
+    let doc = vectors_file(file);
+    for vector in doc["vectors"].as_array().expect("vectors") {
+      let vname = vector["name"].as_str().expect("name");
+      for cap in str_vec(&vector["capabilities"]) {
+        ::std::assert!(
+          KNOWN_CAPABILITIES.contains(&cap.as_str()),
+          "{file}:{vname} uses unknown capability {cap:?} — typo or add it to KNOWN_CAPABILITIES"
+        );
+      }
+    }
+  }
+  for cap in SUPPORTED {
+    ::std::assert!(
+      KNOWN_CAPABILITIES.contains(cap),
+      "SUPPORTED lists {cap:?} which is not in the capability vocabulary"
+    );
+  }
 }

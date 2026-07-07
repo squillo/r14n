@@ -252,6 +252,48 @@
       }
     },
     {
+      "name": "ieee7012_no_recording_escalates_subject_to_aggressive",
+      "description": "Spec 4 (step 5): an IEEE-7012 NoRecording term escalates the subject to aggressive regardless of configured posture. Authored ahead of implementation.",
+      "capabilities": ["ieee7012_escalation"],
+      "packs": {
+        "ieee/recording_consent.r14n.toml": "[meta]\nstrictness = \"minimal\"\n\n[legally_required]\ncontrols = [\"attestation\"]\n"
+      },
+      "query": {
+        "domain": "recording_consent",
+        "profile": "ieee",
+        "jurisdiction": "all_party",
+        "subject": "telepresence",
+        "universe": ["attestation", "signal_notice", "aph_mandate"],
+        "posture_override": null,
+        "ieee7012_no_recording": true
+      },
+      "expect": {
+        "required_controls": ["aph_mandate", "attestation", "signal_notice"],
+        "fell_back": false
+      }
+    },
+    {
+      "name": "ambiguous_attribution_blocks",
+      "description": "Spec 4.1: jurisdiction attribution is a fail-closed INPUT; when the caller supplies no jurisdictions / marks the source unknown / flags conflicting claims, the resolution MUST block (not just record it). Authored ahead of implementation.",
+      "capabilities": ["ambiguous_attribution"],
+      "packs": {
+        "amb/recording_consent.r14n.toml": "[meta]\nstrictness = \"as_configured\"\n\n[subject.telepresence]\ncontrols = [\"signal_notice\"]\n\n[legally_required]\ncontrols = [\"attestation\"]\n"
+      },
+      "query": {
+        "domain": "recording_consent",
+        "profile": "amb",
+        "jurisdiction": "all_party",
+        "subject": "telepresence",
+        "universe": ["attestation", "signal_notice", "aph_mandate"],
+        "posture_override": null,
+        "jurisdictions": [],
+        "attribution_source": "unknown"
+      },
+      "expect": {
+        "verdict": "block"
+      }
+    },
+    {
       "name": "gpc_signal_escalates_subject_to_aggressive",
       "description": "Spec 4 (step 5): a Sec-GPC: 1 signal escalates the subject to aggressive regardless of configured posture.",
       "capabilities": ["gpc_escalation"],
