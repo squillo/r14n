@@ -203,3 +203,49 @@ chair re-verified every material net-new finding by hand (namespacing, epoch/ISO
 JSON-LD literal expansion, LICENSE name, `*.seed` gitignore) with live commands recorded above.
 Findings whose agent-verifier died and which the chair did not personally re-run are still evidence-
 cited by their auditor and should be treated as high-confidence-unverified, not refuted.*
+
+---
+
+## Remediation status (2026-07-07, commits `5899e01`…`5d728af`)
+
+Fixed across six batches (each gated + committed; resolver 27+3-conformance tests, tools 27+4):
+
+- **Blockers — all fixed.** B1 minimal-missing/empty-floor now fails closed (`5899e01`, lib tests +
+  level-1 vector); counsel brief refreshed to the real tree + counts + a receipts §8 (`e769cdd`);
+  both packs carry the disclaimer (`5899e01`).
+- **Sign/publish integrity (NN2/NN3, N6) — fixed** (`38c559d`): `publish` cryptographically verifies
+  embedded signatures (forged-sig test), refuses corrupt/duplicate versions, stores relative paths;
+  conformance runner rejects `..`/absolute vector keys (NN8).
+- **Receipt fidelity (NN1/NN4/NN5/NN6/NN7/NN9, NN11/NN12) — fixed** (`d9c52f7`): advisory taint no
+  longer cleared by a self-declared status (`PROVENANCE_VERIFIED=false`); `@context` coerces minted
+  terms to IRIs (pyld-verified); dropped the false dpv-27560 lineage, fabricated Kantara
+  `consentType`, and hardcoded `legal_basis_hint`; explicit sort canonicalizer; fixture epochs
+  corrected; example marks VoiceRecording sensitive.
+- **Spec/CLI/linter (NN10, N3, NN13, N5) — fixed** (`1f890eb`): §2.1 namespacing reworded to the
+  on-disk reality; RFC-4647 softened to "-style"; CLI errors on dangling/duplicate/leftover args;
+  linter enforces ISO date shape (warn-draft / error-non-draft); `tools/tests/cli.rs` covers the
+  `main()` dispatch layer.
+- **Structural (M5/M8/M6) — fixed** (`80939d7`): `ControlDecision.verdict` (receipts read it, not a
+  literal); `last_reviewed_against_guidance` deserialized + carried into the receipt (spec §7 MUST);
+  conformance runner is closed-set (panics on unknown `expect` keys, requires `receipt_context`).
+- **Temporal envelope (M4) — fixed** (`1e0c5a3`): `PackMeta` deserializes the envelope; a supplied
+  `as_of` outside it fails closed; linter requires `effective_from` on approved packs; new
+  `temporal_envelope` capability + level-2 vectors. *(Breaking `RegulatoryQuery` change — flagged
+  for the twin in maintainer-notes sync note 7g.)*
+- **Coverage + infra (M7, missing-items) — fixed** (`5d728af`): authored-ahead `ieee7012_escalation`
+  + `ambiguous_attribution` vectors; capability meta-validation test; `scripts/check-schemas.py`
+  (packs/fixtures ↔ schemas); `.github/workflows/gates.yml`; `SECURITY.md`.
+
+**Deferred (documented, not silently dropped):**
+
+- **M1 (signature binds pack bytes, not profile identity)** — the sign/publish integrity cluster
+  around it is fixed, but binding profile/domain into the signed material is a format change held for
+  the trust-root work; recorded as a known limitation in `SECURITY.md`.
+- **M9 reviewer-key directory verification tooling** (`r14n verify --directory` + revocation) — a
+  before-public feature; until it lands `PROVENANCE_VERIFIED` stays `false` (which is why NN1's fix
+  is honest today). The `trust_root_revocation` vector remains authored-ahead.
+- **NN15** (profile dirs named after postures) — README already frames them as posture demos, NOT
+  jurisdiction claims; a grammar-shaped example profile is deferred to avoid resembling a
+  jurisdiction claim before counsel.
+- **later missing-items**: cargo-fuzz, `llvm-cov` baseline, `CONTRIBUTING.md`/CLA, vendored license
+  texts, a published machine-readable `@context`/SKOS vocabulary, conformance-suite versioning.
