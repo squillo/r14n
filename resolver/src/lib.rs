@@ -152,6 +152,35 @@ pub struct RegulatoryQuery {
   pub universe: ::std::collections::BTreeSet<ControlKey>,
 }
 
+/// The decision verdict (spec §2.6). The infallible reference resolver always
+/// produces `Permit` (fail-closed = require the full universe with `fell_back`,
+/// which is still a permit of everything); a Level-2 resolver that can BLOCK
+/// (deontic conflict, envelope expiry, ambiguous attribution) uses `Block`.
+#[derive(
+  ::std::clone::Clone,
+  ::std::fmt::Debug,
+  ::std::cmp::PartialEq,
+  ::std::cmp::Eq,
+  ::std::default::Default,
+)]
+pub enum Verdict {
+  /// The query resolves to a required-control set.
+  #[default]
+  Permit,
+  /// The query is unsatisfiable / fail-closed to a hard block.
+  Block,
+}
+
+impl Verdict {
+  /// The wire string (`"permit"` / `"block"`) surfaced in receipts.
+  pub fn as_str(&self) -> &str {
+    match self {
+      Self::Permit => "permit",
+      Self::Block => "block",
+    }
+  }
+}
+
 /// Provenance of a policy decision — surfaced in consent receipts (§21.3
 /// transparency). Records exactly which pack/profile/legal-review bound it.
 #[derive(::std::clone::Clone, ::std::fmt::Debug, ::std::cmp::PartialEq, ::std::cmp::Eq)]
@@ -164,6 +193,10 @@ pub struct PolicyProvenance {
   pub source: ::std::string::String,
   /// The pack's declared legal-review status (`None` if unreviewed / fallback).
   pub legal_review_status: ::std::option::Option<::std::string::String>,
+  /// The pack's interpretation-currency date (spec §7 `last_reviewed_against_guidance`),
+  /// `None` if the pack does not declare one. Surfaced in the receipt so a
+  /// consumer can see staleness rather than silently trust an in-window pack.
+  pub last_reviewed_against_guidance: ::std::option::Option<::std::string::String>,
   /// True when the port degraded to the aggressive fallback (pack missing /
   /// malformed) — a loud signal that no reviewed pack governed this decision.
   pub fell_back: bool,
@@ -173,6 +206,9 @@ pub struct PolicyProvenance {
 /// provenance.
 #[derive(::std::clone::Clone, ::std::fmt::Debug, ::std::cmp::PartialEq, ::std::cmp::Eq)]
 pub struct ControlDecision {
+  /// permit | block (spec §2.6). Receipts read the verdict from HERE, never a
+  /// hardcoded literal.
+  pub verdict: Verdict,
   /// The controls the caller MUST satisfy (a subset of the query universe).
   pub required: ::std::collections::BTreeSet<ControlKey>,
   /// How this decision was reached.
@@ -218,12 +254,14 @@ fn aggressive_over_universe(
   fell_back: bool,
 ) -> ControlDecision {
   ControlDecision {
+    verdict: Verdict::Permit,
     required: query.universe.clone(),
     provenance: PolicyProvenance {
       profile: query.profile.clone(),
       strictness: Strictness::Aggressive,
       source,
       legal_review_status: ::std::option::Option::None,
+      last_reviewed_against_guidance: ::std::option::Option::None,
       fell_back,
     },
   }
@@ -267,6 +305,9 @@ struct PackMeta {
   strictness: ::std::option::Option<::std::string::String>,
   #[serde(default)]
   legal_review: ::std::option::Option<LegalReview>,
+  /// Spec §7 interpretation-currency date; carried into the decision receipt.
+  #[serde(default)]
+  last_reviewed_against_guidance: ::std::option::Option<::std::string::String>,
 }
 
 #[derive(::serde::Deserialize)]
@@ -413,12 +454,14 @@ impl RegulatoryPolicyPort for TomlRegulatoryPolicyAdapter {
 
     let legal_review_status = pack.meta.legal_review.and_then(|r| r.status);
     ControlDecision {
+      verdict: Verdict::Permit,
       required,
       provenance: PolicyProvenance {
         profile: query.profile.clone(),
         strictness,
         source: path.display().to_string(),
         legal_review_status,
+        last_reviewed_against_guidance: pack.meta.last_reviewed_against_guidance,
         fell_back: false,
       },
     }

@@ -269,6 +269,26 @@
       "expect": {
         "required_controls": ["signal_notice"]
       },
+      "receipt_context": {
+        "record_id": "vec-l3-revoked",
+        "issued_at": "2026-07-06T00:00:00Z",
+        "issued_at_unix": 1783296000,
+        "language": "en",
+        "pii_principal_id": "principal-6",
+        "pii_controller": "Vector Operator",
+        "policy_url": null,
+        "domain": "recording_consent",
+        "subject": "telepresence",
+        "operations": ["rlps:AudioRecording"],
+        "jurisdictions": ["US-CA"],
+        "attribution_source": "operator_declared",
+        "gpc_signal": false,
+        "ieee7012_no_recording": false,
+        "sensitive": false,
+        "spi_cat": [],
+        "ai_disclosure": null,
+        "pack_sha256": null
+      },
       "expect_receipt": {
         "/provenance/advisory_only": true
       }

@@ -142,8 +142,20 @@ fn run_suite(name: &str) -> (usize, ::std::vec::Vec<::std::string::String>) {
     let adapter = ::r14n::TomlRegulatoryPolicyAdapter::new(tmp.path().to_path_buf(), override_);
     let decision = ::r14n::RegulatoryPolicyPort::required_controls(&adapter, &query);
 
-    // Decision expectations (assert only the keys present).
-    let expect = &vector["expect"];
+    // Decision expectations — CLOSED SET (council-audit M6): every key in
+    // `expect` must be one this runner knows how to assert, else a typo'd or
+    // unimplemented expectation (e.g. `verdict`) would assert nothing and pass
+    // vacuously. Panic on an unknown key.
+    let expect = vector["expect"].as_object().expect("expect object");
+    for key in expect.keys() {
+      ::std::assert!(
+        ::std::matches!(
+          key.as_str(),
+          "required_controls" | "fell_back" | "legal_review_status" | "verdict"
+        ),
+        "{vname}: unknown expect key {key:?} — the runner would assert nothing"
+      );
+    }
     if let ::std::option::Option::Some(rc) = expect.get("required_controls") {
       let got: ::std::vec::Vec<::std::string::String> =
         decision.required.iter().map(|c| c.0.clone()).collect();
@@ -163,8 +175,17 @@ fn run_suite(name: &str) -> (usize, ::std::vec::Vec<::std::string::String>) {
         "{vname}: legal_review_status"
       );
     }
+    if let ::std::option::Option::Some(vd) = expect.get("verdict") {
+      ::std::assert_eq!(decision.verdict.as_str(), vd.as_str().expect("verdict str"), "{vname}: verdict");
+    }
 
-    // Receipt expectations (level 3).
+    // Receipt expectations (level 3). expect_receipt/expect_kantara REQUIRE a
+    // receipt_context — otherwise the assertion silently never runs (M6).
+    let has_ctx = vector.get("receipt_context").is_some();
+    ::std::assert!(
+      has_ctx || (vector.get("expect_receipt").is_none() && vector.get("expect_kantara").is_none()),
+      "{vname}: expect_receipt/expect_kantara present without receipt_context"
+    );
     if let ::std::option::Option::Some(rctx) = vector.get("receipt_context") {
       let ctx = receipt_context(rctx);
       if let ::std::option::Option::Some(er) = vector.get("expect_receipt") {

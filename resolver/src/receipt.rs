@@ -219,9 +219,9 @@ pub fn dpv_27560(
       "attribution_source": ctx.attribution_source,
     },
     "decision": {
-      // The infallible reference resolver always permits (fail-closed = require
-      // everything + fell_back flag); a Level-2 resolver emits "block" here.
-      "verdict": "permit",
+      // Read from the decision, never a hardcoded literal — so a Level-2
+      // resolver that BLOCKs emits "block" here (council-audit).
+      "verdict": decision.verdict.as_str(),
       // The posture value is never collapsed — audit evidence (spec §7 entity 7).
       "posture": decision.provenance.strictness.as_str(),
       "required_controls": control_strings(decision),
@@ -243,6 +243,12 @@ pub fn dpv_27560(
   });
   if let ::std::option::Option::Some(sha) = &ctx.pack_sha256 {
     root["provenance"]["pack_sha256"] = ::serde_json::Value::String(sha.clone());
+  }
+  // Spec §7 MUST: when the pack declares an interpretation-currency date, the
+  // receipt carries it (staleness is surfaced, not silently trusted).
+  if let ::std::option::Option::Some(d) = &decision.provenance.last_reviewed_against_guidance {
+    root["provenance"]["last_reviewed_against_guidance"] =
+      ::serde_json::Value::String(d.clone());
   }
   if let ::std::option::Option::Some(d) = &ctx.ai_disclosure {
     // Record the disclosure FACTS (when + how). Naming a governing statute is a
@@ -349,6 +355,7 @@ mod tests {
     status: ::std::option::Option<&str>,
   ) -> crate::ControlDecision {
     crate::ControlDecision {
+      verdict: crate::Verdict::Permit,
       required: ["signal_notice", "attestation"]
         .into_iter()
         .map(|s| crate::ControlKey(::std::string::String::from(s)))
@@ -358,6 +365,7 @@ mod tests {
         strictness: crate::Strictness::AsConfigured,
         source: ::std::string::String::from("packs/aggressive/recording_consent.r14n.toml"),
         legal_review_status: status.map(::std::string::String::from),
+        last_reviewed_against_guidance: ::std::option::Option::None,
         fell_back,
       },
     }
@@ -549,6 +557,38 @@ mod tests {
     let ctx_pos = json.find("\"@context\"").expect("@context present");
     let type_pos = json.find("\"@type\"").expect("@type present");
     ::std::assert!(ctx_pos < type_pos, "@context sorts before @type");
+  }
+
+  /// Why: council-audit M5 — the verdict was a hardcoded "permit" literal, so a
+  /// resolver that BLOCKs could never emit a truthful receipt and no test could
+  /// assert block. The receipt must READ verdict from the decision.
+  #[test]
+  fn receipt_verdict_comes_from_the_decision_not_a_literal() {
+    let mut d = decision(false, ::std::option::Option::Some("draft"));
+    ::std::assert_eq!(super::dpv_27560(&d, &ctx())["decision"]["verdict"], "permit");
+    d.verdict = crate::Verdict::Block;
+    ::std::assert_eq!(
+      super::dpv_27560(&d, &ctx())["decision"]["verdict"], "block",
+      "a Block decision must serialize as block"
+    );
+  }
+
+  /// Why: spec §7 MUST — when a pack declares last_reviewed_against_guidance the
+  /// receipt MUST carry it, so a consumer sees interpretation staleness rather
+  /// than silently trusting an in-window pack. Previously unimplemented.
+  #[test]
+  fn receipt_carries_interpretation_currency_date_when_present() {
+    let mut d = decision(false, ::std::option::Option::Some("approved"));
+    ::std::assert!(
+      super::dpv_27560(&d, &ctx())["provenance"].get("last_reviewed_against_guidance").is_none(),
+      "absent when the pack declares none"
+    );
+    d.provenance.last_reviewed_against_guidance =
+      ::std::option::Option::Some(::std::string::String::from("2026-01-15"));
+    ::std::assert_eq!(
+      super::dpv_27560(&d, &ctx())["provenance"]["last_reviewed_against_guidance"],
+      "2026-01-15"
+    );
   }
 
   /// Why: council-audit NN11 — the two receipt forms date one decision from the
