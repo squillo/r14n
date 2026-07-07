@@ -1,5 +1,7 @@
 /resolver/target
 /tools/target
 /target
+# Ed25519 signing seeds are PRIVATE key material — never commit (council-audit fix).
+*.seed
 **/*.rs.bk
 .DS_Store

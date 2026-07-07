@@ -1,4 +1,7 @@
 # SPDX-License-Identifier: CC-BY-4.0
+# ⚠ NOT LEGAL ADVICE — this pack is a machine-readable template of controls, not a
+# statement of any jurisdiction's law. Selecting `minimal` for a real jurisdiction is
+# the consuming operator's liability. See docs/not-legal-advice.md.
 # Regulatory policy pack — domain: recording_consent — profile: minimal
 #
 # The floor: `strictness = "minimal"` requires ONLY [legally_required]. Intended for

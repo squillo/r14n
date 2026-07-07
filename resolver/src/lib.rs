@@ -47,6 +47,10 @@
 //! - 2026-07-06: DRY pass — `control_set`/`controls_in_universe` helpers replace
 //!   the repeated posture-arm closures; `aggressive_over_universe` unifies the
 //!   default adapter + fallback constructors. Behavior-identical (tests green).
+//! - 2026-07-07: fail-closed fix (council audit BLOCKER) — a `minimal` pack with
+//!   a missing OR empty `[legally_required]` floor now degrades to
+//!   aggressive-over-universe (`fell_back = true`) instead of an empty set.
+//!   BEHAVIOR CHANGE — mirror to the Squillo twin.
 
 // ── Modules ──────────────────────────────────────────────────────────────────
 
@@ -357,6 +361,24 @@ impl RegulatoryPolicyPort for TomlRegulatoryPolicyAdapter {
         .unwrap_or(Strictness::Aggressive)
     });
 
+    // Fail-closed (spec §4/§5): a `minimal` pack whose `[legally_required]` floor
+    // is missing OR empty has no enforceable minimum — it MUST NOT resolve to an
+    // empty required set. Degrade to aggressive-over-universe, loudly, exactly
+    // like a missing/malformed pack. (The linter rejects this at author time; the
+    // resolver is the runtime guarantee against unlinted / adversarial packs.)
+    if ::std::matches!(strictness, Strictness::Minimal) {
+      let has_floor = pack
+        .legally_required
+        .as_ref()
+        .is_some_and(|c| !c.controls.is_empty());
+      if !has_floor {
+        return Self::fallback(
+          query,
+          ::std::format!("<minimal-missing-floor:{}>", path.display()),
+        );
+      }
+    }
+
     // Every resolved set is intersected with the caller's universe
     // (`controls_in_universe`) — a pack can never demand a control the caller
     // does not know how to enforce, and can never silently drop below what the
@@ -641,6 +663,51 @@ mod tests {
     let expect: ::std::collections::BTreeSet<super::ControlKey> =
       [ck("user_attestation")].into_iter().collect();
     ::std::assert_eq!(d.required, expect, "floor minus prohibited");
+  }
+
+  /// Why: council-audit BLOCKER — a `minimal` pack with NO floor previously
+  /// resolved to an empty set (fail-OPEN), directly contradicting spec §4
+  /// ("missing floor MUST block") and the counsel brief's "fail-closed
+  /// everywhere". It must degrade to aggressive-over-universe, loudly.
+  #[test]
+  fn minimal_pack_missing_floor_fails_closed() {
+    let tmp = ::tempfile::tempdir().expect("tmp");
+    let dir = tmp.path().join("no_floor");
+    ::std::fs::create_dir_all(&dir).expect("mkdir");
+    ::std::fs::write(
+      dir.join("recording_consent.r14n.toml"),
+      "[meta]\nstrictness = \"minimal\"\n[subject.telepresence]\ncontrols = [\"signal_notice\"]\n",
+    )
+    .expect("write pack");
+    let p = super::TomlRegulatoryPolicyAdapter::new(
+      tmp.path().to_path_buf(),
+      ::std::option::Option::None,
+    );
+    let d = super::RegulatoryPolicyPort::required_controls(&p, &query("no_floor", "telepresence"));
+    ::std::assert_eq!(d.required, universe(), "no floor ⇒ require everything, not nothing");
+    ::std::assert!(d.provenance.fell_back, "the fail-closed degrade must be loud");
+  }
+
+  /// Why: an EMPTY floor (`controls = []`) is the same fail-open hazard as a
+  /// missing one — a resolver that treated present-but-empty as "zero required"
+  /// would let `[legally_required]\ncontrols = []` silently enforce nothing.
+  #[test]
+  fn minimal_pack_empty_floor_fails_closed() {
+    let tmp = ::tempfile::tempdir().expect("tmp");
+    let dir = tmp.path().join("empty_floor");
+    ::std::fs::create_dir_all(&dir).expect("mkdir");
+    ::std::fs::write(
+      dir.join("recording_consent.r14n.toml"),
+      "[meta]\nstrictness = \"minimal\"\n[legally_required]\ncontrols = []\n",
+    )
+    .expect("write pack");
+    let p = super::TomlRegulatoryPolicyAdapter::new(
+      tmp.path().to_path_buf(),
+      ::std::option::Option::None,
+    );
+    let d = super::RegulatoryPolicyPort::required_controls(&p, &query("empty_floor", "telepresence"));
+    ::std::assert_eq!(d.required, universe(), "empty floor ⇒ require everything");
+    ::std::assert!(d.provenance.fell_back);
   }
 
   /// Why: receipts surface the posture VERBATIM as audit evidence (spec §2.7)

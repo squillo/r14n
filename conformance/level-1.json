@@ -124,6 +124,26 @@
         "required_controls": ["signal_notice"],
         "fell_back": false
       }
+    },
+    {
+      "name": "minimal_pack_missing_floor_fails_closed",
+      "description": "Spec 4/5: a minimal pack with no [legally_required] floor has no enforceable minimum and MUST NOT resolve to an empty set - it degrades to aggressive-over-universe, loudly (fell_back).",
+      "capabilities": ["pack_parse", "posture_selection", "fail_closed_fallback"],
+      "packs": {
+        "no_floor/recording_consent.r14n.toml": "[meta]\nstrictness = \"minimal\"\n\n[subject.telepresence]\ncontrols = [\"signal_notice\"]\n"
+      },
+      "query": {
+        "domain": "recording_consent",
+        "profile": "no_floor",
+        "jurisdiction": "all_party",
+        "subject": "telepresence",
+        "universe": ["attestation", "signal_notice", "aph_mandate"],
+        "posture_override": null
+      },
+      "expect": {
+        "required_controls": ["aph_mandate", "attestation", "signal_notice"],
+        "fell_back": true
+      }
     }
   ]
 }

@@ -177,7 +177,7 @@ fn run_suite(name: &str) -> (usize, ::std::vec::Vec<::std::string::String>) {
 fn conformance_level_1_minimal_viable_runs_all_vectors() {
   let (ran, skipped) = run_suite("level-1.json");
   ::std::assert_eq!(skipped.len(), 0, "level 1 must be fully runnable, skipped: {skipped:?}");
-  ::std::assert_eq!(ran, 6, "level-1 vector count drifted — update consciously");
+  ::std::assert_eq!(ran, 7, "level-1 vector count drifted — update consciously");
 }
 
 /// Why: level-2 vectors are authored AHEAD of the implementation (negotiation,

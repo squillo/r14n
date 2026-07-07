@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: CC-BY-4.0
+# ⚠ NOT LEGAL ADVICE — this pack is a machine-readable template of controls, not a
+# statement of any jurisdiction's law. "aggressive" ≠ "compliant". See docs/not-legal-advice.md.
 # Regulatory policy pack — domain: recording_consent — profile: aggressive
 #
 # The fail-closed baseline. `strictness = "aggressive"` means the caller's full
