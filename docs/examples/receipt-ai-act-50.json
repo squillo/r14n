@@ -3,12 +3,20 @@
     "@context": {
       "@vocab": "https://rlps.squillo.com/ns#",
       "dpv": "https://w3id.org/dpv#",
+      "event_type": {
+        "@id": "rlps:event_type",
+        "@type": "@id"
+      },
+      "id": "@id",
+      "operations": {
+        "@id": "rlps:operations",
+        "@type": "@id"
+      },
       "rlps": "https://rlps.squillo.com/ns#"
     },
     "@type": "rlps:ControlDecisionReceipt",
     "ai_disclosure": {
       "disclosed_at": "2026-08-02T08:59:00Z",
-      "legal_basis_hint": "eu_ai_act_article_50",
       "method": "in_meeting_announcement"
     },
     "decision": {
@@ -68,7 +76,8 @@
       "fell_back": false,
       "legal_review_status": null,
       "pack_source": "<aggressive-default>",
-      "profile": "aggressive"
+      "profile": "aggressive",
+      "provenance_verified": false
     },
     "record": {
       "issued_at": "2026-08-02T09:00:00Z",
@@ -83,6 +92,7 @@
     "consentTimestamp": 1785661200,
     "jurisdiction": "DE",
     "language": "de",
+    "notice": "RLPS control-prescription receipt — records REQUIRED controls, NOT obtained consent. NOT LEGAL ADVICE. This receipt records a control decision and its provenance; it is not a statement of law or a compliance claim. 'aggressive' != 'compliant'.",
     "piiControllers": [
       {
         "piiController": "Example Operator GmbH"
@@ -102,6 +112,7 @@
       "legal_review_status": null,
       "pack_source": "<aggressive-default>",
       "posture": "aggressive",
+      "provenance_verified": false,
       "required_controls": [
         "ai_disclosure",
         "announcement",
@@ -111,12 +122,11 @@
         "signal_notice"
       ]
     },
-    "sensitive": false,
+    "sensitive": true,
     "services": [
       {
         "purposes": [
           {
-            "consentType": "EXPLICIT",
             "piiCategory": [
               "rlps:AudioRecording",
               "rlps:VoiceRecording"
@@ -126,14 +136,15 @@
             "purposeCategory": [
               "recording_consent"
             ],
-            "termination": "per_pack_effective_until",
-            "thirdPartyDisclosure": false
+            "termination": "per_pack_effective_until"
           }
         ],
         "service": "recording_consent"
       }
     ],
-    "spiCat": [],
+    "spiCat": [
+      "rlps:VoiceRecording"
+    ],
     "version": "KI-CR-v1.1.0"
   }
 }

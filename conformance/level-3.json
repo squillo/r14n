@@ -22,7 +22,7 @@
       "receipt_context": {
         "record_id": "vec-l3-fallback",
         "issued_at": "2026-07-06T00:00:00Z",
-        "issued_at_unix": 1783641600,
+        "issued_at_unix": 1783296000,
         "language": "en",
         "pii_principal_id": "principal-1",
         "pii_controller": "Vector Operator",
@@ -69,7 +69,7 @@
       "receipt_context": {
         "record_id": "vec-l3-draft",
         "issued_at": "2026-07-06T00:00:00Z",
-        "issued_at_unix": 1783641600,
+        "issued_at_unix": 1783296000,
         "language": "en",
         "pii_principal_id": "principal-2",
         "pii_controller": "Vector Operator",
@@ -94,7 +94,7 @@
     },
     {
       "name": "approved_pack_receipt_carries_posture_sha_and_controls",
-      "description": "Spec 2.7 + 6: the receipt records the posture value (never collapsed), the pack SHA, and the required set; approved review is not advisory.",
+      "description": "Spec 2.7 + 6: the receipt records the posture value (never collapsed), the pack SHA, and the required set. A self-declared status=approved does NOT clear the advisory taint (council-audit NN1) - only cryptographically verified provenance does, which the reference resolver does not perform.",
       "capabilities": ["trust_root_taint", "receipt_27560"],
       "packs": {
         "approved_pack/recording_consent.r14n.toml": "[meta]\nstrictness = \"as_configured\"\n\n[meta.legal_review]\nstatus = \"approved\"\n\n[subject.telepresence]\ncontrols = [\"signal_notice\"]\n\n[legally_required]\ncontrols = [\"attestation\"]\n"
@@ -115,7 +115,7 @@
       "receipt_context": {
         "record_id": "vec-l3-approved",
         "issued_at": "2026-07-06T00:00:00Z",
-        "issued_at_unix": 1783641600,
+        "issued_at_unix": 1783296000,
         "language": "en",
         "pii_principal_id": "principal-3",
         "pii_controller": "Vector Operator",
@@ -133,7 +133,9 @@
         "pack_sha256": "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
       },
       "expect_receipt": {
-        "/provenance/advisory_only": false,
+        "/provenance/advisory_only": true,
+        "/provenance/provenance_verified": false,
+        "/provenance/legal_review_status": "approved",
         "/provenance/pack_sha256": "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
         "/decision/posture": "as_configured",
         "/decision/required_controls": ["signal_notice"]
@@ -205,7 +207,7 @@
       "receipt_context": {
         "record_id": "vec-l3-kantara",
         "issued_at": "2026-07-06T00:00:00Z",
-        "issued_at_unix": 1783641600,
+        "issued_at_unix": 1783296000,
         "language": "en",
         "pii_principal_id": "principal-5",
         "pii_controller": "Vector Operator",
@@ -225,7 +227,7 @@
       "expect_kantara": {
         "/version": "KI-CR-v1.1.0",
         "/consentReceiptID": "vec-l3-kantara",
-        "/consentTimestamp": 1783641600,
+        "/consentTimestamp": 1783296000,
         "/policyUrl": "urn:rlps:policy:unspecified",
         "/services/0/service": "recording_consent",
         "/services/0/purposes/0/purpose": "telepresence",

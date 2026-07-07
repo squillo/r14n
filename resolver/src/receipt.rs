@@ -8,31 +8,49 @@
 //! compatibility shim.
 //!
 //! ⚠ **NOT LEGAL ADVICE.** A receipt proves what was DECIDED and by which pack,
-//! never that the decision was lawful. Decisions resolved from unattested or
-//! self-attested packs carry `advisory_only = true` (spec §6 trust-root taint),
-//! derived here as: `fell_back` OR `legal_review_status != "approved"`.
+//! never that the decision was lawful. Decisions carry `advisory_only = true`
+//! (spec §6 trust-root taint) unless provenance was cryptographically verified.
+//! The reference resolver does NOT consult the reviewer-key directory, so
+//! [`PROVENANCE_VERIFIED`] is `false` and **every reference-resolver receipt is
+//! advisory-only** — a self-declared `legal_review.status = "approved"` string
+//! does NOT clear the taint (it never proves *who* attested). `advisory_only`
+//! is therefore `fell_back` OR `status != "approved"` OR `!PROVENANCE_VERIFIED`.
 //!
 //! Recording/receipt terms (`rlps:ControlDecisionReceipt`,
 //! `rlps:RegulatedActivity`, `rlps:AudioRecording`, …) are minted in the
 //! RLPS-OWNED namespace [`RLPS_NS`] so interop degrades gracefully if DPVCG
 //! declines to adopt them (spec §8 / an internal design memo must-fix #6): the `@context` is
-//! self-contained (`@vocab` = [`RLPS_NS`]) and every term remains a valid RLPS
-//! identifier regardless of external adoption. Term registry:
+//! self-contained (`@vocab` = [`RLPS_NS`]) and coerces the term-bearing keys
+//! (`operations`, `event_type`, and `id` → `@id`) so minted terms expand to
+//! namespace IRIs rather than string literals. Term registry:
 //! `/docs/namespace.md`.
 //!
-//! v0.1 fidelity note: the 27560 section layout (record / pii_principal /
-//! pii_controller / processing / event) follows the public DPV "dpv-27560"
-//! serialization profile; field-level conformance vectors land with the
-//! `/conformance` suite (roadmap item 4). Signing (Ed25519 over the receipt)
-//! is the `/tools` CLI's job (roadmap item 5) — this module only serializes.
+//! v0.1 fidelity note: the section layout (record / pii_principal /
+//! pii_controller / processing / event) is structured after **ISO/IEC TS
+//! 27560's abstract record layout** and reuses DPV terms where DPV defines them
+//! (`dpv:DataSubject`/`dpv:DataController`/`dpv:hasJurisdiction`). It is NOT the
+//! DPVCG "dpv-27560" JSON-LD profile (which serializes `dpv:ConsentRecord` with
+//! `dct:conformsTo` / `dpv:hasDataSubject` / `dpv:hasProcess`); adopting those
+//! profile properties is future work. The Kantara CR v1.1 emission is a flat
+//! *compatibility shim* — it records which controls were REQUIRED, NOT that
+//! consent was obtained (see [`kantara_cr_v1_1`]). Signing (Ed25519 over the
+//! receipt) is the `/tools` CLI's job — this module only serializes.
 //!
-//! Output is deterministic: `serde_json` objects are BTreeMap-backed, so keys
-//! serialize in sorted order — the same decision + context always yields the
-//! identical byte string (a prerequisite for content-addressing + signing).
+//! Output is deterministic: [`dpv_27560_json`] / [`kantara_cr_v1_1_json`]
+//! serialize through an explicit key-sorting canonicalizer, so the byte string
+//! is stable regardless of whether a consumer's build enables the
+//! `serde_json/preserve_order` feature (a prerequisite for content-addressing +
+//! signing that a bare BTreeMap assumption would not survive under Cargo feature
+//! unification).
 //!
 //! Revision History
 //! - 2026-07-06: authored — roadmap item 3 (27560/DPV receipt + Kantara CR v1.1
 //!   shim + AI-Act §50 disclosure evidence).
+//! - 2026-07-07: council-audit fidelity fixes — advisory taint no longer cleared
+//!   by a self-declared status (`PROVENANCE_VERIFIED`); `@context` coerces minted
+//!   terms to IRIs; dropped the false dpv-27560-profile lineage claim, the
+//!   fabricated Kantara `consentType: EXPLICIT`, and the hardcoded
+//!   `legal_basis_hint`; explicit sorting canonicalizer for determinism.
 
 /// The RLPS-owned JSON-LD namespace (spec §8). Minted under squillo.com
 /// control; a `w3id.org` alias is planned post-publication. Terms remain valid
@@ -49,7 +67,30 @@ pub const NOT_LEGAL_ADVICE: &str = "NOT LEGAL ADVICE. This receipt records a con
 /// Receipt schema identifier carried in `record.schema_version`.
 pub const SCHEMA_VERSION: &str = "rlps-receipt/0.1+iso27560";
 
+/// Whether the reference resolver cryptographically verifies pack provenance
+/// (signature by a directory-listed, non-revoked reviewer key). It does NOT in
+/// v0.1 — directory verification is deferred to registry tooling — so this is
+/// `false` and every reference-resolver decision is advisory-only (spec §6).
+pub const PROVENANCE_VERIFIED: bool = false;
+
 const KANTARA_VERSION: &str = "KI-CR-v1.1.0";
+
+/// Recursively rebuild a JSON value with object keys in sorted order — the
+/// canonical form the `_json` serializers emit, so output bytes are stable
+/// regardless of the `serde_json/preserve_order` feature (see module doc).
+fn canonicalize(value: &::serde_json::Value) -> ::serde_json::Value {
+  match value {
+    ::serde_json::Value::Object(map) => {
+      let sorted: ::std::collections::BTreeMap<::std::string::String, ::serde_json::Value> =
+        map.iter().map(|(k, v)| (k.clone(), canonicalize(v))).collect();
+      ::serde_json::Value::Object(sorted.into_iter().collect())
+    }
+    ::serde_json::Value::Array(arr) => {
+      ::serde_json::Value::Array(arr.iter().map(canonicalize).collect())
+    }
+    other => other.clone(),
+  }
+}
 
 /// EU AI Act Art. 50 disclosure evidence: WHEN and HOW the "an AI system is
 /// present" notice was delivered (spec §8 — the receipt MUST log disclosure
@@ -108,9 +149,13 @@ pub struct ReceiptContext {
   pub pack_sha256: ::std::option::Option<::std::string::String>,
 }
 
-/// Spec §6: decisions from unattested / self-attested packs are advisory-only.
+/// Spec §6: a decision is advisory-only unless provenance was cryptographically
+/// verified (which the reference resolver never does — [`PROVENANCE_VERIFIED`]).
+/// A self-declared `status = "approved"` string can never clear the taint on its
+/// own; it does not prove *who* attested.
 fn advisory_only(prov: &crate::PolicyProvenance) -> bool {
   prov.fell_back
+    || !PROVENANCE_VERIFIED
     || !::std::matches!(
       prov.legal_review_status.as_deref(),
       ::std::option::Option::Some("approved")
@@ -148,6 +193,11 @@ pub fn dpv_27560(
       "@vocab": RLPS_NS,
       "rlps": RLPS_NS,
       "dpv": DPV_NS,
+      // Node identity + IRI coercion so minted terms expand to namespace IRIs,
+      // not string literals (council-audit NN4).
+      "id": "@id",
+      "operations": { "@id": "rlps:operations", "@type": "@id" },
+      "event_type": { "@id": "rlps:event_type", "@type": "@id" },
     },
     "@type": "rlps:ControlDecisionReceipt",
     "record": {
@@ -185,6 +235,7 @@ pub fn dpv_27560(
       "pack_source": decision.provenance.source,
       "legal_review_status": decision.provenance.legal_review_status,
       "fell_back": decision.provenance.fell_back,
+      "provenance_verified": PROVENANCE_VERIFIED,
       "advisory_only": advisory_only(&decision.provenance),
     },
     "event": events,
@@ -194,10 +245,12 @@ pub fn dpv_27560(
     root["provenance"]["pack_sha256"] = ::serde_json::Value::String(sha.clone());
   }
   if let ::std::option::Option::Some(d) = &ctx.ai_disclosure {
+    // Record the disclosure FACTS (when + how). Naming a governing statute is a
+    // legal conclusion the resolver must not assert (council-audit NN7) — the
+    // legal basis is the pack author's / counsel's call, carried in the pack.
     root["ai_disclosure"] = ::serde_json::json!({
       "disclosed_at": d.disclosed_at,
       "method": d.method,
-      "legal_basis_hint": "eu_ai_act_article_50",
     });
   }
   root
@@ -208,7 +261,7 @@ pub fn dpv_27560_json(
   decision: &crate::ControlDecision,
   ctx: &ReceiptContext,
 ) -> ::std::string::String {
-  ::serde_json::to_string_pretty(&dpv_27560(decision, ctx))
+  ::serde_json::to_string_pretty(&canonicalize(&dpv_27560(decision, ctx)))
     .expect("Value serialization cannot fail")
 }
 
@@ -238,21 +291,29 @@ pub fn kantara_cr_v1_1(
       "purposes": [{
         "purpose": ctx.subject,
         "purposeCategory": [ctx.domain],
-        "consentType": "EXPLICIT",
+        // No consentType / thirdPartyDisclosure: an RLPS receipt records which
+        // controls are REQUIRED, NOT that consent was obtained. Asserting
+        // consentType:"EXPLICIT" would fabricate consent evidence (council-audit
+        // NN6). The record kind is stated in the top-level `notice`.
         "piiCategory": ctx.operations,
         "primaryPurpose": true,
         "termination": "per_pack_effective_until",
-        "thirdPartyDisclosure": false,
       }],
     }],
     "sensitive": ctx.sensitive,
     "spiCat": ctx.spi_cat,
+    // Prominent at TOP LEVEL (not only in the rlps block a Kantara reader skips):
+    // this is a control-prescription, not proof of collected consent.
+    "notice": ::std::format!(
+      "RLPS control-prescription receipt — records REQUIRED controls, NOT obtained consent. {NOT_LEGAL_ADVICE}"
+    ),
     "rlps": {
       "posture": decision.provenance.strictness.as_str(),
       "required_controls": control_strings(decision),
       "pack_source": decision.provenance.source,
       "legal_review_status": decision.provenance.legal_review_status,
       "fell_back": decision.provenance.fell_back,
+      "provenance_verified": PROVENANCE_VERIFIED,
       "advisory_only": advisory_only(&decision.provenance),
       "gpc_signal": ctx.gpc_signal,
       "disclaimer": NOT_LEGAL_ADVICE,
@@ -275,7 +336,7 @@ pub fn kantara_cr_v1_1_json(
   decision: &crate::ControlDecision,
   ctx: &ReceiptContext,
 ) -> ::std::string::String {
-  ::serde_json::to_string_pretty(&kantara_cr_v1_1(decision, ctx))
+  ::serde_json::to_string_pretty(&canonicalize(&kantara_cr_v1_1(decision, ctx)))
     .expect("Value serialization cannot fail")
 }
 
@@ -305,8 +366,9 @@ mod tests {
   fn ctx() -> super::ReceiptContext {
     super::ReceiptContext {
       record_id: ::std::string::String::from("rec-0001"),
-      issued_at: ::std::string::String::from("2026-07-06T12:00:00Z"),
-      issued_at_unix: 1_783_685_600,
+      // issued_at and issued_at_unix MUST be the same instant (2026-07-06T00:00:00Z).
+      issued_at: ::std::string::String::from("2026-07-06T00:00:00Z"),
+      issued_at_unix: 1_783_296_000,
       language: ::std::string::String::from("en"),
       pii_principal_id: ::std::string::String::from("principal-42"),
       pii_controller: ::std::string::String::from("Example Operator LLC"),
@@ -339,8 +401,35 @@ mod tests {
       v["decision"]["required_controls"],
       ::serde_json::json!(["attestation", "signal_notice"])
     );
-    ::std::assert_eq!(v["provenance"]["advisory_only"], false, "approved pack ⇒ not advisory");
     ::std::assert_eq!(v["disclaimer"], super::NOT_LEGAL_ADVICE);
+  }
+
+  /// Why: council-audit NN1 — writing `status = "approved"` is self-attestation
+  /// and must NOT clear the advisory taint on its own (it never proves WHO
+  /// attested). The reference resolver verifies no provenance, so EVERY receipt
+  /// is advisory-only and carries provenance_verified=false — even for an
+  /// "approved" pack. If this ever flips, a one-line TOML edit defeats §6.
+  #[test]
+  fn approved_status_alone_does_not_clear_the_advisory_taint() {
+    let v = super::dpv_27560(&decision(false, ::std::option::Option::Some("approved")), &ctx());
+    ::std::assert_eq!(v["provenance"]["legal_review_status"], "approved", "claim preserved");
+    ::std::assert_eq!(v["provenance"]["provenance_verified"], false, "resolver verifies nothing");
+    ::std::assert_eq!(
+      v["provenance"]["advisory_only"], true,
+      "self-declared approved must stay advisory until crypto verification exists"
+    );
+    ::std::assert!(!super::PROVENANCE_VERIFIED, "v0.1 constant guards the above");
+  }
+
+  /// Why: council-audit NN4 — the minted terms are the whole point of the
+  /// RLPS-owned namespace; the @context must coerce the term-bearing keys so
+  /// they expand to IRIs, not string literals. Pins the coercion is present.
+  #[test]
+  fn context_coerces_minted_terms_to_iris() {
+    let v = super::dpv_27560(&decision(false, ::std::option::Option::Some("draft")), &ctx());
+    ::std::assert_eq!(v["@context"]["id"], "@id", "bare id must map to node identity");
+    ::std::assert_eq!(v["@context"]["operations"]["@type"], "@id", "operations values are IRIs");
+    ::std::assert_eq!(v["@context"]["event_type"]["@type"], "@id", "event_type values are IRIs");
   }
 
   /// Why: spec §5/§6 — a fallen-back decision was governed by NO reviewed
@@ -400,12 +489,29 @@ mod tests {
     let v = super::kantara_cr_v1_1(&decision(false, ::std::option::Option::Some("draft")), &ctx());
     ::std::assert_eq!(v["version"], "KI-CR-v1.1.0");
     ::std::assert_eq!(v["consentReceiptID"], "rec-0001");
-    ::std::assert_eq!(v["consentTimestamp"], 1_783_685_600u64);
+    ::std::assert_eq!(v["consentTimestamp"], 1_783_296_000u64);
     ::std::assert_eq!(v["policyUrl"], "urn:rlps:policy:unspecified", "None ⇒ URN placeholder");
     ::std::assert_eq!(v["services"][0]["service"], "recording_consent");
     ::std::assert_eq!(v["services"][0]["purposes"][0]["purpose"], "twin_attend");
     ::std::assert_eq!(v["rlps"]["posture"], "as_configured");
     ::std::assert_eq!(v["rlps"]["advisory_only"], true);
+  }
+
+  /// Why: council-audit NN6 — the shim must NOT fabricate consent evidence. An
+  /// RLPS receipt records which controls are REQUIRED, not that consent was
+  /// obtained; asserting consentType:"EXPLICIT" could be read by a Kantara-native
+  /// auditor as proof of collected explicit consent. The top-level `notice` must
+  /// state the record kind where such a reader will see it.
+  #[test]
+  fn kantara_shim_does_not_fabricate_consent() {
+    let v = super::kantara_cr_v1_1(&decision(true, ::std::option::Option::None), &ctx());
+    let purpose = &v["services"][0]["purposes"][0];
+    ::std::assert!(purpose.get("consentType").is_none(), "must not assert consentType");
+    ::std::assert!(purpose.get("thirdPartyDisclosure").is_none(), "must not assert disclosure");
+    ::std::assert!(
+      v["notice"].as_str().expect("notice").contains("NOT obtained consent"),
+      "record-kind notice must be top-level"
+    );
   }
 
   /// Why: escalation signals (GPC / IEEE-7012) change WHICH posture governed
@@ -429,13 +535,31 @@ mod tests {
   }
 
   /// Why: deterministic bytes are the precondition for content-addressing and
-  /// Ed25519 signing (module doc) — nondeterministic key order would make the
-  /// same decision hash differently on every emit, breaking signature reuse.
+  /// Ed25519 signing (module doc) — the canonicalizer must emit object keys in
+  /// sorted order so the same decision hashes identically regardless of the
+  /// serde_json/preserve_order feature. Assert the top-level order explicitly,
+  /// not just self-equality (which passes even under insertion order).
   #[test]
-  fn serialization_is_deterministic() {
+  fn serialization_is_deterministic_and_key_sorted() {
     let d = decision(false, ::std::option::Option::Some("approved"));
     let c = ctx();
-    ::std::assert_eq!(super::dpv_27560_json(&d, &c), super::dpv_27560_json(&d, &c));
-    ::std::assert_eq!(super::kantara_cr_v1_1_json(&d, &c), super::kantara_cr_v1_1_json(&d, &c));
+    let json = super::dpv_27560_json(&d, &c);
+    ::std::assert_eq!(json, super::dpv_27560_json(&d, &c), "stable across calls");
+    // Re-parse and confirm a nested object's keys are sorted in the byte stream.
+    let ctx_pos = json.find("\"@context\"").expect("@context present");
+    let type_pos = json.find("\"@type\"").expect("@type present");
+    ::std::assert!(ctx_pos < type_pos, "@context sorts before @type");
+  }
+
+  /// Why: council-audit NN11 — the two receipt forms date one decision from the
+  /// SAME instant (dpv emits the ISO string, Kantara the epoch); a drifting
+  /// fixture (they were ~4 days apart) would ship an example that dates itself
+  /// inconsistently. Pin the fixture's epoch == its ISO string.
+  #[test]
+  fn fixture_epoch_matches_its_iso_instant() {
+    let c = ctx();
+    // 2026-07-06T00:00:00Z == 1783296000 (days since epoch * 86400).
+    ::std::assert_eq!(c.issued_at, "2026-07-06T00:00:00Z");
+    ::std::assert_eq!(c.issued_at_unix, 1_783_296_000);
   }
 }

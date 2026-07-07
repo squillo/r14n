@@ -60,8 +60,10 @@ fn main() {
     attribution_source: ::std::string::String::from("operator_declared"),
     gpc_signal: false,
     ieee7012_no_recording: false,
-    sensitive: false,
-    spi_cat: ::std::vec::Vec::new(),
+    // VoiceRecording is a biometric-adjacent GDPR Art. 9 special category
+    // (docs/namespace.md) — the example must mark it sensitive (council-audit NN12).
+    sensitive: true,
+    spi_cat: ::std::vec![::std::string::String::from("rlps:VoiceRecording")],
     ai_disclosure: ::std::option::Option::Some(::r14n::receipt::AiDisclosure {
       disclosed_at: ::std::string::String::from("2026-08-02T08:59:00Z"),
       method: ::std::string::String::from("in_meeting_announcement"),
@@ -69,10 +71,14 @@ fn main() {
     pack_sha256: ::std::option::Option::None,
   };
 
-  let combined = ::serde_json::json!({
-    "dpv_27560": ::r14n::receipt::dpv_27560(&decision, &ctx),
-    "kantara_cr_v1_1": ::r14n::receipt::kantara_cr_v1_1(&decision, &ctx),
-  });
+  // Emit through the canonical (sorted-key) serializers so the checked-in file
+  // is byte-stable and content-addressable (council-audit NN9).
+  let dpv: ::serde_json::Value =
+    ::serde_json::from_str(&::r14n::receipt::dpv_27560_json(&decision, &ctx)).expect("dpv json");
+  let kantara: ::serde_json::Value =
+    ::serde_json::from_str(&::r14n::receipt::kantara_cr_v1_1_json(&decision, &ctx))
+      .expect("kantara json");
+  let combined = ::serde_json::json!({ "dpv_27560": dpv, "kantara_cr_v1_1": kantara });
   ::std::println!(
     "{}",
     ::serde_json::to_string_pretty(&combined).expect("Value serialization cannot fail")
