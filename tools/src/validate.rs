@@ -30,6 +30,18 @@ impl Findings {
 const KNOWN_POSTURES: &[&str] = &["aggressive", "as_configured", "minimal"];
 const KNOWN_REVIEW_STATUS: &[&str] = &["not_required", "draft", "requires_signoff", "approved"];
 
+/// True iff `s` is an ISO calendar date `YYYY-MM-DD` (shape check only — the
+/// linter is std-only, so it validates the format, not calendar validity).
+fn is_iso_date(s: &str) -> bool {
+  let b = s.as_bytes();
+  b.len() == 10
+    && b[4] == b'-'
+    && b[7] == b'-'
+    && b[..4].iter().all(u8::is_ascii_digit)
+    && b[5..7].iter().all(u8::is_ascii_digit)
+    && b[8..10].iter().all(u8::is_ascii_digit)
+}
+
 /// Validate pack text against the RLPS pack rules (+ optional catalog).
 pub fn validate(
   pack_text: &str,
@@ -103,11 +115,37 @@ pub fn validate(
     }
   }
 
+  // Date-typed fields must be ISO YYYY-MM-DD (council-audit N5: the extract
+  // template's `TODO-YYYY-MM-DD` placeholders previously lint-passed and flowed
+  // into the content-addressed index). A malformed date is a warning on a draft
+  // (templates carry placeholders) but an error on any non-draft pack.
+  let is_draft = review
+    .and_then(|r| r.get("status"))
+    .and_then(|s| s.as_str())
+    == ::std::option::Option::Some("draft");
+  for field in ["effective_from", "effective_until", "last_reviewed_against_guidance"] {
+    if let ::std::option::Option::Some(v) = meta.and_then(|m| m.get(field)).and_then(|v| v.as_str()) {
+      if !is_iso_date(v) {
+        let msg = ::std::format!("{field} = \"{v}\" is not an ISO date (YYYY-MM-DD)");
+        if is_draft {
+          warnings.push(msg);
+        } else {
+          errors.push(msg);
+        }
+      }
+    }
+  }
+  if let ::std::option::Option::Some(v) = review.and_then(|r| r.get("review_date")).and_then(|v| v.as_str()) {
+    if !is_iso_date(v) {
+      errors.push(::std::format!("legal_review.review_date = \"{v}\" is not an ISO date"));
+    }
+  }
+
   // Effective-date envelope ordering (spec §7; ISO dates compare lexically).
   let from = meta.and_then(|m| m.get("effective_from")).and_then(|v| v.as_str());
   let until = meta.and_then(|m| m.get("effective_until")).and_then(|v| v.as_str());
   if let (::std::option::Option::Some(f), ::std::option::Option::Some(u)) = (from, until) {
-    if f > u {
+    if is_iso_date(f) && is_iso_date(u) && f > u {
       errors.push(::std::format!("effective_from {f} is after effective_until {u}"));
     }
   }
@@ -233,5 +271,24 @@ mod tests {
     let f = super::validate(pack, ::std::option::Option::None);
     ::std::assert!(f.ok(), "{:?}", f.errors);
     ::std::assert!(f.warnings.iter().any(|w| w.contains("turbo")));
+  }
+
+  /// Why: council-audit N5 — a placeholder/garbage date is a warning while a
+  /// pack is a draft (templates carry `TODO-YYYY-MM-DD`), but on any non-draft
+  /// pack it must be an ERROR so a malformed date can never reach the
+  /// content-addressed index via publish.
+  #[test]
+  fn malformed_date_warns_on_draft_but_errors_on_non_draft() {
+    let draft = "[meta]\nstrictness = \"minimal\"\neffective_from = \"TODO-YYYY-MM-DD\"\n\n\
+       [meta.legal_review]\nstatus = \"draft\"\n\n[legally_required]\ncontrols = [\"attestation\"]\n";
+    let f = super::validate(draft, ::std::option::Option::None);
+    ::std::assert!(f.ok(), "draft placeholder date is a warning, not an error: {:?}", f.errors);
+    ::std::assert!(f.warnings.iter().any(|w| w.contains("effective_from")));
+
+    let signed = "[meta]\nstrictness = \"minimal\"\neffective_from = \"TODO-YYYY-MM-DD\"\n\n\
+       [meta.legal_review]\nstatus = \"requires_signoff\"\n\n[legally_required]\ncontrols = [\"attestation\"]\n";
+    let f = super::validate(signed, ::std::option::Option::None);
+    ::std::assert!(!f.ok(), "non-draft malformed date must error");
+    ::std::assert!(f.errors.iter().any(|e| e.contains("effective_from")));
   }
 }

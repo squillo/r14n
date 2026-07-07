@@ -23,15 +23,22 @@ An implementation MUST model these seven entities:
 
 1. **Control** — the atom. Declared once in a **Control Catalog** with a `kind` ∈
    {`permit`, `obligation`, `prohibition`} and OPTIONAL faceted fields (`trigger`, `mechanism`,
-   `retention`, `subject_rights`, `legal_basis`; an `obligation` SHOULD carry `deadline` +
-   `consequence`). A control key MUST be namespaced `domain.control`. A control is a stable
+   `retention`, `subject_rights`, `legal_basis_hint`; an `obligation` SHOULD carry `deadline` +
+   `consequence`). A control is **domain-scoped**: the control *key* is a bare identifier
+   (e.g. `attestation`) that is unique within — and namespaced by — its owning `domain` (the
+   catalog/pack it is declared in), so `recording_consent`'s `attestation` and another domain's
+   `attestation` are distinct controls. The on-disk key is the bare form; the domain comes from
+   context (catalog/pack file), never a literal `domain.control` string. A control is a stable
    identifier, NOT legal text.
 2. **Domain** — partitions controls by regulated activity (e.g. `recording_consent`). On disk it
    is the pack filename: `<domain>.r14n.toml`.
 3. **Subject** — a first-class key dimension within a domain (e.g. a recording rail). A pack
    expresses `[subject.<name>] controls = [...]`.
 4. **Profile** — a `<regime>/<jurisdiction>/<subjurisdiction>` hierarchical tag (e.g.
-   `gdpr/eu/de`). Resolved by RFC-4647 progressive-subtag truncation with delta-only inheritance.
+   `gdpr/eu/de`). Resolved by **RFC-4647-style** progressive-subtag truncation (the truncation
+   procedure of RFC 4647 §3.4, adapted here from BCP-47 `-`-delimited language tags to
+   `/`-delimited profile tags; the adapted algorithm is defined normatively in §4) with
+   delta-only inheritance.
 5. **Pack** — one `<domain>.r14n.toml` for one profile. MUST contain `[meta]` (with `posture`
    and an effective-date envelope), MAY declare an inheritance parent, MUST provide a
    `[legally_required]` floor, MAY declare a `[prohibited]` table (controls the profile forbids —
@@ -67,8 +74,8 @@ The data-minimization guard (§3, `aggressive`) applies per domain after posture
 
 ## 4. Resolution algorithm (normative)
 
-A conforming resolver MUST, in order: (1) negotiate the profile by RFC-4647 lookup
-(`gdpr/eu/de → gdpr/eu → gdpr → root`); (2) delta-merge down the inheritance chain; (3) apply the
+A conforming resolver MUST, in order: (1) negotiate the profile by RFC-4647-style progressive
+truncation over `/`-delimited subtags (`gdpr/eu/de → gdpr/eu → gdpr → root`); (2) delta-merge down the inheritance chain; (3) apply the
 posture to select the governing table (per-domain precedence per §3); (4) on a session spanning
 jurisdictions, apply the **most-restrictive merge** (§4.2); (5) escalate a subject to
 `aggressive` on a `Sec-GPC: 1` signal or an IEEE-7012 `NoRecording` term. It MUST return

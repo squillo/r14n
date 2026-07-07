@@ -68,14 +68,20 @@ mod tests {
   }
 
   /// Why: extract and validate are two halves of one lifecycle — a template
-  /// the linter rejects would make the CLI contradict itself on step one. This
-  /// pins the tools' internal consistency (template ⊨ lint, incl. catalog
-  /// membership).
+  /// the linter ERRORS on would make the CLI contradict itself on step one (no
+  /// errors). But the template's `TODO-YYYY-MM-DD` placeholders MUST WARN
+  /// (council-audit N5) so a placeholder date can't silently sail into publish;
+  /// this pins both halves: draft template = no errors, but ≥1 date warning.
   #[test]
-  fn template_passes_the_validate_linter() {
+  fn template_lints_clean_but_warns_on_placeholder_dates() {
     let cat = crate::catalog::test_catalog();
     let t = super::template(&cat, "example_profile");
     let f = crate::validate::validate(&t, ::std::option::Option::Some(&cat));
-    ::std::assert!(f.ok(), "template must lint clean: {:?}", f.errors);
+    ::std::assert!(f.ok(), "template must have no ERRORS: {:?}", f.errors);
+    ::std::assert!(
+      f.warnings.iter().any(|w| w.contains("TODO-YYYY-MM-DD")),
+      "placeholder dates must warn: {:?}",
+      f.warnings
+    );
   }
 }

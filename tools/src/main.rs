@@ -74,8 +74,9 @@ enum Command {
   Help,
 }
 
-/// Pull `--flag value` out of the arg list (removing both tokens).
-/// `Err` when the flag is present but dangling without a value.
+/// Pull `--flag value` out of the arg list (removing both tokens). `Err` when
+/// the flag is dangling (no value / value is itself a `--flag`) or repeated
+/// (council-audit NN13 — a missing value must not silently swallow the next flag).
 fn take_flag(
   args: &mut ::std::vec::Vec<::std::string::String>,
   flag: &str,
@@ -87,8 +88,29 @@ fn take_flag(
   if idx + 1 >= args.len() {
     return ::std::result::Result::Err(::std::format!("{flag} needs a value"));
   }
+  if args[idx + 1].starts_with("--") {
+    return ::std::result::Result::Err(::std::format!(
+      "{flag} needs a value, but got the flag `{}`",
+      args[idx + 1]
+    ));
+  }
+  if args.iter().filter(|a| a.as_str() == flag).count() > 1 {
+    return ::std::result::Result::Err(::std::format!("{flag} given more than once"));
+  }
   args.remove(idx);
   ::std::result::Result::Ok(::std::option::Option::Some(args.remove(idx)))
+}
+
+/// After a subcommand has consumed its flags + positional, nothing may remain —
+/// a leftover token is a typo or a dropped arg, not something to ignore silently.
+fn expect_no_leftovers(
+  args: &[::std::string::String],
+) -> ::std::result::Result<(), ::std::string::String> {
+  if args.is_empty() {
+    ::std::result::Result::Ok(())
+  } else {
+    ::std::result::Result::Err(::std::format!("unexpected argument(s): {}", args.join(" ")))
+  }
 }
 
 fn require(
@@ -108,16 +130,24 @@ fn parse_args(
   }
   let sub = args.remove(0);
   match sub.as_str() {
-    "extract" => ::std::result::Result::Ok(Command::Extract {
-      catalog: ::std::path::PathBuf::from(require(take_flag(&mut args, "--catalog")?, "--catalog")?),
-      profile: require(take_flag(&mut args, "--profile")?, "--profile")?,
-      out: take_flag(&mut args, "-o")?.map(::std::path::PathBuf::from),
-    }),
-    "merge" => ::std::result::Result::Ok(Command::Merge {
-      pack: ::std::path::PathBuf::from(require(take_flag(&mut args, "--pack")?, "--pack")?),
-      catalog: ::std::path::PathBuf::from(require(take_flag(&mut args, "--catalog")?, "--catalog")?),
-      out: take_flag(&mut args, "-o")?.map(::std::path::PathBuf::from),
-    }),
+    "extract" => {
+      let cmd = Command::Extract {
+        catalog: ::std::path::PathBuf::from(require(take_flag(&mut args, "--catalog")?, "--catalog")?),
+        profile: require(take_flag(&mut args, "--profile")?, "--profile")?,
+        out: take_flag(&mut args, "-o")?.map(::std::path::PathBuf::from),
+      };
+      expect_no_leftovers(&args)?;
+      ::std::result::Result::Ok(cmd)
+    }
+    "merge" => {
+      let cmd = Command::Merge {
+        pack: ::std::path::PathBuf::from(require(take_flag(&mut args, "--pack")?, "--pack")?),
+        catalog: ::std::path::PathBuf::from(require(take_flag(&mut args, "--catalog")?, "--catalog")?),
+        out: take_flag(&mut args, "-o")?.map(::std::path::PathBuf::from),
+      };
+      expect_no_leftovers(&args)?;
+      ::std::result::Result::Ok(cmd)
+    }
     "validate" => {
       let catalog = take_flag(&mut args, "--catalog")?.map(::std::path::PathBuf::from);
       if args.is_empty() {
@@ -130,30 +160,31 @@ fn parse_args(
         catalog,
       })
     }
-    "keygen" => ::std::result::Result::Ok(Command::Keygen {
-      out: ::std::path::PathBuf::from(require(take_flag(&mut args, "--out")?, "--out")?),
-    }),
+    "keygen" => {
+      let cmd = Command::Keygen {
+        out: ::std::path::PathBuf::from(require(take_flag(&mut args, "--out")?, "--out")?),
+      };
+      expect_no_leftovers(&args)?;
+      ::std::result::Result::Ok(cmd)
+    }
     "sign" => {
       let key = ::std::path::PathBuf::from(require(take_flag(&mut args, "--key")?, "--key")?);
       let key_id = take_flag(&mut args, "--key-id")?;
       if args.is_empty() {
         return ::std::result::Result::Err(::std::string::String::from("sign needs a pack path"));
       }
-      ::std::result::Result::Ok(Command::Sign {
-        pack: ::std::path::PathBuf::from(args.remove(0)),
-        key,
-        key_id,
-      })
+      let pack = ::std::path::PathBuf::from(args.remove(0));
+      expect_no_leftovers(&args)?;
+      ::std::result::Result::Ok(Command::Sign { pack, key, key_id })
     }
     "verify" => {
       let sig = take_flag(&mut args, "--sig")?.map(::std::path::PathBuf::from);
       if args.is_empty() {
         return ::std::result::Result::Err(::std::string::String::from("verify needs a pack path"));
       }
-      ::std::result::Result::Ok(Command::Verify {
-        pack: ::std::path::PathBuf::from(args.remove(0)),
-        sig,
-      })
+      let pack = ::std::path::PathBuf::from(args.remove(0));
+      expect_no_leftovers(&args)?;
+      ::std::result::Result::Ok(Command::Verify { pack, sig })
     }
     "publish" => {
       let id = require(take_flag(&mut args, "--id")?, "--id (canonically <profile>/<domain>)")?;
@@ -163,11 +194,9 @@ fn parse_args(
       if args.is_empty() {
         return ::std::result::Result::Err(::std::string::String::from("publish needs a pack path"));
       }
-      ::std::result::Result::Ok(Command::Publish {
-        pack: ::std::path::PathBuf::from(args.remove(0)),
-        id,
-        registry,
-      })
+      let pack = ::std::path::PathBuf::from(args.remove(0));
+      expect_no_leftovers(&args)?;
+      ::std::result::Result::Ok(Command::Publish { pack, id, registry })
     }
     "--help" | "-h" | "help" => ::std::result::Result::Ok(Command::Help),
     other => ::std::result::Result::Err(::std::format!("unknown subcommand `{other}`")),
@@ -345,6 +374,33 @@ mod tests {
     ::std::assert!(parse(&["validate", "--catalog", "c.toml"]).is_err(), "no pack paths");
     ::std::assert!(parse(&["sign", "--key", "k.seed"]).is_err(), "sign without a pack");
     ::std::assert!(parse(&["frobnicate"]).is_err(), "unknown subcommand");
+  }
+
+  /// Why: council-audit NN13 — a flag missing its value must NOT swallow the
+  /// next flag, a repeated flag must NOT leak to a positional, and leftover
+  /// tokens (typos / dropped args) must error rather than be silently ignored —
+  /// all three previously mis-parsed into a Command that then touched files.
+  #[test]
+  fn arg_traps_error_instead_of_silently_misparsing() {
+    // Missing value swallows the next flag.
+    ::std::assert!(
+      parse(&["sign", "p.toml", "--key", "--key-id", "r1"]).is_err(),
+      "--key with no value must not consume --key-id"
+    );
+    // Repeated flag.
+    ::std::assert!(
+      parse(&["validate", "ok.toml", "--catalog", "c.toml", "--catalog", "c2.toml"]).is_err(),
+      "duplicate --catalog must error"
+    );
+    // Leftover positional after the consumed one.
+    ::std::assert!(
+      parse(&["verify", "p.toml", "extra-junk"]).is_err(),
+      "unexpected trailing arg must error"
+    );
+    ::std::assert!(
+      parse(&["extract", "--catalog", "c.toml", "--profile", "p", "junk"]).is_err(),
+      "extract takes no positional"
+    );
   }
 
   /// Why: bare `r14n` and `--help`/`-h`/`help` must all land on Help — exiting
