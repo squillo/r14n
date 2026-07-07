@@ -9,6 +9,10 @@ provenance envelope; the registry establishes trusted signers (code-signing mode
   directory schema (spec §6): steward-signed, per-key `jurisdiction` +
   `credential_type` + `credential_id`, expiry + revocation. A directory entry proves
   *who* may attest, never that a review was correct — NOT LEGAL ADVICE.
+- [`pack-index.schema.json`](pack-index.schema.json) — content-addressed pack
+  versioning + supersession (monotonic version per `<profile>/<domain>` id,
+  `supersedes` sha256 chain, optional embedded `rlps-sig/0.1` signature). Written
+  locally by `r14n publish` (see `/tools`).
 
-**Planned:** the pack version index (content-addressed supersession) + the hosted
-directory instance itself (counsel-gated, like everything public-facing here).
+**Planned:** the hosted directory + index instances (counsel-gated, like everything
+public-facing here). `index.json` is intentionally absent until real packs publish.

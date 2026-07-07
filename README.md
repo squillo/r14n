@@ -29,11 +29,22 @@ posture that under-restricts a jurisdiction's law is the **consuming operator's*
 the resolver already ships inside [Squillo OS](https://squillo.com) as `the Squillo OS policy engine`.
 
 **What's here now (counsel-safe subset):**
-- [`spec/RLPS-v0.1.md`](spec/RLPS-v0.1.md) — the normative specification.
-- [`schema/`](schema/) — JSON Schema for `.r14n.toml` packs + the resolver I/O + receipt mapping.
+- [`spec/RLPS-v0.1.md`](spec/RLPS-v0.1.md) — the normative specification (conflict rules,
+  trust-root, temporal split, interop mappings).
+- [`schema/`](schema/) — JSON Schema for `.r14n.toml` packs.
 - [`catalog/`](catalog/) — the canonical CONTROL CATALOG (control keys + deontic kind + facets).
-- [`resolver/`](resolver/) — the Rust reference resolver (embeddable crate).
+- [`resolver/`](resolver/) — the Rust reference resolver (embeddable crate; 18 tests) including
+  the [`receipt`](resolver/src/receipt.rs) module: ISO/IEC TS 27560 + W3C DPV JSON-LD decision
+  receipts + a Kantara CR v1.1 shim ([namespace](docs/namespace.md); worked
+  [AI-Act §50 example](docs/examples/receipt-ai-act-50.json)).
 - [`packs/`](packs/) — **only** Squillo's own `aggressive` + `minimal` baselines (posture demos, NOT jurisdiction claims).
+- [`conformance/`](conformance/) — language-neutral JSON test vectors for the 3 conformance levels.
+- [`tools/`](tools/) — the `r14n` pack-lifecycle CLI: `extract` / `merge` / `validate` /
+  `keygen` / `sign` / `verify` / `publish` (local index only).
+- [`registry/`](registry/) — reviewer-key directory + pack-index schemas (trust root, versioning,
+  supersession).
+- [`GOVERNANCE.md`](GOVERNANCE.md) — reference-impl-first staging, federated-with-attestation
+  ownership, SDO entry criteria.
 
 **Deliberately NOT here yet (held for licensed counsel):** real jurisdiction packs
 (`wiretap/us` 50-state matrix, `gdpr/eu`, `ccpa-cpra/us/ca`, …). Any pack claiming a real

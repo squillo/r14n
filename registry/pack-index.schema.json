@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/squillo/r14n/registry/pack-index.schema.json",
+  "title": "RLPS Pack Index",
+  "description": "Content-addressed pack versioning + supersession (spec section 7 text-in-effect). Written by `r14n publish` (LOCAL only; hosting an index publicly is counsel-gated). An index entry proves WHAT bytes were published WHEN, never that a pack is lawful. NOT LEGAL ADVICE.",
+  "type": "object",
+  "required": ["index_version", "packs"],
+  "additionalProperties": false,
+  "properties": {
+    "index_version": {
+      "type": "string",
+      "const": "rlps-pack-index/0.1"
+    },
+    "packs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "version", "sha256", "path", "published_at_unix", "supersedes"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Canonical pack identity: <profile>/<domain> (e.g. 'aggressive/recording_consent').",
+            "pattern": "^[a-z0-9_./-]+$"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Monotonic per id. A pack is immutable at a version (spec section 2.5)."
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "Content address of the exact pack bytes."
+          },
+          "path": { "type": "string" },
+          "published_at_unix": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Unix seconds when the entry was indexed."
+          },
+          "supersedes": {
+            "type": ["string", "null"],
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "sha256 of the previous latest version for this id; null for the first. Resolvers following a supersession chain MUST land on the highest version whose effective-date envelope covers the query date."
+          },
+          "signature": {
+            "type": ["object", "null"],
+            "description": "Embedded detached signature (rlps-sig/0.1, written by `r14n sign`). Key encodings match reviewer-key.schema.json; the key SHOULD appear in the reviewer-key directory for the decision to escape the advisory-only taint (spec section 6).",
+            "required": ["schema", "sha256", "public_key_ed25519", "signature_ed25519"],
+            "additionalProperties": true,
+            "properties": {
+              "schema": { "type": "string", "const": "rlps-sig/0.1" },
+              "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+              "public_key_ed25519": { "type": "string", "pattern": "^[A-Za-z0-9+/]{43}$" },
+              "signature_ed25519": { "type": "string", "pattern": "^[A-Za-z0-9+/]{86}$" },
+              "key_id": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}
