@@ -33,7 +33,7 @@ the resolver already ships inside [Squillo OS](https://squillo.com) as `the Squi
   trust-root, temporal split, interop mappings).
 - [`schema/`](schema/) — JSON Schema for `.r14n.toml` packs.
 - [`catalog/`](catalog/) — the canonical CONTROL CATALOG (control keys + deontic kind + facets).
-- [`resolver/`](resolver/) — the Rust reference resolver (embeddable crate; 18 tests) including
+- [`resolver/`](resolver/) — the Rust reference resolver (embeddable crate; run `cargo test`) including
   the [`receipt`](resolver/src/receipt.rs) module: ISO/IEC TS 27560 + W3C DPV JSON-LD decision
   receipts + a Kantara CR v1.1 shim ([namespace](docs/namespace.md); worked
   [AI-Act §50 example](docs/examples/receipt-ai-act-50.json)).

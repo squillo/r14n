@@ -16,4 +16,4 @@ subcommand operates on configuration artifacts; none states what any jurisdictio
 `publish` never touches a network. Making anything public — pushing this repo, crates.io, a
 hosted registry — is a human decision behind the counsel gate (`the maintainer notes` constraint 3).
 
-Gate: `cargo test` here (15 tests) alongside the resolver's suite.
+Gate: `cargo test` here (unit + `tests/cli.rs` integration) alongside the resolver's suite.

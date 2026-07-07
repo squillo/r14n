@@ -125,14 +125,43 @@ is a separate, later engagement; this brief covers steps (1)–(2).
 
 ## 7. Repo contents at review time (the proposed public subset)
 
+*(Refreshed 2026-07-07 to the actual tree — the repo grew a tooling CLI, conformance suite,
+registry schemas, decision-receipt serializer, and governance doc since the first draft.)*
+
 - `spec/RLPS-v0.1.md` — the normative spec (RFC-2119).
 - `schema/pack.schema.json` — pack JSON Schema.
 - `catalog/recording_consent.catalog.toml` — control catalog (identifiers + descriptions only).
-- `resolver/` — Rust library, Apache-2.0, 6 unit tests.
+- `resolver/` — Rust library, Apache-2.0 (control resolution + the `receipt` module, §8 below);
+  **54 tests** at review time (resolver + tools).
+- `conformance/` — language-neutral JSON test vectors for the three conformance levels.
+- `tools/` — the `r14n` pack-lifecycle CLI (extract / merge / validate / keygen / sign / verify /
+  publish-to-local-index), Apache-2.0.
+- `registry/` — JSON Schemas for the reviewer-key directory and the pack index (no populated
+  instances — those are counsel-gated).
 - `packs/aggressive/`, `packs/minimal/` — Squillo's own posture baselines; **no jurisdiction
   claims** (their `legal_review.status` is `not_required` / `requires_signoff` respectively).
-- `docs/` — not-legal-advice, this brief, the name-check record.
-- `README.md`, `LICENSE` (Apache-2.0), `LICENSE-SPEC` (CC BY 4.0).
+- `docs/` — not-legal-advice, this brief, the name-check record, the namespace registry, a worked
+  receipt example, and the audit reports under `docs/audits/`.
+- `GOVERNANCE.md`, `README.md`, `the maintainer notes`, `LICENSE` (Apache-2.0), `LICENSE-SPEC` (CC BY 4.0).
+
+## 8. Decision receipts — an added review surface (please opine)
+
+The resolver emits a machine-readable **decision receipt** (an ISO/IEC TS 27560-structured
+JSON-LD document + a flat Kantara Consent Receipt v1.1 compatibility shim). Two points we want
+counsel's view on, because they touch the UPL surface of §3:
+
+- (a) **We removed a machine-generated legal conclusion.** Earlier receipts stamped
+  `legal_basis_hint: "eu_ai_act_article_50"` onto AI-disclosure events; on review that reads as
+  the tool asserting a governing statute, so the resolver now records only the disclosure *facts*
+  (timestamp + method) and leaves the legal basis to the pack author. **Does even the factual
+  disclosure record, or the receipt's naming of controls, carry UPL risk we should further hedge?**
+- (b) **The receipt never asserts that consent was obtained** — it records which controls a pack
+  *requires*. The Kantara shim was changed to drop a fabricated `consentType: "EXPLICIT"` and now
+  carries a top-level notice to that effect. **Is that notice sufficient to prevent a downstream
+  party from treating an RLPS receipt as consent evidence?**
+- (c) **Provenance is not cryptographically verified in v0.1**, so every receipt is marked
+  `advisory_only: true` regardless of a pack's self-declared `legal_review.status`. We believe
+  this is the honest posture; **please confirm it does not itself create a representation problem.**
 
 ---
 
