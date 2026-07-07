@@ -12,7 +12,7 @@ level MUST pass every vector in that level's file whose `capabilities` it implem
 | File | Level (spec §9) | Requires capabilities |
 |---|---|---|
 | `level-1.json` | **Minimal-viable** — parse packs, resolve `aggressive`, fail closed | `pack_parse`, `posture_selection`, `fail_closed_fallback` |
-| `level-2.json` | **Configured** — negotiation + delta-merge + all postures + most-restrictive | + `fail_closed_unknown_subject`, `posture_override`, `data_minimization_guard`, `rfc4647_negotiation`, `delta_merge`, `most_restrictive_merge`, `deontic_conflict`, `gpc_escalation`, `per_domain_posture` |
+| `level-2.json` | **Configured** — negotiation + delta-merge + all postures + most-restrictive | + `fail_closed_unknown_subject`, `posture_override`, `data_minimization_guard`, `temporal_envelope`, `rfc4647_negotiation`, `delta_merge`, `most_restrictive_merge`, `deontic_conflict`, `gpc_escalation`, `per_domain_posture` |
 | `level-3.json` | **Comprehensive-with-provenance** — trust-root taint + receipt emission | + `trust_root_taint`, `receipt_27560`, `receipt_kantara`, `trust_root_revocation` |
 
 ## Vector format
@@ -58,8 +58,8 @@ report (not silently drop) the vectors it skips. The reference resolver's runner
 (`/resolver/tests/conformance.rs`) pins its supported set and asserts exact run counts, so a
 newly-added vector fails the build until the runner acknowledges it.
 
-Reference-resolver status (2026-07-06): implements all Level-1 capabilities; of Level 2:
-`fail_closed_unknown_subject`, `posture_override`, `data_minimization_guard` (not yet:
-`rfc4647_negotiation`, `delta_merge`, `most_restrictive_merge`, `deontic_conflict`,
+Reference-resolver status (2026-07-07): implements all Level-1 capabilities; of Level 2:
+`fail_closed_unknown_subject`, `posture_override`, `data_minimization_guard`, `temporal_envelope`
+(not yet: `rfc4647_negotiation`, `delta_merge`, `most_restrictive_merge`, `deontic_conflict`,
 `gpc_escalation`, `per_domain_posture` — normative per spec §4, vectors authored ahead of
 implementation); of Level 3: all except `trust_root_revocation` (needs registry integration).

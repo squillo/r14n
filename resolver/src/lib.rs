@@ -150,6 +150,10 @@ pub struct RegulatoryQuery {
   pub subject: ::std::string::String,
   /// EVERY control the caller could enforce. The Aggressive/fallback ceiling.
   pub universe: ::std::collections::BTreeSet<ControlKey>,
+  /// The decision date as ISO `YYYY-MM-DD` (spec §7). When set, a pack whose
+  /// effective-date envelope does not cover it fails closed (spec §4). `None`
+  /// disables the temporal check (the caller opts out of envelope enforcement).
+  pub as_of: ::std::option::Option<::std::string::String>,
 }
 
 /// The decision verdict (spec §2.6). The infallible reference resolver always
@@ -308,6 +312,12 @@ struct PackMeta {
   /// Spec §7 interpretation-currency date; carried into the decision receipt.
   #[serde(default)]
   last_reviewed_against_guidance: ::std::option::Option<::std::string::String>,
+  /// Spec §2.5/§7 text-in-effect envelope (ISO `YYYY-MM-DD`). A decision date
+  /// outside `[effective_from, effective_until]` fails closed (spec §4).
+  #[serde(default)]
+  effective_from: ::std::option::Option<::std::string::String>,
+  #[serde(default)]
+  effective_until: ::std::option::Option<::std::string::String>,
 }
 
 #[derive(::serde::Deserialize)]
@@ -402,6 +412,30 @@ impl RegulatoryPolicyPort for TomlRegulatoryPolicyAdapter {
         .unwrap_or(Strictness::Aggressive)
     });
 
+    // Text-in-effect envelope (spec §2.5/§4/§7): when the caller supplies a
+    // decision date and the pack declares an envelope, a date outside
+    // `[effective_from, effective_until]` means no in-effect pack governs — fail
+    // closed to aggressive-over-universe, loudly. ISO `YYYY-MM-DD` compares
+    // lexically. `as_of = None` opts out of the temporal check.
+    if let ::std::option::Option::Some(as_of) = &query.as_of {
+      let before_start = pack
+        .meta
+        .effective_from
+        .as_deref()
+        .is_some_and(|from| as_of.as_str() < from);
+      let after_end = pack
+        .meta
+        .effective_until
+        .as_deref()
+        .is_some_and(|until| as_of.as_str() > until);
+      if before_start || after_end {
+        return Self::fallback(
+          query,
+          ::std::format!("<outside-effective-envelope:{}>", path.display()),
+        );
+      }
+    }
+
     // Fail-closed (spec §4/§5): a `minimal` pack whose `[legally_required]` floor
     // is missing OR empty has no enforceable minimum — it MUST NOT resolve to an
     // empty required set. Degrade to aggressive-over-universe, loudly, exactly
@@ -489,6 +523,7 @@ mod tests {
       jurisdiction: ::std::string::String::from("all_party"),
       subject: ::std::string::String::from(subject),
       universe: universe(),
+      as_of: ::std::option::Option::None,
     }
   }
 
@@ -751,6 +786,46 @@ mod tests {
     let d = super::RegulatoryPolicyPort::required_controls(&p, &query("empty_floor", "telepresence"));
     ::std::assert_eq!(d.required, universe(), "empty floor ⇒ require everything");
     ::std::assert!(d.provenance.fell_back);
+  }
+
+  /// Why: council-audit M4 — spec §4 MUSTs that a pack outside its effective-date
+  /// envelope blocks; the resolver never even read the fields, so an expired pack
+  /// governed forever. With a decision date supplied, an out-of-window pack must
+  /// fail closed (loud fallback); an in-window one resolves normally; and a
+  /// caller that supplies no date opts out (unchanged behavior).
+  #[test]
+  fn pack_outside_effective_envelope_fails_closed() {
+    let tmp = ::tempfile::tempdir().expect("tmp");
+    let dir = tmp.path().join("dated");
+    ::std::fs::create_dir_all(&dir).expect("mkdir");
+    ::std::fs::write(
+      dir.join("recording_consent.r14n.toml"),
+      "[meta]\nstrictness = \"minimal\"\neffective_from = \"2026-01-01\"\neffective_until = \"2026-06-30\"\n\
+       [legally_required]\ncontrols = [\"user_attestation\"]\n",
+    )
+    .expect("write pack");
+    let p = super::TomlRegulatoryPolicyAdapter::new(
+      tmp.path().to_path_buf(),
+      ::std::option::Option::None,
+    );
+    let dated = |as_of: ::std::option::Option<&str>| super::RegulatoryQuery {
+      as_of: as_of.map(::std::string::String::from),
+      ..query("dated", "telepresence")
+    };
+    // Expired (after the window) ⇒ loud fallback to the whole universe.
+    let d = super::RegulatoryPolicyPort::required_controls(&p, &dated(::std::option::Option::Some("2026-07-01")));
+    ::std::assert_eq!(d.required, universe(), "expired pack ⇒ fail closed");
+    ::std::assert!(d.provenance.fell_back);
+    // Not yet effective (before the window) ⇒ same.
+    let d = super::RegulatoryPolicyPort::required_controls(&p, &dated(::std::option::Option::Some("2025-12-31")));
+    ::std::assert!(d.provenance.fell_back, "not-yet-effective ⇒ fail closed");
+    // In window ⇒ resolves normally (minimal floor).
+    let d = super::RegulatoryPolicyPort::required_controls(&p, &dated(::std::option::Option::Some("2026-03-15")));
+    ::std::assert_eq!(d.required, [ck("user_attestation")].into_iter().collect());
+    ::std::assert!(!d.provenance.fell_back);
+    // No date supplied ⇒ temporal check disabled (opt-out).
+    let d = super::RegulatoryPolicyPort::required_controls(&p, &dated(::std::option::Option::None));
+    ::std::assert!(!d.provenance.fell_back, "no as_of ⇒ no temporal enforcement");
   }
 
   /// Why: receipts surface the posture VERBATIM as audit evidence (spec §2.7)

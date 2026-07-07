@@ -36,6 +36,7 @@ fn main() {
     jurisdiction: ::std::string::String::from("all_party"),
     subject: ::std::string::String::from("twin_attend"),
     universe,
+    as_of: ::std::option::Option::None,
   };
   let adapter = ::r14n::AggressiveDefaultPolicyAdapter;
   let decision = ::r14n::RegulatoryPolicyPort::required_controls(&adapter, &query);

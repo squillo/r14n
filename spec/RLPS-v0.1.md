@@ -74,7 +74,9 @@ The data-minimization guard (§3, `aggressive`) applies per domain after posture
 
 ## 4. Resolution algorithm (normative)
 
-A conforming resolver MUST, in order: (1) negotiate the profile by RFC-4647-style progressive
+When the caller supplies a decision date (`as_of`), a pack whose effective-date envelope
+(`effective_from`/`effective_until`) does not cover it MUST fail closed (no in-effect pack governs);
+`as_of` absent opts out of the temporal check. A conforming resolver MUST, in order: (1) negotiate the profile by RFC-4647-style progressive
 truncation over `/`-delimited subtags (`gdpr/eu/de → gdpr/eu → gdpr → root`); (2) delta-merge down the inheritance chain; (3) apply the
 posture to select the governing table (per-domain precedence per §3); (4) on a session spanning
 jurisdictions, apply the **most-restrictive merge** (§4.2); (5) escalate a subject to

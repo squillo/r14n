@@ -111,6 +111,11 @@ pub fn validate(
             "approved pack missing meta.last_reviewed_against_guidance (spec §7 temporal split)",
           ));
         }
+        if meta.and_then(|m| m.get("effective_from")).and_then(|v| v.as_str()).is_none() {
+          errors.push(::std::string::String::from(
+            "approved pack missing meta.effective_from (spec §2.5/§7 text-in-effect envelope)",
+          ));
+        }
       }
     }
   }
@@ -223,18 +228,19 @@ mod tests {
   }
 
   /// Why: spec §6 makes the attorney-of-record envelope NON-OPTIONAL for
-  /// approved (jurisdiction-claiming) packs, and §7 requires the
-  /// interpretation-currency date — this is the UPL/counsel gate enforced in
-  /// code, exactly 5 findings so a dropped rule is caught.
+  /// approved (jurisdiction-claiming) packs, §7 requires the
+  /// interpretation-currency date, and §2.5/§7 the effective-date envelope —
+  /// this is the UPL/counsel gate enforced in code, exactly 6 findings so a
+  /// dropped rule is caught.
   #[test]
-  fn approved_pack_requires_attorney_envelope_and_currency_date() {
+  fn approved_pack_requires_attorney_envelope_currency_and_effective_dates() {
     let pack = "[meta]\nstrictness = \"as_configured\"\n\n[meta.legal_review]\nstatus = \"approved\"\n\n\
        [legally_required]\ncontrols = [\"attestation\"]\n";
     let f = super::validate(pack, ::std::option::Option::None);
     ::std::assert_eq!(
       f.errors.iter().filter(|e| e.contains("approved pack missing")).count(),
-      5,
-      "attorney_of_record + jurisdiction + bar_credential + review_date + currency date: {:?}",
+      6,
+      "attorney_of_record + jurisdiction + bar_credential + review_date + currency + effective_from: {:?}",
       f.errors
     );
   }

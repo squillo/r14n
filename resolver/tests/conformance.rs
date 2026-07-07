@@ -20,6 +20,7 @@ const SUPPORTED: &[&str] = &[
   "fail_closed_unknown_subject",
   "posture_override",
   "data_minimization_guard",
+  "temporal_envelope",
   "trust_root_taint",
   "receipt_27560",
   "receipt_kantara",
@@ -137,6 +138,7 @@ fn run_suite(name: &str) -> (usize, ::std::vec::Vec<::std::string::String>) {
       jurisdiction: ::std::string::String::from(q["jurisdiction"].as_str().expect("jurisdiction")),
       subject: ::std::string::String::from(q["subject"].as_str().expect("subject")),
       universe,
+      as_of: q.get("as_of").and_then(|v| v.as_str()).map(::std::string::String::from),
     };
     let override_ = q["posture_override"].as_str().map(::r14n::Strictness::parse);
     let adapter = ::r14n::TomlRegulatoryPolicyAdapter::new(tmp.path().to_path_buf(), override_);
@@ -218,7 +220,7 @@ fn conformance_level_1_minimal_viable_runs_all_vectors() {
 #[test]
 fn conformance_level_2_configured_supported_subset() {
   let (ran, skipped) = run_suite("level-2.json");
-  ::std::assert_eq!(ran, 6, "level-2 supported-vector count drifted");
+  ::std::assert_eq!(ran, 8, "level-2 supported-vector count drifted");
   ::std::assert_eq!(
     skipped.len(),
     6,

@@ -4,6 +4,48 @@
   "description": "Configured (spec 9.2): RFC-4647 negotiation + delta-merge + all three postures + most-restrictive merge. Vectors for capabilities the reference resolver does not yet implement are authored ahead of implementation (spec 4 is normative regardless). NOT LEGAL ADVICE.",
   "vectors": [
     {
+      "name": "pack_outside_effective_envelope_fails_closed",
+      "description": "Spec 2.5/4/7: with a decision date supplied, a pack whose effective-date envelope does not cover it fails closed to aggressive-over-universe (loud fallback).",
+      "capabilities": ["posture_selection", "temporal_envelope"],
+      "packs": {
+        "expired/recording_consent.r14n.toml": "[meta]\nstrictness = \"minimal\"\neffective_from = \"2026-01-01\"\neffective_until = \"2026-06-30\"\n\n[legally_required]\ncontrols = [\"attestation\"]\n"
+      },
+      "query": {
+        "domain": "recording_consent",
+        "profile": "expired",
+        "jurisdiction": "all_party",
+        "subject": "telepresence",
+        "universe": ["attestation", "signal_notice", "aph_mandate"],
+        "posture_override": null,
+        "as_of": "2026-09-01"
+      },
+      "expect": {
+        "required_controls": ["aph_mandate", "attestation", "signal_notice"],
+        "fell_back": true
+      }
+    },
+    {
+      "name": "pack_within_effective_envelope_resolves",
+      "description": "Spec 7: a decision date inside the envelope resolves normally (control against the fail-closed vector).",
+      "capabilities": ["posture_selection", "temporal_envelope"],
+      "packs": {
+        "inwindow/recording_consent.r14n.toml": "[meta]\nstrictness = \"minimal\"\neffective_from = \"2026-01-01\"\neffective_until = \"2026-12-31\"\n\n[legally_required]\ncontrols = [\"attestation\"]\n"
+      },
+      "query": {
+        "domain": "recording_consent",
+        "profile": "inwindow",
+        "jurisdiction": "all_party",
+        "subject": "telepresence",
+        "universe": ["attestation", "signal_notice", "aph_mandate"],
+        "posture_override": null,
+        "as_of": "2026-06-15"
+      },
+      "expect": {
+        "required_controls": ["attestation"],
+        "fell_back": false
+      }
+    },
+    {
       "name": "as_configured_honors_subject_table",
       "description": "Spec 3: as_configured applies exactly the resolved subject table.",
       "capabilities": ["posture_selection"],
