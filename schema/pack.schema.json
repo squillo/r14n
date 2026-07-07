@@ -6,6 +6,16 @@
   "type": "object",
   "required": ["meta"],
   "additionalProperties": false,
+  "$defs": {
+    "control_list": {
+      "type": "object",
+      "required": ["controls"],
+      "additionalProperties": false,
+      "properties": {
+        "controls": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+      }
+    }
+  },
   "properties": {
     "meta": {
       "type": "object",
@@ -72,32 +82,15 @@
     "subject": {
       "type": "object",
       "description": "Per-subject required-control tables (governs under 'as_configured').",
-      "additionalProperties": {
-        "type": "object",
-        "required": ["controls"],
-        "additionalProperties": false,
-        "properties": {
-          "controls": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
-        }
-      }
+      "additionalProperties": { "$ref": "#/$defs/control_list" }
     },
     "legally_required": {
-      "type": "object",
-      "description": "The fail-closed floor (governs under 'minimal'; the mandatory catch-all).",
-      "required": ["controls"],
-      "additionalProperties": false,
-      "properties": {
-        "controls": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
-      }
+      "$ref": "#/$defs/control_list",
+      "description": "The fail-closed floor (governs under 'minimal'; the mandatory catch-all)."
     },
     "prohibited": {
-      "type": "object",
-      "description": "Controls this profile FORBIDS — the data-minimization guard input (spec section 3): no posture may ADD a control listed here; resolvers subtract it from every resolved set. Must not intersect legally_required (linter rule).",
-      "required": ["controls"],
-      "additionalProperties": false,
-      "properties": {
-        "controls": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
-      }
+      "$ref": "#/$defs/control_list",
+      "description": "Controls this profile FORBIDS — the data-minimization guard input (spec section 3): no posture may ADD a control listed here; resolvers subtract it from every resolved set. Must not intersect legally_required (linter rule)."
     }
   }
 }

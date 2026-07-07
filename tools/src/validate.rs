@@ -10,6 +10,7 @@
 //!
 //! Revision History
 //! - 2026-07-06: authored — roadmap item 5 (pack-lifecycle CLI).
+//! - 2026-07-06: DRY pass — control extraction moved to the shared `packtoml`.
 
 /// Validation outcome.
 pub struct Findings {
@@ -28,19 +29,6 @@ impl Findings {
 
 const KNOWN_POSTURES: &[&str] = &["aggressive", "as_configured", "minimal"];
 const KNOWN_REVIEW_STATUS: &[&str] = &["not_required", "draft", "requires_signoff", "approved"];
-
-fn list_of(pack: &::toml::Value, table: &str) -> ::std::collections::BTreeSet<::std::string::String> {
-  pack
-    .get(table)
-    .and_then(|t| t.get("controls"))
-    .and_then(|c| c.as_array())
-    .map(|a| {
-      a.iter()
-        .filter_map(|v| v.as_str().map(::std::string::String::from))
-        .collect()
-    })
-    .unwrap_or_default()
-}
 
 /// Validate pack text against the RLPS pack rules (+ optional catalog).
 pub fn validate(
@@ -71,7 +59,7 @@ pub fn validate(
   }
 
   // Floor (spec §2.5: MUST provide [legally_required]).
-  let floor = list_of(&pack, "legally_required");
+  let floor = crate::packtoml::control_list(&pack, "legally_required");
   match pack.get("legally_required") {
     ::std::option::Option::None => {
       errors.push(::std::string::String::from(
@@ -125,33 +113,26 @@ pub fn validate(
   }
 
   // Data-minimization consistency (spec §2.5/§3).
-  let prohibited = list_of(&pack, "prohibited");
+  let prohibited = crate::packtoml::control_list(&pack, "prohibited");
   let conflict: ::std::vec::Vec<&::std::string::String> = prohibited.intersection(&floor).collect();
   if !conflict.is_empty() {
     errors.push(::std::format!(
       "[prohibited] intersects [legally_required] {conflict:?} — a pack cannot require what it forbids (spec §2.5)"
     ));
   }
-  if let ::std::option::Option::Some(subjects) = pack.get("subject").and_then(|s| s.as_table()) {
-    for (name, table) in subjects {
-      let controls: ::std::collections::BTreeSet<::std::string::String> = table
-        .get("controls")
-        .and_then(|c| c.as_array())
-        .map(|a| a.iter().filter_map(|v| v.as_str().map(::std::string::String::from)).collect())
-        .unwrap_or_default();
-      let overlap: ::std::vec::Vec<&::std::string::String> =
-        controls.intersection(&prohibited).collect();
-      if !overlap.is_empty() {
-        warnings.push(::std::format!(
-          "[subject.{name}] lists prohibited controls {overlap:?} — resolvers subtract them (guard), but the table should not list them"
-        ));
-      }
+  for (name, controls) in crate::packtoml::subject_tables(&pack) {
+    let overlap: ::std::vec::Vec<&::std::string::String> =
+      controls.intersection(&prohibited).collect();
+    if !overlap.is_empty() {
+      warnings.push(::std::format!(
+        "[subject.{name}] lists prohibited controls {overlap:?} — resolvers subtract them (guard), but the table should not list them"
+      ));
     }
   }
 
   // Catalog membership (the linter half of schema/pack.schema.json's $comment).
   if let ::std::option::Option::Some(cat) = catalog {
-    let referenced = crate::merge::referenced_controls(&pack);
+    let referenced = crate::packtoml::referenced_controls(&pack);
     for key in &referenced {
       if !cat.controls.contains_key(key) {
         errors.push(::std::format!(
@@ -167,22 +148,21 @@ pub fn validate(
 
 #[cfg(test)]
 mod tests {
-  fn catalog() -> crate::catalog::Catalog {
-    let tmp = ::tempfile::tempdir().expect("tmp");
-    let path = tmp.path().join("c.toml");
-    ::std::fs::write(&path, crate::catalog::TEST_CATALOG).expect("write");
-    crate::catalog::load(&path).expect("load")
-  }
-
   const GOOD: &str = "[meta]\nstrictness = \"as_configured\"\n\n[meta.legal_review]\nstatus = \"draft\"\n\n\
      [subject.telepresence]\ncontrols = [\"signal_notice\"]\n\n[legally_required]\ncontrols = [\"attestation\"]\n";
 
+  /// Why: the linter must not cry wolf — a well-formed draft pack passing is
+  /// the baseline that keeps every error assertion below meaningful (if this
+  /// fails, the other tests' errors are noise, not signal).
   #[test]
   fn good_pack_passes_with_catalog() {
-    let f = super::validate(GOOD, ::std::option::Option::Some(&catalog()));
+    let f = super::validate(GOOD, ::std::option::Option::Some(&crate::catalog::test_catalog()));
     ::std::assert!(f.ok(), "errors: {:?}", f.errors);
   }
 
+  /// Why: the two packs we actually ship are the counsel-safe public subset —
+  /// if the linter ever rejects our own artifacts, either the packs drifted or
+  /// a lint rule broke; both need to fail the build, not be found at publish.
   #[test]
   fn shipped_baseline_packs_pass_without_catalog() {
     for rel in ["../packs/aggressive/recording_consent.r14n.toml", "../packs/minimal/recording_consent.r14n.toml"] {
@@ -193,6 +173,9 @@ mod tests {
     }
   }
 
+  /// Why: spec §2.5/§4 — a pack without a floor BLOCKS at resolve time and a
+  /// pack without a review status has no provenance; the linter must catch both
+  /// at author time so they never reach a resolver.
   #[test]
   fn missing_floor_and_review_status_are_errors() {
     let f = super::validate("[meta]\nstrictness = \"minimal\"\n", ::std::option::Option::None);
@@ -201,6 +184,10 @@ mod tests {
     ::std::assert!(f.errors.iter().any(|e| e.contains("legal_review")));
   }
 
+  /// Why: spec §6 makes the attorney-of-record envelope NON-OPTIONAL for
+  /// approved (jurisdiction-claiming) packs, and §7 requires the
+  /// interpretation-currency date — this is the UPL/counsel gate enforced in
+  /// code, exactly 5 findings so a dropped rule is caught.
   #[test]
   fn approved_pack_requires_attorney_envelope_and_currency_date() {
     let pack = "[meta]\nstrictness = \"as_configured\"\n\n[meta.legal_review]\nstatus = \"approved\"\n\n\
@@ -214,6 +201,9 @@ mod tests {
     );
   }
 
+  /// Why: spec §2.5 — a pack that both requires and forbids a control is
+  /// self-contradictory; resolvers fail toward not-adding (guard), but the
+  /// authoring error must be rejected before counsel ever signs it.
   #[test]
   fn prohibited_intersecting_floor_is_an_error() {
     let pack = "[meta]\nstrictness = \"aggressive\"\n\n[meta.legal_review]\nstatus = \"not_required\"\n\n\
@@ -222,14 +212,20 @@ mod tests {
     ::std::assert!(f.errors.iter().any(|e| e.contains("cannot require what it forbids")), "{:?}", f.errors);
   }
 
+  /// Why: spec §2.1 — packs reference catalog keys, never define them; a typo'd
+  /// control would silently never be enforced (the resolver intersects with the
+  /// caller's universe), so the ONLY place a typo is catchable is this lint.
   #[test]
   fn unknown_control_vs_catalog_is_an_error() {
     let pack = "[meta]\nstrictness = \"as_configured\"\n\n[meta.legal_review]\nstatus = \"draft\"\n\n\
        [subject.telepresence]\ncontrols = [\"made_up_control\"]\n\n[legally_required]\ncontrols = [\"attestation\"]\n";
-    let f = super::validate(pack, ::std::option::Option::Some(&catalog()));
+    let f = super::validate(pack, ::std::option::Option::Some(&crate::catalog::test_catalog()));
     ::std::assert!(f.errors.iter().any(|e| e.contains("made_up_control")), "{:?}", f.errors);
   }
 
+  /// Why: spec §3 keeps posture forward-additive (`Other`), and resolvers fail
+  /// CLOSED on unknown values — so an unknown posture is safe (warning), and
+  /// hard-erroring would break packs written for future spec versions.
   #[test]
   fn unknown_posture_is_a_warning_not_error() {
     let pack = "[meta]\nstrictness = \"turbo\"\n\n[meta.legal_review]\nstatus = \"draft\"\n\n\

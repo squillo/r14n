@@ -90,6 +90,10 @@ pub fn publish(
 
 #[cfg(test)]
 mod tests {
+  /// Why: the supersession chain IS the spec §7 text-in-effect story — a broken
+  /// version increment or supersedes pointer would corrupt the audit trail
+  /// receipts cite by sha, and silent double-publishing of identical bytes
+  /// would mint phantom versions.
   #[test]
   fn publish_chains_supersession_and_rejects_identical_bytes() {
     let tmp = ::tempfile::tempdir().expect("tmp");
@@ -122,6 +126,9 @@ mod tests {
     ::std::assert_eq!(e3["version"], 1);
   }
 
+  /// Why: an index entry with a STALE signature (signed bytes ≠ published
+  /// bytes) would look attested while attesting nothing — publish must embed
+  /// only a sha-matching sig and hard-refuse otherwise (spec §6 envelope).
   #[test]
   fn publish_embeds_matching_detached_signature_and_rejects_stale_one() {
     let tmp = ::tempfile::tempdir().expect("tmp");

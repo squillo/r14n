@@ -170,6 +170,9 @@ fn run_suite(name: &str) -> (usize, ::std::vec::Vec<::std::string::String>) {
   (ran, skipped)
 }
 
+/// Why: Level 1 is the floor every conforming resolver must clear (spec §9.1)
+/// — the reference implementation skipping ANY level-1 vector would mean the
+/// spec's own reference can't demonstrate minimal viability.
 #[test]
 fn conformance_level_1_minimal_viable_runs_all_vectors() {
   let (ran, skipped) = run_suite("level-1.json");
@@ -177,6 +180,10 @@ fn conformance_level_1_minimal_viable_runs_all_vectors() {
   ::std::assert_eq!(ran, 6, "level-1 vector count drifted — update consciously");
 }
 
+/// Why: level-2 vectors are authored AHEAD of the implementation (negotiation,
+/// delta-merge, most-restrictive…) — pinning BOTH the run and skip counts makes
+/// silent coverage loss impossible AND forces a conscious update the day a
+/// capability lands (the skip count drops, this test fails, SUPPORTED grows).
 #[test]
 fn conformance_level_2_configured_supported_subset() {
   let (ran, skipped) = run_suite("level-2.json");
@@ -188,6 +195,9 @@ fn conformance_level_2_configured_supported_subset() {
   );
 }
 
+/// Why: level 3 is the provenance story (taint + receipts) — these vectors
+/// exercise the resolve→receipt pipeline END-TO-END, which the per-module unit
+/// tests deliberately don't (they construct decisions by hand).
 #[test]
 fn conformance_level_3_comprehensive_supported_subset() {
   let (ran, skipped) = run_suite("level-3.json");

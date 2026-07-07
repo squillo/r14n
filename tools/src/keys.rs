@@ -134,6 +134,10 @@ pub fn verify_file(
 
 #[cfg(test)]
 mod tests {
+  /// Why: sign/verify is the trust-root envelope (spec §6) — a roundtrip that
+  /// silently failed to bind the exact bytes would let a pack change after
+  /// counsel signed it. Tampering must fail on the CONTENT ADDRESS first (the
+  /// loud, explainable error).
   #[test]
   fn keygen_sign_verify_roundtrip_and_tamper_detection() {
     let tmp = ::tempfile::tempdir().expect("tmp");
@@ -149,6 +153,33 @@ mod tests {
     ::std::assert!(err.contains("content address mismatch"), "{err}");
   }
 
+  /// Why: a matching sha256 with a corrupted signature is the forgery-shaped
+  /// failure (content untouched, attestation invalid) — verify must reject on
+  /// the Ed25519 check itself, not only on the cheaper hash comparison.
+  #[test]
+  fn corrupted_signature_with_matching_sha_still_fails_verification() {
+    let tmp = ::tempfile::tempdir().expect("tmp");
+    let (seed, _pubkey) = super::keygen(&tmp.path().join("k")).expect("keygen");
+    let pack = tmp.path().join("p.r14n.toml");
+    ::std::fs::write(&pack, "[meta]\nstrictness = \"aggressive\"\n").expect("write");
+    let sig_path = super::sign_file(&pack, &seed, ::std::option::Option::None).expect("sign");
+    // Corrupt ONLY the signature field; sha256 + public key stay valid.
+    let mut doc: ::serde_json::Value =
+      ::serde_json::from_str(&::std::fs::read_to_string(&sig_path).expect("read sig"))
+        .expect("sig json");
+    let sig = ::std::string::String::from(doc["signature_ed25519"].as_str().expect("sig"));
+    let flipped = if sig.starts_with('A') { "B" } else { "A" };
+    doc["signature_ed25519"] = ::serde_json::Value::String(
+      ::std::format!("{flipped}{}", &sig[1..]),
+    );
+    ::std::fs::write(&sig_path, doc.to_string()).expect("write corrupted sig");
+    let err = super::verify_file(&pack, &sig_path).expect_err("corrupted sig must fail");
+    ::std::assert!(err.contains("signature INVALID"), "{err}");
+  }
+
+  /// Why: keygen/sign outputs feed the reviewer-key directory — if the base64
+  /// encodings drifted from reviewer-key.schema.json's unpadded 43/86-char
+  /// patterns, published directories would fail schema validation downstream.
   #[test]
   fn sig_document_matches_registry_encodings() {
     let tmp = ::tempfile::tempdir().expect("tmp");

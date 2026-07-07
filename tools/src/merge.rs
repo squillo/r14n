@@ -9,6 +9,7 @@
 //!
 //! Revision History
 //! - 2026-07-06: authored — roadmap item 5 (pack-lifecycle CLI).
+//! - 2026-07-06: DRY pass — control extraction moved to the shared `packtoml`.
 
 /// The delta between a pack's referenced controls and the current catalog.
 pub struct MergeReport {
@@ -16,33 +17,6 @@ pub struct MergeReport {
   pub added: ::std::vec::Vec<::std::string::String>,
   /// Pack-referenced controls absent from the catalog (stale keys).
   pub stale: ::std::vec::Vec<::std::string::String>,
-}
-
-/// Every control key a pack references (subject tables ∪ floor ∪ prohibited).
-pub fn referenced_controls(
-  pack: &::toml::Value,
-) -> ::std::collections::BTreeSet<::std::string::String> {
-  let mut refs: ::std::collections::BTreeSet<::std::string::String> =
-    ::std::collections::BTreeSet::new();
-  let mut take = |list: ::std::option::Option<&::toml::Value>| {
-    if let ::std::option::Option::Some(controls) =
-      list.and_then(|t| t.get("controls")).and_then(|c| c.as_array())
-    {
-      for c in controls {
-        if let ::std::option::Option::Some(s) = c.as_str() {
-          refs.insert(::std::string::String::from(s));
-        }
-      }
-    }
-  };
-  if let ::std::option::Option::Some(subjects) = pack.get("subject").and_then(|s| s.as_table()) {
-    for table in subjects.values() {
-      take(::std::option::Option::Some(table));
-    }
-  }
-  take(pack.get("legally_required"));
-  take(pack.get("prohibited"));
-  refs
 }
 
 /// Merge: returns the updated pack text (report block + verbatim body) + the
@@ -53,7 +27,7 @@ pub fn merge(
 ) -> ::std::result::Result<(::std::string::String, MergeReport), ::std::string::String> {
   let pack: ::toml::Value =
     ::toml::from_str(pack_text).map_err(|e| ::std::format!("pack does not parse: {e}"))?;
-  let referenced = referenced_controls(&pack);
+  let referenced = crate::packtoml::referenced_controls(&pack);
   let catalog_keys: ::std::collections::BTreeSet<::std::string::String> =
     catalog.controls.keys().cloned().collect();
   let report = MergeReport {
@@ -85,32 +59,35 @@ pub fn merge(
 
 #[cfg(test)]
 mod tests {
-  fn catalog() -> crate::catalog::Catalog {
-    let tmp = ::tempfile::tempdir().expect("tmp");
-    let path = tmp.path().join("c.toml");
-    ::std::fs::write(&path, crate::catalog::TEST_CATALOG).expect("write");
-    crate::catalog::load(&path).expect("load")
-  }
-
+  /// Why: merge is the msgmerge analogue — its whole value is flagging EXACTLY
+  /// the catalog delta for legal re-review while never rewriting counsel's
+  /// reviewed text. A missed `added` under-flags legal review; a mangled body
+  /// would silently alter a reviewed artifact. The output must also still parse
+  /// (the report block is comments only).
   #[test]
   fn flags_added_and_stale_controls_and_preserves_body() {
     let pack = "# original comment\n[meta]\nstrictness = \"as_configured\"\n\n\
        [subject.telepresence]\ncontrols = [\"signal_notice\", \"retired_control\"]\n\n\
        [legally_required]\ncontrols = [\"attestation\"]\n";
-    let (out, report) = super::merge(pack, &catalog()).expect("merge");
+    let (out, report) = super::merge(pack, &crate::catalog::test_catalog()).expect("merge");
     ::std::assert_eq!(report.added, ["aph_mandate"], "aph_mandate is new since review");
     ::std::assert_eq!(report.stale, ["retired_control"]);
     ::std::assert!(out.contains("NEEDS-LEGAL-REVIEW: control `aph_mandate`"));
     ::std::assert!(out.contains("STALE: control `retired_control`"));
     ::std::assert!(out.ends_with(pack), "body must be preserved verbatim");
+    let parsed: ::std::result::Result<::toml::Value, _> = ::toml::from_str(&out);
+    ::std::assert!(parsed.is_ok(), "merged output must remain valid TOML: {parsed:?}");
   }
 
+  /// Why: a no-drift merge must be a byte-for-byte no-op — if it prepended an
+  /// empty report block anyway, every CI re-run would churn reviewed packs and
+  /// bury real deltas in noise.
   #[test]
   fn no_drift_returns_pack_unchanged() {
     let pack = "[meta]\nstrictness = \"as_configured\"\n\n\
        [subject.telepresence]\ncontrols = [\"signal_notice\", \"aph_mandate\"]\n\n\
        [legally_required]\ncontrols = [\"attestation\"]\n";
-    let (out, report) = super::merge(pack, &catalog()).expect("merge");
+    let (out, report) = super::merge(pack, &crate::catalog::test_catalog()).expect("merge");
     ::std::assert!(report.added.is_empty() && report.stale.is_empty());
     ::std::assert_eq!(out, pack);
   }

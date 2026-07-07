@@ -325,6 +325,10 @@ mod tests {
     }
   }
 
+  /// Why: spec §2.7/§8 — the receipt's whole purpose is audit evidence: the
+  /// posture value (never collapsed), the pack SHA, the exact required set,
+  /// and the disclaimer must all survive serialization or the receipt proves
+  /// nothing.
   #[test]
   fn receipt_carries_posture_pack_sha_and_sorted_controls() {
     let v = super::dpv_27560(&decision(false, ::std::option::Option::Some("approved")), &ctx());
@@ -339,6 +343,9 @@ mod tests {
     ::std::assert_eq!(v["disclaimer"], super::NOT_LEGAL_ADVICE);
   }
 
+  /// Why: spec §5/§6 — a fallen-back decision was governed by NO reviewed
+  /// pack; if the receipt didn't carry the advisory taint, the fail-closed
+  /// path would look like a counsel-reviewed decision to every auditor.
   #[test]
   fn fallback_taints_receipt_advisory_only() {
     let v = super::dpv_27560(&decision(true, ::std::option::Option::None), &ctx());
@@ -346,6 +353,9 @@ mod tests {
     ::std::assert_eq!(v["provenance"]["advisory_only"], true, "fallback ⇒ advisory-only");
   }
 
+  /// Why: spec §6 trust-root — "legal_review: draft" is self-attestation, and
+  /// without the advisory taint on non-approved statuses, writing `approved`
+  /// would be the only gate and anyone could skip it by never claiming it.
   #[test]
   fn self_attested_pack_is_advisory_only() {
     let v = super::dpv_27560(&decision(false, ::std::option::Option::Some("draft")), &ctx());
@@ -353,6 +363,9 @@ mod tests {
     ::std::assert_eq!(v["provenance"]["advisory_only"], true, "non-approved review ⇒ advisory");
   }
 
+  /// Why: EU AI Act Art. 50 (spec §8) makes the disclosure LOG the compliance
+  /// evidence — timestamp + method must land in both the dedicated block and
+  /// the 27560 event stream, or the obligation is enforced but unprovable.
   #[test]
   fn ai_act_50_disclosure_is_logged_with_timestamp_and_method() {
     let mut c = ctx();
@@ -368,6 +381,10 @@ mod tests {
     ::std::assert_eq!(events[1]["event_type"], "rlps:AiDisclosure");
   }
 
+  /// Why: spec §4.1 makes jurisdiction attribution a provenance-carrying INPUT
+  /// — the receipt must record both the jurisdictions and their source, or
+  /// contested-attribution disputes (VoIP transit, remote employees) can't be
+  /// reconstructed from the audit trail.
   #[test]
   fn jurisdiction_attribution_is_recorded() {
     let v = super::dpv_27560(&decision(false, ::std::option::Option::Some("approved")), &ctx());
@@ -375,6 +392,9 @@ mod tests {
     ::std::assert_eq!(v["jurisdiction"]["attribution_source"], "operator_declared");
   }
 
+  /// Why: the Kantara CR v1.1 shim exists for consumers we don't control —
+  /// its REQUIRED fields (version/id/epoch timestamp/service mapping) are the
+  /// interop contract, and the RLPS extension block must not lose the taint.
   #[test]
   fn kantara_shim_shape_and_extension_block() {
     let v = super::kantara_cr_v1_1(&decision(false, ::std::option::Option::Some("draft")), &ctx());
@@ -388,6 +408,29 @@ mod tests {
     ::std::assert_eq!(v["rlps"]["advisory_only"], true);
   }
 
+  /// Why: escalation signals (GPC / IEEE-7012) change WHICH posture governed
+  /// (spec §4) and policyUrl is a Kantara-required field — dropping either
+  /// would make receipts under-document exactly the decisions regulators care
+  /// about most.
+  #[test]
+  fn escalation_signals_and_policy_url_are_recorded() {
+    let mut c = ctx();
+    c.gpc_signal = true;
+    c.ieee7012_no_recording = true;
+    c.policy_url =
+      ::std::option::Option::Some(::std::string::String::from("https://example.invalid/privacy"));
+    let d = decision(false, ::std::option::Option::Some("approved"));
+    let receipt = super::dpv_27560(&d, &c);
+    ::std::assert_eq!(receipt["decision"]["escalation"]["gpc_signal"], true);
+    ::std::assert_eq!(receipt["decision"]["escalation"]["ieee7012_no_recording"], true);
+    let shim = super::kantara_cr_v1_1(&d, &c);
+    ::std::assert_eq!(shim["policyUrl"], "https://example.invalid/privacy");
+    ::std::assert_eq!(shim["rlps"]["gpc_signal"], true);
+  }
+
+  /// Why: deterministic bytes are the precondition for content-addressing and
+  /// Ed25519 signing (module doc) — nondeterministic key order would make the
+  /// same decision hash differently on every emit, breaking signature reuse.
   #[test]
   fn serialization_is_deterministic() {
     let d = decision(false, ::std::option::Option::Some("approved"));

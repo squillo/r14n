@@ -7,6 +7,8 @@
 //!
 //! Revision History
 //! - 2026-07-06: authored — roadmap item 5 (pack-lifecycle CLI).
+//! - 2026-07-06: DRY pass — `parse` split out of `load`; shared `test_catalog`
+//!   fixture replaces the per-module tempdir dance.
 
 /// One catalog control declaration (the fields the CLI needs).
 pub struct ControlDef {
@@ -28,19 +30,27 @@ pub struct Catalog {
 pub fn load(path: &::std::path::Path) -> ::std::result::Result<Catalog, ::std::string::String> {
   let raw = ::std::fs::read_to_string(path)
     .map_err(|e| ::std::format!("read {}: {e}", path.display()))?;
+  parse(&raw, &path.display().to_string())
+}
+
+/// Parse catalog TOML text (`origin` labels error messages).
+pub fn parse(
+  raw: &str,
+  origin: &str,
+) -> ::std::result::Result<Catalog, ::std::string::String> {
   let doc: ::toml::Value =
-    ::toml::from_str(&raw).map_err(|e| ::std::format!("parse {}: {e}", path.display()))?;
+    ::toml::from_str(raw).map_err(|e| ::std::format!("parse {origin}: {e}"))?;
   let domain = doc
     .get("domain")
     .and_then(|d| d.get("name"))
     .and_then(|n| n.as_str())
-    .ok_or_else(|| ::std::format!("{}: missing [domain] name", path.display()))?;
+    .ok_or_else(|| ::std::format!("{origin}: missing [domain] name"))?;
   let mut controls: ::std::collections::BTreeMap<::std::string::String, ControlDef> =
     ::std::collections::BTreeMap::new();
   let table = doc
     .get("control")
     .and_then(|c| c.as_table())
-    .ok_or_else(|| ::std::format!("{}: missing [control.<key>] tables", path.display()))?;
+    .ok_or_else(|| ::std::format!("{origin}: missing [control.<key>] tables"))?;
   for (key, def) in table {
     let kind = def.get("kind").and_then(|k| k.as_str()).unwrap_or("obligation");
     let title = def.get("title").and_then(|t| t.as_str()).unwrap_or(key);
@@ -62,8 +72,19 @@ pub(crate) const TEST_CATALOG: &str = "[domain]\nname = \"recording_consent\"\nd
    [control.signal_notice]\nkind = \"obligation\"\ntitle = \"Recording signal active\"\n\n\
    [control.aph_mandate]\nkind = \"permit\"\ntitle = \"Delegate mandate\"\n";
 
+/// Shared test fixture: [`TEST_CATALOG`] parsed — the ONE way test modules get
+/// a `Catalog` (no per-module tempdir dance).
+#[cfg(test)]
+pub(crate) fn test_catalog() -> Catalog {
+  parse(TEST_CATALOG, "TEST_CATALOG").expect("fixture catalog parses")
+}
+
 #[cfg(test)]
 mod tests {
+  /// Why: `extract`/`merge`/`validate` all key off catalog membership and kind —
+  /// if loading dropped controls, reordered keys unstably, or lost `kind`, every
+  /// downstream lint/template would silently go wrong. Also pins the load(path)
+  /// → parse(text) split doing identical work.
   #[test]
   fn loads_domain_and_controls_in_key_order() {
     let tmp = ::tempfile::tempdir().expect("tmp");
@@ -74,5 +95,6 @@ mod tests {
     let keys: ::std::vec::Vec<&str> = cat.controls.keys().map(|k| k.as_str()).collect();
     ::std::assert_eq!(keys, ["aph_mandate", "attestation", "signal_notice"]);
     ::std::assert_eq!(cat.controls["aph_mandate"].kind, "permit");
+    ::std::assert_eq!(super::test_catalog().domain, cat.domain, "parse path matches load path");
   }
 }

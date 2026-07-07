@@ -12,11 +12,14 @@
 //!
 //! Revision History
 //! - 2026-07-06: authored — roadmap item 5 (pack-lifecycle CLI).
+//! - 2026-07-06: DRY/testability pass — `parse_args` is pure (Result, no
+//!   exits) so the CLI surface is unit-tested; `Help` is a Command variant.
 
 mod catalog;
 mod extract;
 mod keys;
 mod merge;
+mod packtoml;
 mod publish;
 mod validate;
 
@@ -35,6 +38,7 @@ USAGE:
 human decision behind the counsel gate (see the maintainer notes).";
 
 /// Parsed invocation — one variant per subcommand (exhaustive dispatch).
+#[derive(::std::fmt::Debug)]
 enum Command {
   Extract {
     catalog: ::std::path::PathBuf,
@@ -67,100 +71,106 @@ enum Command {
     id: ::std::string::String,
     registry: ::std::path::PathBuf,
   },
+  Help,
 }
 
 /// Pull `--flag value` out of the arg list (removing both tokens).
+/// `Err` when the flag is present but dangling without a value.
 fn take_flag(
   args: &mut ::std::vec::Vec<::std::string::String>,
   flag: &str,
-) -> ::std::option::Option<::std::string::String> {
-  let idx = args.iter().position(|a| a == flag)?;
+) -> ::std::result::Result<::std::option::Option<::std::string::String>, ::std::string::String> {
+  let idx = match args.iter().position(|a| a == flag) {
+    ::std::option::Option::Some(i) => i,
+    ::std::option::Option::None => return ::std::result::Result::Ok(::std::option::Option::None),
+  };
   if idx + 1 >= args.len() {
-    ::std::eprintln!("error: {flag} needs a value");
-    ::std::process::exit(2);
+    return ::std::result::Result::Err(::std::format!("{flag} needs a value"));
   }
   args.remove(idx);
-  ::std::option::Option::Some(args.remove(idx))
+  ::std::result::Result::Ok(::std::option::Option::Some(args.remove(idx)))
 }
 
-fn require(value: ::std::option::Option<::std::string::String>, what: &str) -> ::std::string::String {
-  match value {
-    ::std::option::Option::Some(v) => v,
-    ::std::option::Option::None => {
-      ::std::eprintln!("error: {what} is required\n\n{USAGE}");
-      ::std::process::exit(2);
-    }
-  }
+fn require(
+  value: ::std::option::Option<::std::string::String>,
+  what: &str,
+) -> ::std::result::Result<::std::string::String, ::std::string::String> {
+  value.ok_or_else(|| ::std::format!("{what} is required"))
 }
 
-fn parse_command() -> Command {
-  let mut args: ::std::vec::Vec<::std::string::String> = ::std::env::args().skip(1).collect();
+/// Parse an argument vector (without argv[0]) into a [`Command`] — pure, so
+/// the CLI surface is unit-testable; `main` owns printing + exit codes.
+fn parse_args(
+  mut args: ::std::vec::Vec<::std::string::String>,
+) -> ::std::result::Result<Command, ::std::string::String> {
   if args.is_empty() {
-    ::std::eprintln!("{USAGE}");
-    ::std::process::exit(2);
+    return ::std::result::Result::Ok(Command::Help);
   }
   let sub = args.remove(0);
   match sub.as_str() {
-    "extract" => Command::Extract {
-      catalog: ::std::path::PathBuf::from(require(take_flag(&mut args, "--catalog"), "--catalog")),
-      profile: require(take_flag(&mut args, "--profile"), "--profile"),
-      out: take_flag(&mut args, "-o").map(::std::path::PathBuf::from),
-    },
-    "merge" => Command::Merge {
-      pack: ::std::path::PathBuf::from(require(take_flag(&mut args, "--pack"), "--pack")),
-      catalog: ::std::path::PathBuf::from(require(take_flag(&mut args, "--catalog"), "--catalog")),
-      out: take_flag(&mut args, "-o").map(::std::path::PathBuf::from),
-    },
+    "extract" => ::std::result::Result::Ok(Command::Extract {
+      catalog: ::std::path::PathBuf::from(require(take_flag(&mut args, "--catalog")?, "--catalog")?),
+      profile: require(take_flag(&mut args, "--profile")?, "--profile")?,
+      out: take_flag(&mut args, "-o")?.map(::std::path::PathBuf::from),
+    }),
+    "merge" => ::std::result::Result::Ok(Command::Merge {
+      pack: ::std::path::PathBuf::from(require(take_flag(&mut args, "--pack")?, "--pack")?),
+      catalog: ::std::path::PathBuf::from(require(take_flag(&mut args, "--catalog")?, "--catalog")?),
+      out: take_flag(&mut args, "-o")?.map(::std::path::PathBuf::from),
+    }),
     "validate" => {
-      let catalog = take_flag(&mut args, "--catalog").map(::std::path::PathBuf::from);
+      let catalog = take_flag(&mut args, "--catalog")?.map(::std::path::PathBuf::from);
       if args.is_empty() {
-        ::std::eprintln!("error: validate needs at least one pack path\n\n{USAGE}");
-        ::std::process::exit(2);
+        return ::std::result::Result::Err(::std::string::String::from(
+          "validate needs at least one pack path",
+        ));
       }
-      Command::Validate {
+      ::std::result::Result::Ok(Command::Validate {
         packs: args.into_iter().map(::std::path::PathBuf::from).collect(),
         catalog,
-      }
+      })
     }
-    "keygen" => Command::Keygen {
-      out: ::std::path::PathBuf::from(require(take_flag(&mut args, "--out"), "--out")),
-    },
+    "keygen" => ::std::result::Result::Ok(Command::Keygen {
+      out: ::std::path::PathBuf::from(require(take_flag(&mut args, "--out")?, "--out")?),
+    }),
     "sign" => {
-      let key = ::std::path::PathBuf::from(require(take_flag(&mut args, "--key"), "--key"));
-      let key_id = take_flag(&mut args, "--key-id");
+      let key = ::std::path::PathBuf::from(require(take_flag(&mut args, "--key")?, "--key")?);
+      let key_id = take_flag(&mut args, "--key-id")?;
       if args.is_empty() {
-        ::std::eprintln!("error: sign needs a pack path\n\n{USAGE}");
-        ::std::process::exit(2);
+        return ::std::result::Result::Err(::std::string::String::from("sign needs a pack path"));
       }
-      Command::Sign { pack: ::std::path::PathBuf::from(args.remove(0)), key, key_id }
+      ::std::result::Result::Ok(Command::Sign {
+        pack: ::std::path::PathBuf::from(args.remove(0)),
+        key,
+        key_id,
+      })
     }
     "verify" => {
-      let sig = take_flag(&mut args, "--sig").map(::std::path::PathBuf::from);
+      let sig = take_flag(&mut args, "--sig")?.map(::std::path::PathBuf::from);
       if args.is_empty() {
-        ::std::eprintln!("error: verify needs a pack path\n\n{USAGE}");
-        ::std::process::exit(2);
+        return ::std::result::Result::Err(::std::string::String::from("verify needs a pack path"));
       }
-      Command::Verify { pack: ::std::path::PathBuf::from(args.remove(0)), sig }
+      ::std::result::Result::Ok(Command::Verify {
+        pack: ::std::path::PathBuf::from(args.remove(0)),
+        sig,
+      })
     }
     "publish" => {
-      let id = require(take_flag(&mut args, "--id"), "--id (canonically <profile>/<domain>)");
-      let registry = take_flag(&mut args, "--registry")
+      let id = require(take_flag(&mut args, "--id")?, "--id (canonically <profile>/<domain>)")?;
+      let registry = take_flag(&mut args, "--registry")?
         .map(::std::path::PathBuf::from)
         .unwrap_or_else(|| ::std::path::PathBuf::from("registry/index.json"));
       if args.is_empty() {
-        ::std::eprintln!("error: publish needs a pack path\n\n{USAGE}");
-        ::std::process::exit(2);
+        return ::std::result::Result::Err(::std::string::String::from("publish needs a pack path"));
       }
-      Command::Publish { pack: ::std::path::PathBuf::from(args.remove(0)), id, registry }
+      ::std::result::Result::Ok(Command::Publish {
+        pack: ::std::path::PathBuf::from(args.remove(0)),
+        id,
+        registry,
+      })
     }
-    "--help" | "-h" | "help" => {
-      ::std::println!("{USAGE}");
-      ::std::process::exit(0);
-    }
-    other => {
-      ::std::eprintln!("error: unknown subcommand `{other}`\n\n{USAGE}");
-      ::std::process::exit(2);
-    }
+    "--help" | "-h" | "help" => ::std::result::Result::Ok(Command::Help),
+    other => ::std::result::Result::Err(::std::format!("unknown subcommand `{other}`")),
   }
 }
 
@@ -183,7 +193,15 @@ fn fail(message: &::std::string::String) -> ! {
 }
 
 fn main() {
-  match parse_command() {
+  let command = match parse_args(::std::env::args().skip(1).collect()) {
+    ::std::result::Result::Ok(c) => c,
+    ::std::result::Result::Err(e) => {
+      ::std::eprintln!("error: {e}\n\n{USAGE}");
+      ::std::process::exit(2);
+    }
+  };
+  match command {
+    Command::Help => ::std::println!("{USAGE}"),
     Command::Extract { catalog, profile, out } => {
       let cat = crate::catalog::load(&catalog).unwrap_or_else(|e| fail(&e));
       write_or_stdout(out, &crate::extract::template(&cat, &profile));
@@ -268,6 +286,77 @@ fn main() {
         entry["version"],
         registry.display()
       );
+    }
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  fn parse(args: &[&str]) -> ::std::result::Result<super::Command, ::std::string::String> {
+    super::parse_args(args.iter().map(|s| ::std::string::String::from(*s)).collect())
+  }
+
+  /// Why: the CLI surface is the tools' public API — a parser regression
+  /// (dropped flag, reordered positional) would break every documented
+  /// invocation in /tools/README.md without any other test noticing, because
+  /// the subcommand logic itself is tested below the parser.
+  #[test]
+  fn parses_every_documented_subcommand_shape() {
+    ::std::assert!(::std::matches!(
+      parse(&["extract", "--catalog", "c.toml", "--profile", "p"]),
+      ::std::result::Result::Ok(super::Command::Extract { .. })
+    ));
+    ::std::assert!(::std::matches!(
+      parse(&["merge", "--pack", "p.toml", "--catalog", "c.toml", "-o", "out.toml"]),
+      ::std::result::Result::Ok(super::Command::Merge { .. })
+    ));
+    match parse(&["validate", "a.toml", "b.toml", "--catalog", "c.toml"]) {
+      ::std::result::Result::Ok(super::Command::Validate { packs, catalog }) => {
+        ::std::assert_eq!(packs.len(), 2, "flags must not eat positional pack paths");
+        ::std::assert!(catalog.is_some());
+      }
+      other => ::std::panic!("validate parse failed: {other:?}"),
+    }
+    ::std::assert!(::std::matches!(
+      parse(&["sign", "p.toml", "--key", "k.seed", "--key-id", "r1"]),
+      ::std::result::Result::Ok(super::Command::Sign { .. })
+    ));
+    ::std::assert!(::std::matches!(
+      parse(&["verify", "p.toml"]),
+      ::std::result::Result::Ok(super::Command::Verify { .. })
+    ));
+    match parse(&["publish", "p.toml", "--id", "prof/dom"]) {
+      ::std::result::Result::Ok(super::Command::Publish { registry, .. }) => ::std::assert_eq!(
+        registry,
+        ::std::path::PathBuf::from("registry/index.json"),
+        "publish must default to the local counsel-safe index"
+      ),
+      other => ::std::panic!("publish parse failed: {other:?}"),
+    }
+  }
+
+  /// Why: bad invocations must produce a diagnosable Err — not a panic, not a
+  /// silently-misparsed Command that then touches files. These are the paths a
+  /// user hits FIRST when learning the tool.
+  #[test]
+  fn malformed_invocations_error_instead_of_misparsing() {
+    ::std::assert!(parse(&["extract", "--profile", "p"]).is_err(), "missing required --catalog");
+    ::std::assert!(parse(&["extract", "--catalog"]).is_err(), "dangling flag value");
+    ::std::assert!(parse(&["validate", "--catalog", "c.toml"]).is_err(), "no pack paths");
+    ::std::assert!(parse(&["sign", "--key", "k.seed"]).is_err(), "sign without a pack");
+    ::std::assert!(parse(&["frobnicate"]).is_err(), "unknown subcommand");
+  }
+
+  /// Why: bare `r14n` and `--help`/`-h`/`help` must all land on Help — exiting
+  /// with an error on a bare invocation is hostile, and Help being a Command
+  /// variant (not an inline exit) is what keeps this testable at all.
+  #[test]
+  fn help_paths_resolve_to_the_help_command() {
+    for args in [&[][..], &["--help"][..], &["-h"][..], &["help"][..]] {
+      ::std::assert!(::std::matches!(
+        parse(args),
+        ::std::result::Result::Ok(super::Command::Help)
+      ));
     }
   }
 }

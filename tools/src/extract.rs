@@ -50,21 +50,32 @@ pub fn template(catalog: &crate::catalog::Catalog, profile: &str) -> ::std::stri
 
 #[cfg(test)]
 mod tests {
+  /// Why: the template is the FIRST artifact a new pack author sees — if it
+  /// under-filled the floor, shipped as non-draft, or dropped the disclaimer,
+  /// the fail-closed + not-legal-advice posture would erode at the point of
+  /// authorship. It must also be valid TOML or `extract` ships broken starts.
   #[test]
   fn template_is_fail_closed_and_draft() {
-    let tmp = ::tempfile::tempdir().expect("tmp");
-    let path = tmp.path().join("c.toml");
-    ::std::fs::write(&path, crate::catalog::TEST_CATALOG).expect("write");
-    let cat = crate::catalog::load(&path).expect("load");
-    let t = super::template(&cat, "example_profile");
+    let t = super::template(&crate::catalog::test_catalog(), "example_profile");
     ::std::assert!(t.contains("NOT LEGAL ADVICE"));
     ::std::assert!(t.contains("status = \"draft\""));
     // Floor lists every catalog control (fail-closed default).
     for key in ["attestation", "signal_notice", "aph_mandate"] {
       ::std::assert!(t.contains(&::std::format!("  \"{key}\",")), "floor missing {key}");
     }
-    // The template itself must be valid TOML.
     let parsed: ::std::result::Result<::toml::Value, _> = ::toml::from_str(&t);
     ::std::assert!(parsed.is_ok(), "template must parse as TOML: {parsed:?}");
+  }
+
+  /// Why: extract and validate are two halves of one lifecycle — a template
+  /// the linter rejects would make the CLI contradict itself on step one. This
+  /// pins the tools' internal consistency (template ⊨ lint, incl. catalog
+  /// membership).
+  #[test]
+  fn template_passes_the_validate_linter() {
+    let cat = crate::catalog::test_catalog();
+    let t = super::template(&cat, "example_profile");
+    let f = crate::validate::validate(&t, ::std::option::Option::Some(&cat));
+    ::std::assert!(f.ok(), "template must lint clean: {:?}", f.errors);
   }
 }

@@ -44,6 +44,9 @@
 //! - 2026-07-06: pack_path prefers `<domain>.r14n.toml` (falls back `.toml`);
 //!   `[prohibited]` table enforced as the §3 data-minimization guard across ALL
 //!   postures — behavior additions; mirror to the Squillo twin (items 4/5 prep).
+//! - 2026-07-06: DRY pass — `control_set`/`controls_in_universe` helpers replace
+//!   the repeated posture-arm closures; `aggressive_over_universe` unifies the
+//!   default adapter + fallback constructors. Behavior-identical (tests green).
 
 // ── Modules ──────────────────────────────────────────────────────────────────
 
@@ -202,6 +205,26 @@ pub type DynRegulatoryPolicyPort = ::std::sync::Arc<dyn RegulatoryPolicyPort>;
 
 // ── Aggressive default adapter (fail-closed baseline) ────────────────────────
 
+/// The one way an Aggressive-over-universe decision is built: shared by the
+/// default adapter (`fell_back = false`) and every fail-closed fallback path
+/// (`fell_back = true`) so the fail-closed shape cannot drift between them.
+fn aggressive_over_universe(
+  query: &RegulatoryQuery,
+  source: ::std::string::String,
+  fell_back: bool,
+) -> ControlDecision {
+  ControlDecision {
+    required: query.universe.clone(),
+    provenance: PolicyProvenance {
+      profile: query.profile.clone(),
+      strictness: Strictness::Aggressive,
+      source,
+      legal_review_status: ::std::option::Option::None,
+      fell_back,
+    },
+  }
+}
+
 /// Requires EVERY control in the query universe, always. The safe default when
 /// no packs are configured (identical to the pre-config hardcoded behavior).
 pub struct AggressiveDefaultPolicyAdapter;
@@ -210,16 +233,11 @@ impl __private_seal::RegulatoryPolicyPortSeal for AggressiveDefaultPolicyAdapter
 
 impl RegulatoryPolicyPort for AggressiveDefaultPolicyAdapter {
   fn required_controls(&self, query: &RegulatoryQuery) -> ControlDecision {
-    ControlDecision {
-      required: query.universe.clone(),
-      provenance: PolicyProvenance {
-        profile: query.profile.clone(),
-        strictness: Strictness::Aggressive,
-        source: ::std::string::String::from("<aggressive-default>"),
-        legal_review_status: ::std::option::Option::None,
-        fell_back: false,
-      },
-    }
+    aggressive_over_universe(
+      query,
+      ::std::string::String::from("<aggressive-default>"),
+      false,
+    )
   }
 }
 
@@ -259,6 +277,20 @@ struct ControlList {
   controls: ::std::vec::Vec<::std::string::String>,
 }
 
+/// A `[<table>] controls = [...]` list as a key set.
+fn control_set(list: &ControlList) -> ::std::collections::BTreeSet<ControlKey> {
+  list.controls.iter().map(|s| ControlKey(s.clone())).collect()
+}
+
+/// The list intersected with the caller's universe — a pack can never demand a
+/// control the caller does not know how to enforce.
+fn controls_in_universe(
+  list: &ControlList,
+  universe: &::std::collections::BTreeSet<ControlKey>,
+) -> ::std::collections::BTreeSet<ControlKey> {
+  control_set(list).into_iter().filter(|k| universe.contains(k)).collect()
+}
+
 /// Loads policy packs from a root dir mirroring `locales/`:
 /// `<root>/<profile>/<domain>.toml`. A global `strictness_override` (the DIAL)
 /// wins over each pack's declared strictness when set.
@@ -293,16 +325,7 @@ impl TomlRegulatoryPolicyAdapter {
 
   /// Aggressive fallback decision (fail-closed) with loud provenance.
   fn fallback(query: &RegulatoryQuery, source: ::std::string::String) -> ControlDecision {
-    ControlDecision {
-      required: query.universe.clone(),
-      provenance: PolicyProvenance {
-        profile: query.profile.clone(),
-        strictness: Strictness::Aggressive,
-        source,
-        legal_review_status: ::std::option::Option::None,
-        fell_back: true,
-      },
-    }
+    aggressive_over_universe(query, source, true)
   }
 }
 
@@ -334,33 +357,22 @@ impl RegulatoryPolicyPort for TomlRegulatoryPolicyAdapter {
         .unwrap_or(Strictness::Aggressive)
     });
 
-    // Intersect every resolved set with the caller's universe — a pack can never
-    // demand a control the caller does not know how to enforce, and can never
-    // silently drop below what the caller declared under Aggressive.
+    // Every resolved set is intersected with the caller's universe
+    // (`controls_in_universe`) — a pack can never demand a control the caller
+    // does not know how to enforce, and can never silently drop below what the
+    // caller declared under Aggressive.
     let required: ::std::collections::BTreeSet<ControlKey> = match &strictness {
       Strictness::Aggressive => query.universe.clone(),
       Strictness::AsConfigured => pack
         .subject
         .get(&query.subject)
-        .map(|c| {
-          c.controls
-            .iter()
-            .map(|s| ControlKey(s.clone()))
-            .filter(|k| query.universe.contains(k))
-            .collect()
-        })
+        .map(|c| controls_in_universe(c, &query.universe))
         // A subject absent from an as-configured pack is fail-closed: require all.
         .unwrap_or_else(|| query.universe.clone()),
       Strictness::Minimal => pack
         .legally_required
         .as_ref()
-        .map(|c| {
-          c.controls
-            .iter()
-            .map(|s| ControlKey(s.clone()))
-            .filter(|k| query.universe.contains(k))
-            .collect()
-        })
+        .map(|c| controls_in_universe(c, &query.universe))
         .unwrap_or_default(),
       Strictness::Other(_) => query.universe.clone(),
     };
@@ -371,8 +383,7 @@ impl RegulatoryPolicyPort for TomlRegulatoryPolicyAdapter {
     // never prohibited).
     let required: ::std::collections::BTreeSet<ControlKey> = match &pack.prohibited {
       ::std::option::Option::Some(p) => {
-        let prohibited: ::std::collections::BTreeSet<ControlKey> =
-          p.controls.iter().map(|s| ControlKey(s.clone())).collect();
+        let prohibited = control_set(p);
         required.into_iter().filter(|k| !prohibited.contains(k)).collect()
       }
       ::std::option::Option::None => required,
@@ -420,6 +431,10 @@ mod tests {
     super::ControlKey(::std::string::String::from(s))
   }
 
+  /// Why: the default adapter is the zero-config safety net (spec §5) — if it
+  /// ever required less than the full universe, an unconfigured deployment
+  /// would silently under-enforce, the exact failure fail-closed exists to
+  /// prevent.
   #[test]
   fn aggressive_default_requires_entire_universe() {
     let p = super::AggressiveDefaultPolicyAdapter;
@@ -428,6 +443,9 @@ mod tests {
     ::std::assert!(!d.provenance.fell_back);
   }
 
+  /// Why: spec §5 — absence MUST degrade to aggressive-over-universe AND be
+  /// loud (`fell_back`); a quiet fallback would let a typo'd profile dir look
+  /// like a reviewed deployment in every receipt downstream.
   #[test]
   fn missing_pack_falls_back_aggressive_loudly() {
     let tmp = ::tempfile::tempdir().expect("tmp");
@@ -440,6 +458,10 @@ mod tests {
     ::std::assert!(d.provenance.fell_back, "fallback must be loud in provenance");
   }
 
+  /// Why: `as_configured` is the counsel-reviewed production posture (spec §3)
+  /// — the resolver must apply EXACTLY the subject table (no more, no less)
+  /// and surface the pack's review status into provenance, or the "what
+  /// counsel signed is what runs" contract breaks.
   #[test]
   fn as_configured_honors_subject_table() {
     let tmp = ::tempfile::tempdir().expect("tmp");
@@ -464,6 +486,9 @@ mod tests {
     ::std::assert!(!d.provenance.fell_back);
   }
 
+  /// Why: the global dial is the operator's "turn it all the way up" control
+  /// (spec §3) — if a relaxed pack could win over the override, an operator
+  /// could not force maximum strictness during an incident or migration.
   #[test]
   fn global_override_forces_aggressive_over_a_relaxed_pack() {
     let tmp = ::tempfile::tempdir().expect("tmp");
@@ -483,6 +508,9 @@ mod tests {
     ::std::assert_eq!(d.required, universe(), "override dial ⇒ require everything");
   }
 
+  /// Why: `minimal` exists so a counsel-confirmed floor can run without the
+  /// over-collection of aggressive (spec §3) — but ONLY the floor: if subject
+  /// tables leaked in, "minimal" would be a lie in both directions.
   #[test]
   fn minimal_requires_only_legally_required() {
     let tmp = ::tempfile::tempdir().expect("tmp");
@@ -503,6 +531,9 @@ mod tests {
     ::std::assert_eq!(d.required, expect);
   }
 
+  /// Why: spec §3 — a subject the pack never contemplated (a new recording
+  /// rail shipped after the review) must fail CLOSED to the full universe;
+  /// defaulting to empty would make every new feature launch unenforced.
   #[test]
   fn unknown_subject_in_as_configured_is_fail_closed() {
     let tmp = ::tempfile::tempdir().expect("tmp");
@@ -522,6 +553,10 @@ mod tests {
     ::std::assert_eq!(d.required, universe());
   }
 
+  /// Why: the RLPS wire name is `<domain>.r14n.toml` (spec §2.2) while
+  /// Squillo's live `policies/` trees use bare `.toml` — the preference order
+  /// is the twin-compat contract; inverting it would make a repo ship packs
+  /// its own reference resolver ignores.
   #[test]
   fn r14n_toml_extension_is_preferred_over_legacy_toml() {
     let tmp = ::tempfile::tempdir().expect("tmp");
@@ -549,6 +584,10 @@ mod tests {
     ::std::assert!(d.provenance.source.ends_with("recording_consent.r14n.toml"));
   }
 
+  /// Why: an internal design memo must-fix #1 — "aggressive" is a posture, not a legal
+  /// ordering; requiring a control a jurisdiction PROHIBITS (the shipped
+  /// aggressive-floor-superset bug) is itself a violation. This pins
+  /// aggressive = union of permitted-or-required, never prohibited (spec §3).
   #[test]
   fn prohibited_controls_are_never_required_even_under_aggressive() {
     let tmp = ::tempfile::tempdir().expect("tmp");
@@ -575,5 +614,51 @@ mod tests {
         .collect();
     ::std::assert_eq!(d.required, expect, "universe minus prohibited");
     ::std::assert!(!d.required.contains(&ck("aph_mandate")));
+  }
+
+  /// Why: the data-minimization guard must hold on EVERY posture path (spec
+  /// §3), including the floor — this is the resolve-time backstop for the
+  /// authoring error the `r14n validate` linter rejects (floor ∩ prohibited).
+  #[test]
+  fn prohibited_is_subtracted_even_from_the_minimal_floor() {
+    let tmp = ::tempfile::tempdir().expect("tmp");
+    let dir = tmp.path().join("dm_floor");
+    ::std::fs::create_dir_all(&dir).expect("mkdir");
+    // An authoring error (floor ∩ prohibited ≠ ∅ — the linter rejects it) must
+    // still fail toward NOT adding the prohibited control at resolve time.
+    ::std::fs::write(
+      dir.join("recording_consent.r14n.toml"),
+      "[meta]\nstrictness = \"minimal\"\n\
+       [legally_required]\ncontrols = [\"user_attestation\", \"aph_mandate\"]\n\
+       [prohibited]\ncontrols = [\"aph_mandate\"]\n",
+    )
+    .expect("write pack");
+    let p = super::TomlRegulatoryPolicyAdapter::new(
+      tmp.path().to_path_buf(),
+      ::std::option::Option::None,
+    );
+    let d = super::RegulatoryPolicyPort::required_controls(&p, &query("dm_floor", "telepresence"));
+    let expect: ::std::collections::BTreeSet<super::ControlKey> =
+      [ck("user_attestation")].into_iter().collect();
+    ::std::assert_eq!(d.required, expect, "floor minus prohibited");
+  }
+
+  /// Why: receipts surface the posture VERBATIM as audit evidence (spec §2.7)
+  /// via `as_str` while packs enter via `parse` — if the pair ever diverged,
+  /// audit trails would misreport which posture actually governed.
+  #[test]
+  fn strictness_wire_string_round_trips() {
+    for wire in ["aggressive", "as_configured", "minimal", "turbo"] {
+      ::std::assert_eq!(
+        super::Strictness::parse(wire).as_str(),
+        wire,
+        "parse/as_str must be inverses on every wire value"
+      );
+    }
+    ::std::assert_eq!(
+      super::Strictness::parse("turbo"),
+      super::Strictness::Other(::std::string::String::from("turbo")),
+      "unknown values take the forward-additive Other arm"
+    );
   }
 }
