@@ -103,10 +103,20 @@ fn run_suite(name: &str) -> (usize, ::std::vec::Vec<::std::string::String>) {
     }
     ran += 1;
 
-    // Materialize packs under a fresh root.
+    // Materialize packs under a fresh root. Reject absolute or parent-escaping
+    // keys — a hostile/sloppy vector file (this kit runs third-party vectors)
+    // must never write outside the tempdir (council-audit path-traversal guard).
     let tmp = ::tempfile::tempdir().expect("tempdir");
     for (rel, content) in vector["packs"].as_object().expect("packs object") {
-      let path = tmp.path().join(rel);
+      let rel_path = ::std::path::Path::new(rel);
+      ::std::assert!(
+        rel_path.is_relative()
+          && !rel_path
+            .components()
+            .any(|c| ::std::matches!(c, ::std::path::Component::ParentDir)),
+        "{vname}: unsafe pack key {rel:?} (absolute or contains '..')"
+      );
+      let path = tmp.path().join(rel_path);
       if let ::std::option::Option::Some(parent) = path.parent() {
         ::std::fs::create_dir_all(parent).expect("mkdir");
       }

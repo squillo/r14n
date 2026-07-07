@@ -33,7 +33,11 @@
             "pattern": "^[0-9a-f]{64}$",
             "description": "Content address of the exact pack bytes."
           },
-          "path": { "type": "string" },
+          "path": {
+            "type": "string",
+            "description": "Pack location relative to this index file's directory. MUST NOT be absolute (no leading '/') — the index is shareable and absolute paths leak the publisher's local layout.",
+            "pattern": "^[^/]"
+          },
           "published_at_unix": {
             "type": "integer",
             "minimum": 0,
