@@ -45,3 +45,17 @@ jobs:
       - run: pip install jsonschema
       - name: validate producers against their schemas
         run: python scripts/check-schemas.py
+
+  coverage:
+    # Non-gating: publishes a coverage number for the reference implementation.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: taiki-e/install-action@cargo-llvm-cov
+      - name: resolver coverage
+        run: cargo llvm-cov --summary-only
+        working-directory: resolver
+      - name: tools coverage
+        run: cargo llvm-cov --summary-only
+        working-directory: tools

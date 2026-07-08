@@ -12,6 +12,7 @@
 name = "r14n-tools"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.74"
 license = "Apache-2.0"
 description = "RLPS pack-lifecycle CLI: extract, merge, validate, sign, verify, keygen, publish (local registry index)"
 repository = "https://github.com/squillo/r14n"

@@ -298,4 +298,27 @@ mod tests {
     ::std::assert!(!f.ok(), "non-draft malformed date must error");
     ::std::assert!(f.errors.iter().any(|e| e.contains("effective_from")));
   }
+
+  /// Why: council-audit E1 — the linter parses untrusted pack text; it must
+  /// NEVER panic on garbage (a panic is a DoS on any CI/hook that lints
+  /// contributed packs). Malformed input yields a Findings with errors, not a
+  /// crash.
+  #[test]
+  fn validate_never_panics_on_arbitrary_input() {
+    let cases = [
+      "",
+      "\u{0}\u{1}not toml",
+      "[[[[",
+      "[meta]\nstrictness = 5",
+      "[meta]\nstrictness = \"minimal\"\n[legally_required]\ncontrols = 7",
+      "[subject.x]\ncontrols = [1,2]\n[legally_required]\ncontrols=[\"a\"]",
+      "[prohibited]\ncontrols = [\"a\"]\n[legally_required]\ncontrols=[\"a\"]",
+      "[meta]\nstrictness=\"turbo\"\ndescription=\"\u{202e}\u{1f4a3}\"",
+    ];
+    for case in cases {
+      let f = super::validate(case, ::std::option::Option::None);
+      // No panic reaching here IS the test; a broken pack simply has errors.
+      let _ = (f.ok(), f.errors.len(), f.warnings.len());
+    }
+  }
 }

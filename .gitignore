@@ -1,4 +1,7 @@
 /resolver/target
+/resolver/fuzz/target
+/resolver/fuzz/corpus
+/resolver/fuzz/artifacts
 /tools/target
 /target
 # Ed25519 signing seeds are PRIVATE key material — never commit (council-audit fix).

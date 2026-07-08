@@ -1,0 +1,28 @@
+# cargo-fuzz harness for the resolver (council-audit E1). Nightly-only:
+#   cargo +nightly fuzz run pack_resolve
+# The same invariant runs on stable in resolver/tests/fuzz_props.rs, so normal
+# CI still exercises it; this crate is for deep libFuzzer coverage.
+[package]
+name = "r14n-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+tempfile = "3"
+
+[dependencies.r14n]
+path = ".."
+
+[[bin]]
+name = "pack_resolve"
+path = "fuzz_targets/pack_resolve.rs"
+test = false
+doc = false
+bench = false
+
+[workspace]

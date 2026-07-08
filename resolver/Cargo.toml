@@ -9,6 +9,7 @@
 name = "r14n"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.74"
 license = "Apache-2.0"
 description = "RLPS reference resolver — jurisdiction-negotiated, fail-closed regulatory-policy packs (r14n : controls :: i18n : strings)"
 repository = "https://github.com/squillo/r14n"
