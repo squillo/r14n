@@ -54,8 +54,11 @@ the resolver already ships inside [Squillo OS](https://squillo.com) as `the Squi
 - [`registry/`](registry/) — reviewer-key directory + pack-index schemas (trust root, versioning,
   supersession).
 - [`GOVERNANCE.md`](GOVERNANCE.md) — reference-impl-first staging, federated-with-attestation
-  ownership, SDO entry criteria. [`SECURITY.md`](SECURITY.md) — disclosure policy + the crypto
-  threat surface. [`docs/audits/`](docs/audits/) — the standing council-audit reports.
+  ownership, SDO entry criteria. [`CONTRIBUTING.md`](CONTRIBUTING.md) (DCO + pack gate),
+  [`TRADEMARKS.md`](TRADEMARKS.md) (name + conformance-claim usage),
+  [`SECURITY.md`](SECURITY.md) + [`docs/key-management.md`](docs/key-management.md) (crypto threat
+  surface + key hygiene), [`docs/receipt-data-handling.md`](docs/receipt-data-handling.md) (receipts
+  carry PII), and [`docs/audits/`](docs/audits/) (the standing council-audit reports).
 - CI: [`.github/workflows/gates.yml`](.github/workflows/gates.yml) runs both test suites, lints the
   shipped packs, and validates every producer against its JSON Schema
   ([`scripts/check-schemas.py`](scripts/check-schemas.py)).
