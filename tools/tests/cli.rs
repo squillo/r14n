@@ -132,3 +132,51 @@ fn unknown_subcommand_exits_two() {
   let out = r14n().arg("frobnicate").output().expect("run");
   assert_eq!(out.status.code(), Some(2), "unknown subcommand ⇒ exit 2");
 }
+
+/// Why: council-audit M9 — the trust root is only real if `verify --directory`
+/// actually gates on it end-to-end. A signer in the directory (in-validity,
+/// jurisdiction-matched) exits 0; the SAME valid signature from a signer NOT in
+/// the directory must exit non-zero (advisory-only), driven through the binary.
+#[test]
+fn verify_directory_trust_gate_end_to_end() {
+  let dir = scratch();
+  let profile = dir.path().join("us_all_party");
+  std::fs::create_dir_all(&profile).expect("mkdir");
+  let pack = profile.join("recording_consent.r14n.toml");
+  std::fs::write(&pack, "[meta]\nstrictness = \"minimal\"\n").expect("write pack");
+
+  // Keygen + sign; read the signer's public key that keygen wrote.
+  assert!(r14n().args(["keygen", "--out"]).arg(dir.path().join("rk")).status().expect("keygen").success());
+  assert!(r14n().arg("sign").arg(&pack).arg("--key").arg(dir.path().join("rk.seed")).status().expect("sign").success());
+  let pubkey = std::fs::read_to_string(dir.path().join("rk.pub")).expect("pub").trim().to_string();
+
+  // Directory listing THIS key, US-CA, in-validity.
+  let good_dir = dir.path().join("good-directory.json");
+  std::fs::write(
+    &good_dir,
+    format!(
+      "{{\"directory_version\":\"1\",\"keys\":[{{\"key_id\":\"r1\",\"public_key_ed25519\":\"{pubkey}\",\
+       \"reviewer_identity\":\"Counsel\",\"jurisdiction\":\"US-CA\",\"credential_type\":\"bar_license\",\
+       \"credential_id\":\"1\",\"valid_from\":\"2026-01-01\",\"valid_until\":\"2026-12-31\"}}]}}"
+    ),
+  )
+  .expect("write good dir");
+  let st = r14n()
+    .arg("verify").arg(&pack)
+    .arg("--directory").arg(&good_dir)
+    .args(["--as-of", "2026-06-15", "--jurisdiction", "US-CA"])
+    .status()
+    .expect("verify");
+  assert!(st.success(), "a listed, in-validity, jurisdiction-matched key must be trusted");
+
+  // An empty directory ⇒ the same valid signature is advisory-only ⇒ non-zero.
+  let empty_dir = dir.path().join("empty-directory.json");
+  std::fs::write(&empty_dir, "{\"directory_version\":\"1\",\"keys\":[]}").expect("write empty dir");
+  let st = r14n()
+    .arg("verify").arg(&pack)
+    .arg("--directory").arg(&empty_dir)
+    .args(["--as-of", "2026-06-15"])
+    .status()
+    .expect("verify");
+  assert!(!st.success(), "an unlisted signer must not be trusted (advisory-only)");
+}

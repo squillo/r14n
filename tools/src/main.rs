@@ -16,6 +16,7 @@
 //!   exits) so the CLI surface is unit-tested; `Help` is a Command variant.
 
 mod catalog;
+mod directory;
 mod extract;
 mod keys;
 mod merge;
@@ -31,7 +32,7 @@ USAGE:
   r14n validate <pack>... [--catalog <file>]
   r14n keygen   --out <prefix>            (writes <prefix>.seed + <prefix>.pub)
   r14n sign     <pack> --key <seedfile> [--key-id <id>]
-  r14n verify   <pack> [--sig <file>]
+  r14n verify   <pack> [--sig <file>] [--directory <dir.json> [--as-of <YYYY-MM-DD>] [--jurisdiction <j>]]
   r14n publish  <pack> --id <profile/domain> [--registry <index.json>]
 
 `publish` writes only the LOCAL registry index; making anything public is a
@@ -65,6 +66,9 @@ enum Command {
   Verify {
     pack: ::std::path::PathBuf,
     sig: ::std::option::Option<::std::path::PathBuf>,
+    directory: ::std::option::Option<::std::path::PathBuf>,
+    as_of: ::std::option::Option<::std::string::String>,
+    jurisdiction: ::std::option::Option<::std::string::String>,
   },
   Publish {
     pack: ::std::path::PathBuf,
@@ -179,12 +183,15 @@ fn parse_args(
     }
     "verify" => {
       let sig = take_flag(&mut args, "--sig")?.map(::std::path::PathBuf::from);
+      let directory = take_flag(&mut args, "--directory")?.map(::std::path::PathBuf::from);
+      let as_of = take_flag(&mut args, "--as-of")?;
+      let jurisdiction = take_flag(&mut args, "--jurisdiction")?;
       if args.is_empty() {
         return ::std::result::Result::Err(::std::string::String::from("verify needs a pack path"));
       }
       let pack = ::std::path::PathBuf::from(args.remove(0));
       expect_no_leftovers(&args)?;
-      ::std::result::Result::Ok(Command::Verify { pack, sig })
+      ::std::result::Result::Ok(Command::Verify { pack, sig, directory, as_of, jurisdiction })
     }
     "publish" => {
       let id = require(take_flag(&mut args, "--id")?, "--id (canonically <profile>/<domain>)")?;
@@ -287,12 +294,27 @@ fn main() {
         .unwrap_or_else(|e| fail(&e));
       ::std::eprintln!("wrote {} (a signature proves WHO signed, not that a review was correct)", sig.display());
     }
-    Command::Verify { pack, sig } => {
+    Command::Verify { pack, sig, directory, as_of, jurisdiction } => {
       let sig_path = sig.unwrap_or_else(|| {
         ::std::path::PathBuf::from(::std::format!("{}.sig", pack.display()))
       });
-      crate::keys::verify_file(&pack, &sig_path).unwrap_or_else(|e| fail(&e));
-      ::std::eprintln!("{}: signature + content address OK", pack.display());
+      let public_key = crate::keys::verify_file(&pack, &sig_path).unwrap_or_else(|e| fail(&e));
+      ::std::eprintln!("{}: signature + identity + content address OK", pack.display());
+      // Optional trust-root check against a reviewer-key directory (M9). Without
+      // it, a valid signature only proves WHO signed, not that they may attest.
+      if let ::std::option::Option::Some(dir) = directory {
+        let when = as_of.unwrap_or_else(|| ::std::string::String::from("9999-12-31"));
+        let status = crate::directory::key_status(&dir, &public_key, &when, jurisdiction.as_deref())
+          .unwrap_or_else(|e| fail(&e));
+        if status.is_trusted() {
+          ::std::eprintln!("trust root: {status:?} — decision may escape advisory-only");
+        } else {
+          ::std::eprintln!(
+            "trust root: {status:?} — decision remains ADVISORY-ONLY (signer not a trusted reviewer as of {when})"
+          );
+          ::std::process::exit(3);
+        }
+      }
     }
     Command::Publish { pack, id, registry } => {
       // Lint before indexing — never index a pack that fails the format rules.

@@ -10,7 +10,7 @@ subcommand operates on configuration artifacts; none states what any jurisdictio
 | `validate <pack>... [--catalog <f>]` | lint | The cross-file linter behind `schema/pack.schema.json`: floor present, approved ⇒ attorney-of-record envelope + `last_reviewed_against_guidance`, `[prohibited]` ∩ floor = ∅, catalog membership. |
 | `keygen --out <prefix>` | — | Ed25519 keypair: `<prefix>.seed` (hex, PRIVATE) + `<prefix>.pub` (unpadded base64, the reviewer-directory encoding). |
 | `sign <pack> --key <seed> [--key-id <id>]` | — | Detached signature `<pack>.sig` (JSON: sha256 + Ed25519 over the exact bytes). |
-| `verify <pack> [--sig <f>]` | — | Verify content address + signature. |
+| `verify <pack> [--sig <f>] [--directory <d> [--as-of <date>] [--jurisdiction <j>]]` | — | Verify content address + identity-bound signature; with `--directory`, also check the signer is a listed, non-revoked, non-expired (and jurisdiction-matched) reviewer as of a date. Exit 3 if the signature is valid but the signer is not trusted (decision stays advisory-only). |
 | `publish <pack> --id <profile>/<domain>` | — | Validate, then append a content-addressed version entry (monotonic version, `supersedes` sha chain, signature embed) to the **LOCAL** `registry/index.json`. |
 
 `publish` never touches a network. Making anything public — pushing this repo, crates.io, a

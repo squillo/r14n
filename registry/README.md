@@ -9,6 +9,10 @@ provenance envelope; the registry establishes trusted signers (code-signing mode
   directory schema (spec §6): steward-signed, per-key `jurisdiction` +
   `credential_type` + `credential_id`, expiry + revocation. A directory entry proves
   *who* may attest, never that a review was correct — NOT LEGAL ADVICE.
+  Consumed by `r14n verify --directory` (the `directory` module in `/tools`): given a
+  verified signing key + a decision date, it reports whether the key is a listed,
+  non-revoked, non-expired, jurisdiction-scoped reviewer — the tooling half of the
+  trust root (the generic resolver stays directory-agnostic).
 - [`pack-index.schema.json`](pack-index.schema.json) — content-addressed pack
   versioning + supersession (monotonic version per `<profile>/<domain>` id,
   `supersedes` sha256 chain, optional embedded `rlps-sig/0.1` signature). Written
