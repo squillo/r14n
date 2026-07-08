@@ -33,20 +33,27 @@ the resolver already ships inside [Squillo OS](https://squillo.com) as `the Squi
   trust-root, temporal split, interop mappings).
 - [`schema/`](schema/) — JSON Schema for `.r14n.toml` packs.
 - [`catalog/`](catalog/) — the canonical CONTROL CATALOG (control keys + deontic kind + facets).
-- [`resolver/`](resolver/) — the Rust reference resolver (embeddable crate; run `cargo test`) including
-  the [`receipt`](resolver/src/receipt.rs) module: ISO/IEC TS 27560 + W3C DPV JSON-LD decision
-  receipts + a Kantara CR v1.1 shim ([namespace](docs/namespace.md); worked
-  [AI-Act §50 example](docs/examples/receipt-ai-act-50.json)).
+- [`resolver/`](resolver/) — the Rust reference resolver (embeddable crate; run `cargo test`)
+  including the [`receipt`](resolver/src/receipt.rs) module: ISO/IEC TS 27560-structured + W3C DPV
+  JSON-LD decision receipts + a Kantara CR v1.1 shim ([namespace](docs/namespace.md); worked
+  [AI-Act §50 example](docs/examples/receipt-ai-act-50.json)). Fail-closed everywhere; receipts are
+  `advisory_only` until provenance is cryptographically verified.
 - [`packs/`](packs/) — Squillo's own `aggressive` + `minimal` posture baselines (NOT jurisdiction
   claims) + a fictional `example/region` pack that demonstrates the `<regime>/<jurisdiction>`
   profile grammar (also NOT a jurisdiction claim).
 - [`conformance/`](conformance/) — language-neutral JSON test vectors for the 3 conformance levels.
 - [`tools/`](tools/) — the `r14n` pack-lifecycle CLI: `extract` / `merge` / `validate` /
-  `keygen` / `sign` / `verify` / `publish` (local index only).
+  `keygen` / `sign` / `verify` / `publish`. Signatures bind the pack's `<profile>/<domain>`
+  identity (not just its bytes); `verify --directory` checks the signer against a reviewer-key
+  directory (revocation + expiry + jurisdiction); `publish` writes a local content-addressed index.
 - [`registry/`](registry/) — reviewer-key directory + pack-index schemas (trust root, versioning,
   supersession).
 - [`GOVERNANCE.md`](GOVERNANCE.md) — reference-impl-first staging, federated-with-attestation
-  ownership, SDO entry criteria.
+  ownership, SDO entry criteria. [`SECURITY.md`](SECURITY.md) — disclosure policy + the crypto
+  threat surface. [`docs/audits/`](docs/audits/) — the standing council-audit reports.
+- CI: [`.github/workflows/gates.yml`](.github/workflows/gates.yml) runs both test suites, lints the
+  shipped packs, and validates every producer against its JSON Schema
+  ([`scripts/check-schemas.py`](scripts/check-schemas.py)).
 
 **Deliberately NOT here yet (held for licensed counsel):** real jurisdiction packs
 (`wiretap/us` 50-state matrix, `gdpr/eu`, `ccpa-cpra/us/ca`, …). Any pack claiming a real
@@ -58,7 +65,7 @@ counsel — see the spec §Governance. **This repo is not public until that lega
 RLPS is **not** the first attempt to make compliance machine-readable — see the related work in the
 spec (NIST OSCAL, W3C DPV / ISO 27560, Policy Cards, LegalRuleML, OPA/Cedar). RLPS occupies one
 specific, un-owned layer: the **control-prescription layer**, authored in i18n-ergonomic TOML a
-compliance officer *and* an engineer can diff in a PR, with an RFC-4647 jurisdiction-negotiation
+compliance officer *and* an engineer can diff in a PR, with an RFC-4647-style jurisdiction-negotiation
 algorithm and a fail-closed floor. It interoperates with those standards rather than replacing them.
 
 ## License

@@ -236,16 +236,25 @@ Fixed across six batches (each gated + committed; resolver 27+3-conformance test
   + `ambiguous_attribution` vectors; capability meta-validation test; `scripts/check-schemas.py`
   (packs/fixtures ↔ schemas); `.github/workflows/gates.yml`; `SECURITY.md`.
 
-**Deferred (documented, not silently dropped):**
+**Previously-deferred, now FIXED (2026-07-08, `95d5a47`…`be3ca99`):**
 
-- **M1 (signature binds pack bytes, not profile identity)** — the sign/publish integrity cluster
-  around it is fixed, but binding profile/domain into the signed material is a format change held for
-  the trust-root work; recorded as a known limitation in `SECURITY.md`.
-- **M9 reviewer-key directory verification tooling** (`r14n verify --directory` + revocation) — a
-  before-public feature; until it lands `PROVENANCE_VERIFIED` stays `false` (which is why NN1's fix
-  is honest today). The `trust_root_revocation` vector remains authored-ahead.
-- **NN15** (profile dirs named after postures) — README already frames them as posture demos, NOT
-  jurisdiction claims; a grammar-shaped example profile is deferred to avoid resembling a
-  jurisdiction claim before counsel.
-- **later missing-items**: cargo-fuzz, `llvm-cov` baseline, `CONTRIBUTING.md`/CLA, vendored license
-  texts, a published machine-readable `@context`/SKOS vocabulary, conformance-suite versioning.
+- **M1 (signature binds bytes, not profile) — FIXED** (`95d5a47`): `sign`/`verify` now sign a
+  domain-separated `rlps-sig/1` payload binding `<profile>/<domain>` (derived from the pack path) +
+  sha256; `verify` re-derives the id from the pack's current location and rejects on mismatch. Test:
+  a signed pack copied byte-identically (sig too) into another profile dir fails with "identity
+  mismatch." Sig schema + pack-index schema + spec §6 updated.
+- **M9 (reviewer-key directory verification) — FIXED** (`3f1b245`): new `tools/directory.rs` +
+  `r14n verify --directory <d> [--as-of] [--jurisdiction]` — a listed, non-revoked, non-expired,
+  jurisdiction-matched signer is `Trusted` (exit 0, may escape advisory-only); otherwise exit 3 and
+  the decision stays advisory-only. Revocation is forward-dated, expiry treated as revocation
+  (spec §6). 4 unit tests + an end-to-end CLI test. The generic resolver stays directory-agnostic.
+- **NN15 (grammar-conformant profile example) — FIXED** (`be3ca99`):
+  `packs/example/region/recording_consent.r14n.toml` demonstrates the `<regime>/<jurisdiction>`
+  profile grammar as a deliberately-fictional, heavily-marked non-jurisdiction draft; a resolver test
+  proves the nested profile dir loads.
+
+**Still deferred (later priority):** cargo-fuzz, `llvm-cov` baseline, `CONTRIBUTING.md`/CLA, vendored
+license texts, a published machine-readable `@context`/SKOS vocabulary, conformance-suite versioning;
+and the resolver-level `trust_root_revocation` conformance capability remains authored-ahead (the M9
+directory check lives at the tools layer, so `PROVENANCE_VERIFIED` stays `false` in the generic
+resolver by design).
