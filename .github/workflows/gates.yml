@@ -1,6 +1,6 @@
-# RLPS gates — council-audit missing-item: all 50+ tests, the shipped-packs
-# lint, and the schema-vs-producers checks previously ran only when someone
-# remembered. This runs them on every push/PR. NOT LEGAL ADVICE.
+# RLPS gates — all tests (incl. the schema-vs-producers conformance suite, now a
+# Rust test in tools/tests/schema_conformance.rs) + the shipped-packs lint, on
+# every push/PR. Rust only — no Python. NOT LEGAL ADVICE.
 name: gates
 
 on:
@@ -35,16 +35,8 @@ jobs:
             packs/example/region/recording_consent.r14n.toml \
             --catalog catalog/recording_consent.catalog.toml
 
-  schemas:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - run: pip install jsonschema
-      - name: validate producers against their schemas
-        run: python scripts/check-schemas.py
+  # Schema-vs-producers validation runs inside the `tools` job above
+  # (tools/tests/schema_conformance.rs) — no separate job / no Python needed.
 
   coverage:
     # Non-gating: publishes a coverage number for the reference implementation.

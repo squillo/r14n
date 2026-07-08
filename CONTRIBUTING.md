@@ -28,7 +28,8 @@ repo it touches:
 ## Engineering rules
 
 - Both crates must stay green: `cd resolver && cargo test` and `cd tools && cargo test`; schemas
-  must pass `python scripts/check-schemas.py`. CI (`.github/workflows/gates.yml`) enforces this.
+  the schema-conformance tests (in `tools/tests/schema_conformance.rs`) must pass. CI
+  (`.github/workflows/gates.yml`) enforces `cargo test`.
 - **Every test carries a `/// Why:` doc** stating the invariant / spec section / regression it
   guards — never a restatement of the body.
 - The **resolver stays generic** (serde + toml + serde_json + std, zero Squillo deps): it is a

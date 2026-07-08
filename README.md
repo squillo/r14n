@@ -59,9 +59,10 @@ the resolver already ships inside [Squillo OS](https://squillo.com) as `the Squi
   [`SECURITY.md`](SECURITY.md) + [`docs/key-management.md`](docs/key-management.md) (crypto threat
   surface + key hygiene), [`docs/receipt-data-handling.md`](docs/receipt-data-handling.md) (receipts
   carry PII), and [`docs/audits/`](docs/audits/) (the standing council-audit reports).
-- CI: [`.github/workflows/gates.yml`](.github/workflows/gates.yml) runs both test suites, lints the
-  shipped packs, and validates every producer against its JSON Schema
-  ([`scripts/check-schemas.py`](scripts/check-schemas.py)).
+- CI: [`.github/workflows/gates.yml`](.github/workflows/gates.yml) runs both test suites (which
+  include the schema-vs-producers conformance tests in
+  [`tools/tests/schema_conformance.rs`](tools/tests/schema_conformance.rs)) and lints the shipped
+  packs. Rust only — no Python.
 
 **Deliberately NOT here yet (held for licensed counsel):** real jurisdiction packs
 (`wiretap/us` 50-state matrix, `gdpr/eu`, `ccpa-cpra/us/ca`, …). Any pack claiming a real

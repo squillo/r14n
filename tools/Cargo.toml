@@ -33,3 +33,7 @@ base64 = "0.22"
 
 [dev-dependencies]
 tempfile = "3"
+# Schema-conformance test only (dev-only): validates the repo's producers
+# (packs, fixtures, vector files, example receipt) against the JSON Schemas.
+# Replaces the former scripts/check-schemas.py — this project is Rust + N Lang.
+jsonschema = { version = "0.33", default-features = false }

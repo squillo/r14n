@@ -28,7 +28,7 @@ The set of capability tags is closed and lives in three synchronized places (a t
 sync): `conformance/vector.schema.json` (the enum), `conformance/README.md` (the level tables), and
 `resolver/tests/conformance.rs` (`KNOWN_CAPABILITIES` + the resolver's `SUPPORTED` subset). Adding a
 capability is a MINOR change and MUST update all three. A vector may only use tags from the
-vocabulary; `scripts/check-schemas.py` + the meta-validation test reject typos.
+vocabulary; `tools/tests/schema_conformance.rs` + the runner's meta-validation test reject typos.
 
 ## Level-claim semantics
 
