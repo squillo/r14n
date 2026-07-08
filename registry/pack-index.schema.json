@@ -50,11 +50,12 @@
           },
           "signature": {
             "type": ["object", "null"],
-            "description": "Embedded detached signature (rlps-sig/0.1, written by `r14n sign`). Key encodings match reviewer-key.schema.json; the key SHOULD appear in the reviewer-key directory for the decision to escape the advisory-only taint (spec section 6).",
-            "required": ["schema", "sha256", "public_key_ed25519", "signature_ed25519"],
+            "description": "Embedded detached signature (rlps-sig/1, written by `r14n sign`). Signs a domain-separated payload binding bound_id (<profile>/<domain>) + sha256, so relocating the pack to another profile breaks it. Key encodings match reviewer-key.schema.json; the key SHOULD appear in the reviewer-key directory for the decision to escape the advisory-only taint (spec section 6).",
+            "required": ["schema", "bound_id", "sha256", "public_key_ed25519", "signature_ed25519"],
             "additionalProperties": true,
             "properties": {
-              "schema": { "type": "string", "const": "rlps-sig/0.1" },
+              "schema": { "type": "string", "const": "rlps-sig/1" },
+              "bound_id": { "type": "string", "description": "<profile>/<domain> the signature attests." },
               "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
               "public_key_ed25519": { "type": "string", "pattern": "^[A-Za-z0-9+/]{43}$" },
               "signature_ed25519": { "type": "string", "pattern": "^[A-Za-z0-9+/]{86}$" },

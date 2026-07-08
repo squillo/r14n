@@ -120,7 +120,10 @@ to `aggressive` over the caller's declared universe and MUST flag the decision a
 
 - The pack `[meta.legal_review]` MUST carry `status`; for any pack claiming a real jurisdiction it
   MUST carry `reviewing_attorney_of_record`, `jurisdiction`, and a bar/credential identifier, and
-  SHOULD be Ed25519-signed over the pack.
+  SHOULD be Ed25519-signed. A signature MUST bind the pack's **identity** (`<profile>/<domain>`),
+  not only its bytes, so a signed pack cannot be relocated to a different profile with its
+  signature intact (the reference `rlps-sig/1` format signs a domain-separated `id + sha256`
+  payload; `/tools`).
 - A resolver MUST treat an unattested or self-attested pack's decisions as **advisory-only**: the
   verdict MUST carry an `unverified_provenance` (or `fell_back`) flag that propagates into the
   decision receipt.
