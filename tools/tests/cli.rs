@@ -134,6 +134,56 @@ fn unknown_subcommand_exits_two() {
   assert_eq!(out.status.code(), Some(2), "unknown subcommand ⇒ exit 2");
 }
 
+/// Why: council-audit D2 — the reviewer-key.schema.json requires a steward
+/// signature over the directory's JCS form; `sign-directory` must produce one
+/// that `verify --directory` accepts, end-to-end through the binary, or the
+/// trust root ships unattested.
+#[test]
+fn steward_sign_directory_then_verify_accepts_it() {
+  let dir = scratch();
+  let profile = dir.path().join("us_all_party");
+  std::fs::create_dir_all(&profile).expect("mkdir");
+  let pack = profile.join("recording_consent.r14n.toml");
+  std::fs::write(&pack, "[meta]\nstrictness = \"minimal\"\n").expect("write pack");
+
+  // Reviewer key (signs the pack) + steward key (signs the directory).
+  assert!(r14n().args(["keygen", "--out"]).arg(dir.path().join("rk")).status().expect("kg").success());
+  assert!(r14n().arg("sign").arg(&pack).arg("--key").arg(dir.path().join("rk.seed")).status().expect("sign").success());
+  let reviewer_pub = std::fs::read_to_string(dir.path().join("rk.pub")).expect("rk").trim().to_string();
+  assert!(r14n().args(["keygen", "--out"]).arg(dir.path().join("steward")).status().expect("kg2").success());
+  let steward_pub = std::fs::read_to_string(dir.path().join("steward.pub")).expect("st").trim().to_string();
+
+  let directory = dir.path().join("directory.json");
+  std::fs::write(
+    &directory,
+    format!(
+      "{{\"directory_version\":\"1\",\"steward\":{{\"identity\":\"RLPS Steward\",\
+       \"public_key_ed25519\":\"{steward_pub}\"}},\"keys\":[{{\"key_id\":\"r1\",\
+       \"public_key_ed25519\":\"{reviewer_pub}\",\"reviewer_identity\":\"Counsel\",\
+       \"jurisdiction\":\"US-CA\",\"credential_type\":\"bar_license\",\"credential_id\":\"1\",\
+       \"valid_from\":\"2026-01-01\",\"valid_until\":\"2026-12-31\"}}]}}"
+    ),
+  )
+  .expect("write directory");
+
+  // Steward-sign the directory, then verify the pack against it.
+  assert!(
+    r14n().arg("sign-directory").arg(&directory).arg("--key").arg(dir.path().join("steward.seed"))
+      .status().expect("sign-directory").success()
+  );
+  let out = r14n()
+    .arg("verify").arg(&pack)
+    .arg("--directory").arg(&directory)
+    .args(["--as-of", "2026-06-15", "--jurisdiction", "US-CA"])
+    .output()
+    .expect("verify");
+  assert!(out.status.success(), "trusted signer + signed directory must pass");
+  assert!(
+    String::from_utf8_lossy(&out.stderr).contains("steward signature OK"),
+    "stderr: {}", String::from_utf8_lossy(&out.stderr)
+  );
+}
+
 /// Why: council-audit M9 — the trust root is only real if `verify --directory`
 /// actually gates on it end-to-end. A signer in the directory (in-validity,
 /// jurisdiction-matched) exits 0; the SAME valid signature from a signer NOT in

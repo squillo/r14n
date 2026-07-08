@@ -19,6 +19,7 @@
 mod catalog;
 mod directory;
 mod extract;
+mod jcs;
 mod keys;
 mod merge;
 mod packtoml;
@@ -34,6 +35,7 @@ USAGE:
   r14n keygen   --out <prefix>            (writes <prefix>.seed + <prefix>.pub)
   r14n sign     <pack> --key <seedfile> [--key-id <id>]
   r14n verify   <pack> [--sig <file>] [--directory <dir.json> [--as-of <YYYY-MM-DD>] [--jurisdiction <j>]]
+  r14n sign-directory <dir.json> --key <seedfile>   (steward-signs over the JCS canonical form)
   r14n publish  <pack> --id <profile/domain> [--registry <index.json>]
 
 `publish` writes only the LOCAL registry index; making anything public is a
@@ -70,6 +72,10 @@ enum Command {
     directory: ::std::option::Option<::std::path::PathBuf>,
     as_of: ::std::option::Option<::std::string::String>,
     jurisdiction: ::std::option::Option<::std::string::String>,
+  },
+  SignDirectory {
+    directory: ::std::path::PathBuf,
+    key: ::std::path::PathBuf,
   },
   Publish {
     pack: ::std::path::PathBuf,
@@ -194,6 +200,17 @@ fn parse_args(
       expect_no_leftovers(&args)?;
       ::std::result::Result::Ok(Command::Verify { pack, sig, directory, as_of, jurisdiction })
     }
+    "sign-directory" => {
+      let key = ::std::path::PathBuf::from(require(take_flag(&mut args, "--key")?, "--key")?);
+      if args.is_empty() {
+        return ::std::result::Result::Err(::std::string::String::from(
+          "sign-directory needs a directory path",
+        ));
+      }
+      let directory = ::std::path::PathBuf::from(args.remove(0));
+      expect_no_leftovers(&args)?;
+      ::std::result::Result::Ok(Command::SignDirectory { directory, key })
+    }
     "publish" => {
       let id = require(take_flag(&mut args, "--id")?, "--id (canonically <profile>/<domain>)")?;
       let registry = take_flag(&mut args, "--registry")?
@@ -304,6 +321,15 @@ fn main() {
       // Optional trust-root check against a reviewer-key directory (M9). Without
       // it, a valid signature only proves WHO signed, not that they may attest.
       if let ::std::option::Option::Some(dir) = directory {
+        // The directory's own steward signature must verify (if present) before
+        // we trust anything it lists (D2). An unsigned directory is a warning.
+        match crate::directory::verify_directory_steward(&dir) {
+          ::std::result::Result::Ok(true) => ::std::eprintln!("directory: steward signature OK"),
+          ::std::result::Result::Ok(false) => {
+            ::std::eprintln!("directory: WARNING — no steward signature (unsigned trust root)")
+          }
+          ::std::result::Result::Err(e) => fail(&e),
+        }
         let when = as_of.unwrap_or_else(|| ::std::string::String::from("9999-12-31"));
         let status = crate::directory::key_status(&dir, &public_key, &when, jurisdiction.as_deref())
           .unwrap_or_else(|e| fail(&e));
@@ -316,6 +342,10 @@ fn main() {
           ::std::process::exit(3);
         }
       }
+    }
+    Command::SignDirectory { directory, key } => {
+      crate::directory::sign_directory(&directory, &key).unwrap_or_else(|e| fail(&e));
+      ::std::eprintln!("{}: steward-signed over its JCS canonical form", directory.display());
     }
     Command::Publish { pack, id, registry } => {
       // Lint before indexing — never index a pack that fails the format rules.

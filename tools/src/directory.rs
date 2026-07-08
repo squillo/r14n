@@ -12,6 +12,70 @@
 //!
 //! Revision History
 //! - 2026-07-07: authored — council-audit M9 (reviewer-key directory tooling).
+//! - 2026-07-07: council-audit D2 — steward directory signing/verification over
+//!   the RFC-8785 (JCS) canonical form with the `signature_ed25519` field absent.
+
+/// Steward-sign a reviewer-key directory: canonicalizes the document (JCS) with
+/// `steward.signature_ed25519` ABSENT, signs it, and writes the signature back.
+/// The directory MUST already carry `steward.identity` + `steward.public_key_ed25519`.
+pub fn sign_directory(
+  directory_path: &::std::path::Path,
+  seed_path: &::std::path::Path,
+) -> ::std::result::Result<(), ::std::string::String> {
+  let raw = ::std::fs::read_to_string(directory_path)
+    .map_err(|e| ::std::format!("read {}: {e}", directory_path.display()))?;
+  let mut doc: ::serde_json::Value =
+    ::serde_json::from_str(&raw).map_err(|e| ::std::format!("parse directory: {e}"))?;
+  if doc["steward"]["public_key_ed25519"].as_str().is_none() {
+    return ::std::result::Result::Err(::std::string::String::from(
+      "directory has no steward.public_key_ed25519 — add the steward block before signing",
+    ));
+  }
+  // Canonicalize with the signature field absent (schema requirement).
+  if let ::std::option::Option::Some(steward) = doc["steward"].as_object_mut() {
+    steward.remove("signature_ed25519");
+  }
+  let canonical = crate::jcs::canonicalize(&doc)?;
+  let (public_key, signature) = crate::keys::sign_payload(seed_path, canonical.as_bytes())?;
+  if doc["steward"]["public_key_ed25519"].as_str() != ::std::option::Option::Some(public_key.as_str()) {
+    return ::std::result::Result::Err(::std::format!(
+      "seed's public key {public_key} does not match steward.public_key_ed25519 in the directory"
+    ));
+  }
+  doc["steward"]["signature_ed25519"] = ::serde_json::Value::String(signature);
+  let pretty =
+    ::serde_json::to_string_pretty(&doc).map_err(|e| ::std::format!("serialize: {e}"))?;
+  ::std::fs::write(directory_path, pretty)
+    .map_err(|e| ::std::format!("write {}: {e}", directory_path.display()))
+}
+
+/// Verify a directory's steward signature over its JCS canonical form. Returns
+/// `Ok(false)` when the directory carries no steward signature (unsigned — the
+/// caller decides whether that is acceptable); `Ok(true)` when a valid steward
+/// signature is present; `Err` when a signature is present but invalid.
+pub fn verify_directory_steward(
+  directory_path: &::std::path::Path,
+) -> ::std::result::Result<bool, ::std::string::String> {
+  let raw = ::std::fs::read_to_string(directory_path)
+    .map_err(|e| ::std::format!("read {}: {e}", directory_path.display()))?;
+  let doc: ::serde_json::Value =
+    ::serde_json::from_str(&raw).map_err(|e| ::std::format!("parse directory: {e}"))?;
+  let sig = match doc["steward"]["signature_ed25519"].as_str() {
+    ::std::option::Option::Some(s) => s,
+    ::std::option::Option::None => return ::std::result::Result::Ok(false),
+  };
+  let public_key = doc["steward"]["public_key_ed25519"]
+    .as_str()
+    .ok_or("steward signature present but no steward.public_key_ed25519")?;
+  let mut unsigned = doc.clone();
+  if let ::std::option::Option::Some(steward) = unsigned["steward"].as_object_mut() {
+    steward.remove("signature_ed25519");
+  }
+  let canonical = crate::jcs::canonicalize(&unsigned)?;
+  crate::keys::verify_payload(public_key, sig, canonical.as_bytes())
+    .map_err(|e| ::std::format!("steward signature does not verify: {e}"))?;
+  ::std::result::Result::Ok(true)
+}
 
 /// The trust status of a signing key against a directory, as of a date.
 #[derive(::std::fmt::Debug, ::std::cmp::PartialEq, ::std::cmp::Eq)]
@@ -170,5 +234,54 @@ mod tests {
     let (_t, dir) = directory();
     let s = super::key_status(&dir, "ZZZ", "2026-06-15", ::std::option::Option::None).expect("status");
     ::std::assert_eq!(s, super::KeyStatus::Unknown);
+  }
+
+  /// Why: council-audit D2 — the reviewer-key.schema.json REQUIRES a steward
+  /// signature over the JCS canonical form; without producing + verifying one,
+  /// the trust root is unattested. A steward-sign→verify roundtrip must hold,
+  /// and any post-signing tamper must break verification.
+  #[test]
+  fn steward_sign_verify_roundtrip_and_tamper_detection() {
+    let tmp = ::tempfile::tempdir().expect("tmp");
+    let (seed, pub_path) = crate::keys::keygen(&tmp.path().join("steward")).expect("keygen");
+    let steward_pub = ::std::fs::read_to_string(&pub_path).expect("pub");
+    let dir = tmp.path().join("directory.json");
+    ::std::fs::write(
+      &dir,
+      ::std::format!(
+        "{{\"directory_version\":\"1\",\"steward\":{{\"identity\":\"RLPS Steward\",\
+          \"public_key_ed25519\":\"{steward_pub}\"}},\"keys\":[]}}"
+      ),
+    )
+    .expect("write directory");
+    // Unsigned ⇒ verify returns Ok(false).
+    ::std::assert_eq!(super::verify_directory_steward(&dir).expect("verify"), false);
+    super::sign_directory(&dir, &seed).expect("sign directory");
+    ::std::assert_eq!(super::verify_directory_steward(&dir).expect("verify signed"), true);
+    // Tamper: add a key after signing ⇒ steward signature must no longer verify.
+    let mut doc: ::serde_json::Value =
+      ::serde_json::from_str(&::std::fs::read_to_string(&dir).expect("read")).expect("json");
+    doc["keys"].as_array_mut().expect("keys").push(::serde_json::json!({
+      "key_id": "sneaked-in", "public_key_ed25519": "AAA", "reviewer_identity": "x",
+      "jurisdiction": "US-CA", "credential_type": "bar_license", "credential_id": "1",
+      "valid_from": "2026-01-01"
+    }));
+    ::std::fs::write(&dir, doc.to_string()).expect("write tampered");
+    ::std::assert!(super::verify_directory_steward(&dir).is_err(), "tampered directory must fail");
+  }
+
+  /// Why: signing with a seed whose public key is not the declared steward key
+  /// must be refused — otherwise anyone could "steward-sign" a directory.
+  #[test]
+  fn signing_with_a_non_steward_key_is_refused() {
+    let tmp = ::tempfile::tempdir().expect("tmp");
+    let (seed, _p) = crate::keys::keygen(&tmp.path().join("wrong")).expect("keygen");
+    let dir = tmp.path().join("directory.json");
+    ::std::fs::write(
+      &dir,
+      "{\"directory_version\":\"1\",\"steward\":{\"identity\":\"S\",\"public_key_ed25519\":\"AAA\"},\"keys\":[]}",
+    )
+    .expect("write");
+    ::std::assert!(super::sign_directory(&dir, &seed).is_err(), "wrong key must be refused");
   }
 }

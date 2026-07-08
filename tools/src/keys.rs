@@ -105,6 +105,35 @@ fn load_signing_key(
   ::std::result::Result::Ok(::ed25519_dalek::SigningKey::from_bytes(&seed))
 }
 
+/// Sign arbitrary bytes with the seed at `seed_path`; returns `(public_key_b64,
+/// signature_b64)`. Shared by pack signing and steward directory signing.
+pub(crate) fn sign_payload(
+  seed_path: &::std::path::Path,
+  message: &[u8],
+) -> ::std::result::Result<(::std::string::String, ::std::string::String), ::std::string::String> {
+  let signing = load_signing_key(seed_path)?;
+  let signature = ::ed25519_dalek::Signer::sign(&signing, message);
+  ::std::result::Result::Ok((b64(signing.verifying_key().as_bytes()), b64(&signature.to_bytes())))
+}
+
+/// Verify an Ed25519 signature (base64) by `public_key_b64` over `message`.
+pub(crate) fn verify_payload(
+  public_key_b64: &str,
+  signature_b64: &str,
+  message: &[u8],
+) -> ::std::result::Result<(), ::std::string::String> {
+  let pub_bytes: [u8; 32] = b64_decode(public_key_b64)?
+    .try_into()
+    .map_err(|_| ::std::string::String::from("public key must be 32 bytes"))?;
+  let verifying = ::ed25519_dalek::VerifyingKey::from_bytes(&pub_bytes)
+    .map_err(|e| ::std::format!("bad public key: {e}"))?;
+  let sig_bytes = b64_decode(signature_b64)?;
+  let signature = ::ed25519_dalek::Signature::from_slice(&sig_bytes)
+    .map_err(|e| ::std::format!("bad signature: {e}"))?;
+  ::ed25519_dalek::Verifier::verify(&verifying, message, &signature)
+    .map_err(|e| ::std::format!("signature INVALID: {e}"))
+}
+
 /// Sign a pack file: writes the detached `<pack>.sig` JSON and returns its path.
 pub fn sign_file(
   pack: &::std::path::Path,
