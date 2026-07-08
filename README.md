@@ -23,12 +23,132 @@ machine-readable *template of controls*; it does not tell you what the law is, a
 posture that under-restricts a jurisdiction's law is the **consuming operator's** responsibility.
 **"aggressive" ≠ "compliant."** See [`docs/not-legal-advice.md`](docs/not-legal-advice.md).
 
+## The problem it solves
+
+Whether you may record a meeting — and what you must do first (get consent, show an on-screen
+indicator, announce an AI notetaker, …) — depends on **where** everyone is and **what kind** of
+recording it is. Today that logic is usually buried in application code: hard to audit, easy to get
+subtly wrong, and impossible for a compliance officer to review without reading source.
+
+RLPS pulls those rules out of the code into **packs** — small, human-diffable TOML files that map a
+`(profile × jurisdiction × subject)` to the **set of compliance controls required**. An app asks a
+**resolver** "given who's involved and where, what's required right now?" and gets back a control
+set plus a signed, machine-readable **receipt** proving which pack drove the decision and who
+attested it. The resolver **fails closed**: if a pack is missing, malformed, expired, or the
+jurisdiction is ambiguous, it demands *everything* the app can enforce and loudly flags the
+fallback — it never silently under-restricts.
+
+**The seven pieces** (spec §2): a **control** (one required action, a stable key), a **domain**
+(regulated activity, e.g. `recording_consent`), a **subject** (the discriminator within a domain,
+e.g. a recording rail), a **profile** (`<regime>/<jurisdiction>` tag), a **pack** (one
+`<domain>.r14n.toml` for one profile), a **decision** (the resolver's output), and **provenance**
+(the pack's legal-review block + a signed decision receipt).
+
+## Examples
+
+### 1. A pack — `packs/aggressive/recording_consent.r14n.toml`
+
+A pack a compliance officer and an engineer can both read and review in a PR. The `posture`
+selector (`strictness`) chooses which table governs; `[legally_required]` is the fail-closed floor.
+
+```toml
+[meta]
+strictness = "aggressive"      # posture — NOT a legal ordering; "aggressive" ≠ "compliant"
+
+[meta.legal_review]
+status = "not_required"        # this baseline over-restricts; it can never under-restrict
+
+[subject.telepresence]
+controls = ["signal_notice", "indicator_mount", "aph_mandate"]
+
+[subject.twin_attend]
+controls = ["announcement", "aph_mandate"]
+
+[legally_required]             # the floor: required under the `minimal` posture / as a catch-all
+controls = ["attestation", "signal_notice", "indicator_mount", "announcement", "aph_mandate"]
+```
+
+A pack may also declare `[prohibited]` (controls no posture may add — the data-minimization guard),
+`inherits` (a parent profile it deltas from), and an `effective_from`/`effective_until` envelope.
+
+### 2. Resolving — the reference resolver (Rust)
+
+```rust
+use std::collections::BTreeSet;
+
+// The caller declares EVERY control it can enforce — the aggressive/fallback ceiling.
+let universe: BTreeSet<r14n::ControlKey> =
+    ["attestation", "signal_notice", "indicator_mount", "aph_mandate"]
+        .into_iter().map(|s| r14n::ControlKey(s.into())).collect();
+
+let query = r14n::RegulatoryQuery {
+    domain: "recording_consent".into(),
+    profile: r14n::RegulatoryProfile("aggressive".into()),   // selects packs/aggressive/
+    jurisdiction: "all_party".into(),
+    subject: "telepresence".into(),
+    universe,
+    as_of: Some("2026-07-08".into()),                        // enables the effective-date check
+};
+
+// Load packs from a directory laid out like locales/: <root>/<profile>/<domain>.r14n.toml
+let adapter = r14n::TomlRegulatoryPolicyAdapter::new("packs".into(), None);
+let decision = r14n::RegulatoryPolicyPort::required_controls(&adapter, &query);
+
+// decision.required      — the controls the caller MUST satisfy (⊆ universe)
+// decision.verdict       — Permit | Block
+// decision.provenance    — pack source, review status, fell_back, advisory-only taint
+assert!(decision.required.contains(&r14n::ControlKey("indicator_mount".into())));
+```
+
+The port is **infallible**: a missing/malformed/expired/floor-less pack returns
+aggressive-over-universe with `provenance.fell_back = true`, never an empty set.
+
+### 3. The pack lifecycle — the `r14n` CLI
+
+```console
+$ r14n extract --catalog catalog/recording_consent.catalog.toml --profile gdpr/eu   # scaffold a pack
+$ r14n validate packs/aggressive/recording_consent.r14n.toml \
+        --catalog catalog/recording_consent.catalog.toml                            # lint it
+$ r14n keygen --out reviewer                                                         # Ed25519 keypair
+$ r14n sign packs/aggressive/recording_consent.r14n.toml --key reviewer.seed         # attest it
+$ r14n verify packs/aggressive/recording_consent.r14n.toml --directory registry/directory.json \
+        --as-of 2026-07-08 --jurisdiction US-CA        # + check the signer is a trusted reviewer
+$ r14n publish packs/aggressive/recording_consent.r14n.toml --id aggressive/recording_consent
+```
+
+`merge` is the gettext-`msgmerge` analogue: when the catalog changes it flags **only** the changed
+controls for legal re-review, preserving the reviewed pack byte-for-byte.
+
+### 4. The decision receipt (ISO/IEC TS 27560 + W3C DPV JSON-LD)
+
+Every decision can be serialized as a signed, machine-readable receipt — audit evidence of *what*
+was decided, by *which* pack, and whether provenance was verified. Trimmed
+([full example](docs/examples/receipt-ai-act-50.json)):
+
+```jsonc
+{
+  "@type": "rlps:ControlDecisionReceipt",
+  "processing": { "domain": "recording_consent", "subject": "twin_attend",
+                  "operations": ["rlps:AudioRecording", "rlps:VoiceRecording"] },
+  "jurisdiction": { "dpv:hasJurisdiction": ["DE"], "attribution_source": "operator_declared" },
+  "decision": { "verdict": "permit", "posture": "aggressive",
+                "required_controls": ["ai_disclosure", "announcement", "attestation", …] },
+  "provenance": { "advisory_only": true, "provenance_verified": false, "fell_back": false },
+  "ai_disclosure": { "disclosed_at": "2026-08-02T08:59:00Z", "method": "in_meeting_announcement" },
+  "disclaimer": "NOT LEGAL ADVICE. …"
+}
+```
+
+`advisory_only` stays `true` until a signature from a directory-listed, non-revoked reviewer is
+verified — a self-declared `legal_review.status = "approved"` never clears it on its own.
+
 ## Status
 
 **v0.1 — draft. Reference-implementation-first.** This repository is the working existence proof;
 the resolver already ships inside [Squillo OS](https://squillo.com) as `the Squillo OS policy engine`.
 
-**What's here now (counsel-safe subset):**
+## Repository layout (counsel-safe subset)
+
 - [`spec/RLPS-v0.1.md`](spec/RLPS-v0.1.md) — the normative specification (conflict rules,
   trust-root, temporal split, interop mappings).
 - [`schema/`](schema/) — JSON Schema for `.r14n.toml` packs + the decision-receipt schema

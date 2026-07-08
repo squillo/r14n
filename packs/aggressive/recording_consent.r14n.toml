@@ -4,16 +4,15 @@
 # Regulatory policy pack — domain: recording_consent — profile: aggressive
 #
 # The fail-closed baseline. `strictness = "aggressive"` means the caller's full
-# per-rail control UNIVERSE is required regardless of the tables below — ship this
-# until counsel signs a relaxed per-jurisdiction pack (an internal design memo.md).
+# declared control UNIVERSE is required regardless of the tables below — ship this
+# until licensed counsel signs a relaxed per-jurisdiction pack.
 #
-# Control vocabulary (must match the gate's keys — an internal component
-# jurisdiction_policy_consent_gate CTRL_*):
-#   attestation      — user affirms consent/right to record (Rail-L) or provenance (Rail-I)
-#   signal_notice    — conference recording signal verified active (Rail-T)
-#   indicator_mount  — local recording indicator verified mounted (Rail-T)
-#   announcement     — in-meeting "assistant present" announcement (Rail-W)
-#   aph_mandate      — APH mandate present (delegate/twin rails)
+# Control vocabulary (declared in catalog/recording_consent.catalog.toml):
+#   attestation      — user affirms consent / a lawful right to record
+#   signal_notice    — conference recording signal verified active
+#   indicator_mount  — local recording indicator verified mounted
+#   announcement     — in-meeting "an assistant is present" announcement
+#   aph_mandate      — a standing delegate/agent authorization mandate is present
 
 [meta]
 strictness = "aggressive"
