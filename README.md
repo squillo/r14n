@@ -31,7 +31,12 @@ the resolver already ships inside [Squillo OS](https://squillo.com) as `the Squi
 **What's here now (counsel-safe subset):**
 - [`spec/RLPS-v0.1.md`](spec/RLPS-v0.1.md) — the normative specification (conflict rules,
   trust-root, temporal split, interop mappings).
-- [`schema/`](schema/) — JSON Schema for `.r14n.toml` packs.
+- [`schema/`](schema/) — JSON Schema for `.r14n.toml` packs + the decision-receipt schema
+  ([`receipt.schema.json`](schema/receipt.schema.json); mapping to TS 27560 in
+  [`docs/receipt-27560-mapping.md`](docs/receipt-27560-mapping.md)).
+- [`ns/`](ns/) — the published RLPS vocabulary: the `@context`
+  ([`context.jsonld`](ns/context.jsonld)) + SKOS/RDFS term definitions ([`rlps.ttl`](ns/rlps.ttl)),
+  so the `https://rlps.squillo.com/ns#` namespace resolves.
 - [`catalog/`](catalog/) — the canonical CONTROL CATALOG (control keys + deontic kind + facets).
 - [`resolver/`](resolver/) — the Rust reference resolver (embeddable crate; run `cargo test`)
   including the [`receipt`](resolver/src/receipt.rs) module: ISO/IEC TS 27560-structured + W3C DPV

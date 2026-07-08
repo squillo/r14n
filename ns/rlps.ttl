@@ -1,0 +1,69 @@
+# RLPS vocabulary — SKOS/RDFS definitions for the RLPS-owned namespace.
+# NOT LEGAL ADVICE. Terms name controls and receipt structures, not legal conclusions.
+#
+# This is the machine-readable definition of the terms minted in
+# https://rlps.squillo.com/ns# and referenced by decision receipts (see the
+# resolver `receipt` module and /docs/namespace.md). It degrades gracefully: RLPS
+# terms are self-defined here and do not depend on DPVCG adopting them.
+
+@prefix rlps: <https://rlps.squillo.com/ns#> .
+@prefix dpv:  <https://w3id.org/dpv#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+
+<https://rlps.squillo.com/ns>
+    a owl:Ontology ;
+    rdfs:label "RLPS vocabulary" ;
+    dct:description "Terms for the Regulatory Localization Pack Specification decision receipts. NOT LEGAL ADVICE." ;
+    owl:versionInfo "0.1" .
+
+# ── Receipt structure classes ────────────────────────────────────────────────
+rlps:ControlDecisionReceipt
+    a rdfs:Class, skos:Concept ;
+    rdfs:label "Control Decision Receipt" ;
+    skos:definition "A record of a control-prescription decision and its provenance. Records which controls were REQUIRED, NOT that consent was obtained; advisory-only unless provenance is cryptographically verified." .
+
+rlps:RegulatedActivity
+    a rdfs:Class, skos:Concept ;
+    rdfs:label "Regulated Activity" ;
+    skos:definition "The (domain × subject) activity a control decision governs." .
+
+# ── Event types (event_state carries the verdict / disclosure method) ─────────
+rlps:ControlDecision
+    a rdfs:Class, skos:Concept ;
+    rdfs:label "Control Decision event" ;
+    skos:definition "The resolver decision event; its event_state is the verdict (permit|block)." .
+
+rlps:AiDisclosure
+    a rdfs:Class, skos:Concept ;
+    rdfs:label "AI Disclosure event" ;
+    skos:definition "An EU-AI-Act-Article-50-style disclosure event; its event_state is the delivery method. Records the disclosure FACTS only, not a legal basis." .
+
+# ── Processing operations (recording rails) ──────────────────────────────────
+rlps:AudioRecording
+    a rdfs:Class, skos:Concept ;
+    rdfs:label "Audio Recording" ;
+    skos:definition "Capturing meeting/session audio." .
+
+rlps:VideoRecording
+    a rdfs:Class, skos:Concept ;
+    rdfs:label "Video Recording" ;
+    skos:definition "Capturing meeting/session video." .
+
+rlps:VoiceRecording
+    a rdfs:Class, skos:Concept ;
+    rdfs:label "Voice Recording" ;
+    skos:definition "Capturing voice specifically; biometric-adjacent — a distinct GDPR Art. 9 special-category exposure, SEPARATE from generic audio." .
+
+# ── Properties ───────────────────────────────────────────────────────────────
+rlps:operations
+    a rdf:Property ;
+    rdfs:label "operations" ;
+    skos:definition "The processing operations a regulated activity involves (values are rlps operation IRIs)." .
+
+rlps:event_type
+    a rdf:Property ;
+    rdfs:label "event type" ;
+    skos:definition "The type of a receipt event (an rlps event-class IRI)." .

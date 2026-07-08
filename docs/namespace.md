@@ -22,6 +22,25 @@ external adoption. So RLPS mints its own terms and **degrades gracefully**:
 - If DPVCG later adopts recording terms, packs/receipts MAY emit both (`rlps:` term +
   `dpv:` equivalent); the RLPS term remains canonical for RLPS conformance.
 
+### DPV term confirmation (2026-07-08)
+
+Verified against W3C DPV 2.x (dpvcg.org / w3c-cg.github.io/dpv):
+- `dpv:DataSubject` — **class**, `https://w3id.org/dpv#DataSubject` ✓
+- `dpv:DataController` — **class**, `https://w3id.org/dpv#DataController` ✓
+- `dpv:hasJurisdiction` — **property** ✓ (DPV's core jurisdiction relation; associates a `dpv:Law`
+  with its jurisdiction via the LOC taxonomy). **Caveat:** DPV expects jurisdiction VALUES to be
+  location/legal concept IRIs; RLPS currently emits ISO-3166 strings (e.g. `"DE"`, `"US-CA"`) as a
+  convention — full alignment to DPV location-concept IRIs is tracked future work
+  (see `docs/receipt-27560-mapping.md`).
+
+## Published vocabulary artifacts
+
+- [`/ns/context.jsonld`](../ns/context.jsonld) — the published `@context` (the same coercions the
+  receipt uses inline: `@vocab` = RLPS_NS, `id → @id`, `operations`/`event_type` as `@id`), so a
+  consumer can dereference the namespace's context.
+- [`/ns/rlps.ttl`](../ns/rlps.ttl) — SKOS/RDFS definitions of every minted term (self-defined so
+  RLPS does not depend on DPVCG adoption).
+
 ## Minted terms (v0.1)
 
 | Term | Kind | Meaning |

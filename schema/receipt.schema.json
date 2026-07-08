@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/squillo/r14n/schema/receipt.schema.json",
+  "title": "RLPS Decision Receipt (rlps-receipt/0.1+iso27560)",
+  "description": "The ISO/IEC TS 27560-structured + W3C DPV JSON-LD decision receipt emitted by the resolver `receipt` module (dpv_27560). Records which controls were REQUIRED, NOT that consent was obtained; advisory_only unless provenance is cryptographically verified. NOT LEGAL ADVICE.",
+  "type": "object",
+  "required": ["@context", "@type", "record", "pii_principal", "pii_controller", "processing", "jurisdiction", "decision", "provenance", "event", "disclaimer"],
+  "additionalProperties": true,
+  "properties": {
+    "@context": { "type": "object" },
+    "@type": { "const": "rlps:ControlDecisionReceipt" },
+    "record": {
+      "type": "object",
+      "required": ["schema_version", "record_id", "issued_at", "language"],
+      "properties": {
+        "schema_version": { "const": "rlps-receipt/0.1+iso27560" },
+        "record_id": { "type": "string" },
+        "issued_at": { "type": "string" },
+        "language": { "type": "string" }
+      }
+    },
+    "pii_principal": {
+      "type": "object",
+      "required": ["@type", "id"],
+      "properties": { "@type": { "const": "dpv:DataSubject" }, "id": { "type": "string" } }
+    },
+    "pii_controller": {
+      "type": "object",
+      "required": ["@type", "id"],
+      "properties": { "@type": { "const": "dpv:DataController" }, "id": { "type": "string" } }
+    },
+    "processing": {
+      "type": "object",
+      "required": ["@type", "domain", "subject", "operations"],
+      "properties": {
+        "@type": { "const": "rlps:RegulatedActivity" },
+        "domain": { "type": "string" },
+        "subject": { "type": "string" },
+        "operations": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "jurisdiction": {
+      "type": "object",
+      "required": ["dpv:hasJurisdiction", "attribution_source"],
+      "properties": {
+        "dpv:hasJurisdiction": { "type": "array", "items": { "type": "string" } },
+        "attribution_source": { "type": "string" }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "required": ["verdict", "posture", "required_controls", "escalation"],
+      "properties": {
+        "verdict": { "enum": ["permit", "block"] },
+        "posture": { "type": "string" },
+        "required_controls": { "type": "array", "items": { "type": "string" } },
+        "escalation": {
+          "type": "object",
+          "required": ["gpc_signal", "ieee7012_no_recording"],
+          "properties": {
+            "gpc_signal": { "type": "boolean" },
+            "ieee7012_no_recording": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["profile", "pack_source", "legal_review_status", "fell_back", "provenance_verified", "advisory_only"],
+      "properties": {
+        "profile": { "type": "string" },
+        "pack_source": { "type": "string" },
+        "legal_review_status": { "type": ["string", "null"] },
+        "fell_back": { "type": "boolean" },
+        "provenance_verified": { "type": "boolean" },
+        "advisory_only": { "type": "boolean" },
+        "pack_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "last_reviewed_against_guidance": { "type": "string" }
+      }
+    },
+    "event": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["event_time", "event_type", "event_state"],
+        "properties": {
+          "event_time": { "type": "string" },
+          "event_type": { "type": "string" },
+          "event_state": { "type": "string" }
+        }
+      }
+    },
+    "ai_disclosure": {
+      "type": "object",
+      "required": ["disclosed_at", "method"],
+      "properties": {
+        "disclosed_at": { "type": "string" },
+        "method": { "type": "string" }
+      }
+    },
+    "disclaimer": { "type": "string" }
+  }
+}

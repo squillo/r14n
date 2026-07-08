@@ -36,11 +36,13 @@ def main() -> int:
     pack_schema = _load("schema/pack.schema.json")
     reviewer_schema = _load("registry/reviewer-key.schema.json")
     index_schema = _load("registry/pack-index.schema.json")
+    receipt_schema = _load("schema/receipt.schema.json")
 
     for schema, name in (
         (pack_schema, "pack.schema.json"),
         (reviewer_schema, "reviewer-key.schema.json"),
         (index_schema, "pack-index.schema.json"),
+        (receipt_schema, "receipt.schema.json"),
     ):
         try:
             jsonschema.Draft202012Validator.check_schema(schema)
@@ -74,6 +76,15 @@ def main() -> int:
                 failures.append(f"{label}: {[e.message for e in errs]}")
             else:
                 print(f"reviewer-dir fixture OK: {label}")
+
+    # The shipped worked example receipt must validate against the receipt schema.
+    receipt_validator = jsonschema.Draft202012Validator(receipt_schema)
+    example = json.loads((ROOT / "docs/examples/receipt-ai-act-50.json").read_text())
+    errs = sorted(receipt_validator.iter_errors(example["dpv_27560"]), key=str)
+    if errs:
+        failures.append(f"docs/examples/receipt-ai-act-50.json dpv_27560: {[e.message for e in errs]}")
+    else:
+        print("receipt example OK: docs/examples/receipt-ai-act-50.json (dpv_27560)")
 
     if failures:
         print("\nFAILURES:", file=sys.stderr)
