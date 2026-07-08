@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/squillo/r14n/conformance/vector.schema.json",
+  "title": "RLPS Conformance Vector File",
+  "description": "The format of a /conformance/level-N.json file: a suite of language-neutral test vectors. A harness materializes each vector's packs, runs the query, and asserts `expect` (+ optional receipt pointers). NOT LEGAL ADVICE.",
+  "type": "object",
+  "required": ["suite", "level", "vectors"],
+  "additionalProperties": true,
+  "properties": {
+    "suite": { "const": "rlps-conformance/0.1" },
+    "level": { "enum": [1, 2, 3] },
+    "description": { "type": "string" },
+    "vectors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "description", "capabilities", "packs", "query", "expect"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+          "description": { "type": "string" },
+          "capabilities": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "enum": [
+                "pack_parse", "posture_selection", "fail_closed_fallback",
+                "fail_closed_unknown_subject", "posture_override", "data_minimization_guard",
+                "temporal_envelope", "rfc4647_negotiation", "delta_merge", "most_restrictive_merge",
+                "deontic_conflict", "gpc_escalation", "ieee7012_escalation", "ambiguous_attribution",
+                "per_domain_posture", "trust_root_taint", "receipt_27560", "receipt_kantara",
+                "trust_root_revocation"
+              ]
+            }
+          },
+          "packs": {
+            "type": "object",
+            "description": "relative-path -> pack TOML text. Keys MUST be relative and MUST NOT contain '..' (harness rejects traversal).",
+            "propertyNames": { "pattern": "^(?!/)(?!.*\\.\\.).+$" },
+            "additionalProperties": { "type": "string" }
+          },
+          "query": {
+            "type": "object",
+            "required": ["domain", "profile", "jurisdiction", "subject", "universe"],
+            "additionalProperties": true,
+            "properties": {
+              "domain": { "type": "string" },
+              "profile": { "type": "string" },
+              "jurisdiction": { "type": "string" },
+              "subject": { "type": "string" },
+              "universe": { "type": "array", "items": { "type": "string" } },
+              "posture_override": { "type": ["string", "null"] },
+              "as_of": { "type": "string" }
+            }
+          },
+          "expect": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "required_controls": { "type": "array", "items": { "type": "string" } },
+              "fell_back": { "type": "boolean" },
+              "legal_review_status": { "type": ["string", "null"] },
+              "verdict": { "enum": ["permit", "block"] }
+            }
+          },
+          "reviewer_directory": { "type": "object" },
+          "receipt_context": { "type": "object" },
+          "expect_receipt": { "type": "object" },
+          "expect_kantara": { "type": "object" }
+        },
+        "dependentRequired": {
+          "expect_receipt": ["receipt_context"],
+          "expect_kantara": ["receipt_context"]
+        }
+      }
+    }
+  }
+}

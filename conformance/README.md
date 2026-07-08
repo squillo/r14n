@@ -7,6 +7,9 @@ level MUST pass every vector in that level's file whose `capabilities` it implem
 > **⚠ NOT LEGAL ADVICE.** Vectors verify resolver BEHAVIOR (fail-closed, posture selection,
 > provenance taint) — passing them is an engineering conformance claim, never a compliance claim.
 
+Vector files conform to [`vector.schema.json`](vector.schema.json) (validated by
+`scripts/check-schemas.py`). Suite versioning + level-claim semantics: [`VERSIONING.md`](VERSIONING.md).
+
 ## Files
 
 | File | Level (spec §9) | Requires capabilities |

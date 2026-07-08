@@ -77,6 +77,18 @@ def main() -> int:
             else:
                 print(f"reviewer-dir fixture OK: {label}")
 
+    # Every conformance vector file must match the vector-file schema (a typo'd
+    # capability tag or a malformed vector is caught here, not silently skipped).
+    vector_schema = _load("conformance/vector.schema.json")
+    jsonschema.Draft202012Validator.check_schema(vector_schema)
+    vector_validator = jsonschema.Draft202012Validator(vector_schema)
+    for level in sorted((ROOT / "conformance").glob("level-*.json")):
+        errs = sorted(vector_validator.iter_errors(json.loads(level.read_text())), key=str)
+        if errs:
+            failures.append(f"{level.name}: {[e.message for e in errs][:3]}")
+        else:
+            print(f"vector file OK: {level.name}")
+
     # The shipped worked example receipt must validate against the receipt schema.
     receipt_validator = jsonschema.Draft202012Validator(receipt_schema)
     example = json.loads((ROOT / "docs/examples/receipt-ai-act-50.json").read_text())

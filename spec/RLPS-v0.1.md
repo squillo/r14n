@@ -110,6 +110,29 @@ against each applicable jurisdiction's pack chain, then merge **most-restrictive
    resolver MUST NOT resolve such a conflict by silently dropping either side.
 4. The merge operates within one domain only; §3's per-domain independence still holds.
 
+### 4.3 Inheritance & delta-merge (normative)
+
+A pack MAY declare `[meta] inherits = "<parent-profile>"` (an RFC-4647-style parent tag, e.g.
+`gdpr/eu` for a `gdpr/eu/de` pack). A pack that declares `inherits` is a **delta**: it carries only
+its deviations from the parent, and the resolver MUST construct the effective pack by merging the
+child over the resolved parent (which may itself inherit — the chain terminates at a pack with no
+`inherits`, or at `root`). A cycle in the `inherits` chain MUST fail closed (§5).
+
+The merge is **per-table and key-wise**, most-specific-wins:
+1. `[meta]` scalars (`strictness`, effective-date envelope, `legal_review`, …): the child's value
+   overrides the parent's; unset child fields inherit the parent's.
+2. `[subject.<name>]`: a child `[subject.<name>]` **replaces** the parent's table for that subject
+   (a subject is authored as a whole rail); subjects the child does not mention inherit unchanged.
+3. `[legally_required]` and `[prohibited]`: the child's table, when present, **replaces** the
+   parent's; when absent, the parent's is inherited. (A child that must add one control still
+   restates the floor — the floor is safety-critical and authored explicitly, never silently
+   accreted.)
+
+The merge is applied BEFORE posture selection (§3) and the data-minimization guard (§3), so a
+child's `[prohibited]` governs the merged control sets. `[meta.legal_review]` does NOT inherit an
+`approved` status: an inheriting pack claiming a real jurisdiction MUST carry its own attestation
+envelope (§6) — trust is not transitive across the inheritance chain.
+
 ## 5. Fail-closed (normative)
 
 Absence, ambiguity, or error MUST resolve to the most-restrictive outcome. A resolver MUST NOT
