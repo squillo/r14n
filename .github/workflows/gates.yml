@@ -27,11 +27,12 @@ jobs:
       - name: tools test suite
         run: cargo test --locked
         working-directory: tools
-      - name: lint the shipped baseline packs
+      - name: lint the shipped packs
         run: |
           cargo run --quiet --manifest-path tools/Cargo.toml -- validate \
             packs/aggressive/recording_consent.r14n.toml \
             packs/minimal/recording_consent.r14n.toml \
+            packs/example/region/recording_consent.r14n.toml \
             --catalog catalog/recording_consent.catalog.toml
 
   schemas:

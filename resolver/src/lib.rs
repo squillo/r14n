@@ -788,6 +788,30 @@ mod tests {
     ::std::assert!(d.provenance.fell_back);
   }
 
+  /// Why: council-audit NN15 — a profile is a `<regime>/<jurisdiction>` tag
+  /// (spec §2.4), so its pack lives at a NESTED directory
+  /// `<root>/<regime>/<jurisdiction>/<domain>.r14n.toml`. If `pack_path` didn't
+  /// handle the `/` in the profile, the grammar-conformant example (and every
+  /// future jurisdiction pack) would silently fail to load and fall back.
+  #[test]
+  fn nested_regime_jurisdiction_profile_resolves() {
+    let tmp = ::tempfile::tempdir().expect("tmp");
+    let dir = tmp.path().join("example").join("region");
+    ::std::fs::create_dir_all(&dir).expect("mkdir");
+    ::std::fs::write(
+      dir.join("recording_consent.r14n.toml"),
+      "[meta]\nstrictness = \"minimal\"\n[legally_required]\ncontrols = [\"user_attestation\"]\n",
+    )
+    .expect("write pack");
+    let p = super::TomlRegulatoryPolicyAdapter::new(
+      tmp.path().to_path_buf(),
+      ::std::option::Option::None,
+    );
+    let d = super::RegulatoryPolicyPort::required_controls(&p, &query("example/region", "telepresence"));
+    ::std::assert_eq!(d.required, [ck("user_attestation")].into_iter().collect());
+    ::std::assert!(!d.provenance.fell_back, "the nested profile pack must actually load");
+  }
+
   /// Why: council-audit M4 — spec §4 MUSTs that a pack outside its effective-date
   /// envelope blocks; the resolver never even read the fields, so an expired pack
   /// governed forever. With a decision date supplied, an out-of-window pack must

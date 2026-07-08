@@ -37,7 +37,9 @@ the resolver already ships inside [Squillo OS](https://squillo.com) as `the Squi
   the [`receipt`](resolver/src/receipt.rs) module: ISO/IEC TS 27560 + W3C DPV JSON-LD decision
   receipts + a Kantara CR v1.1 shim ([namespace](docs/namespace.md); worked
   [AI-Act §50 example](docs/examples/receipt-ai-act-50.json)).
-- [`packs/`](packs/) — **only** Squillo's own `aggressive` + `minimal` baselines (posture demos, NOT jurisdiction claims).
+- [`packs/`](packs/) — Squillo's own `aggressive` + `minimal` posture baselines (NOT jurisdiction
+  claims) + a fictional `example/region` pack that demonstrates the `<regime>/<jurisdiction>`
+  profile grammar (also NOT a jurisdiction claim).
 - [`conformance/`](conformance/) — language-neutral JSON test vectors for the 3 conformance levels.
 - [`tools/`](tools/) — the `r14n` pack-lifecycle CLI: `extract` / `merge` / `validate` /
   `keygen` / `sign` / `verify` / `publish` (local index only).
