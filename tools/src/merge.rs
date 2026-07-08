@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 //! `r14n merge` — the gettext-msgmerge analogue (spec §9 lifecycle).
 //!
 //! Diffs a deployed pack against the CURRENT catalog and flags ONLY the changed

@@ -1,0 +1,13 @@
+r14n — Regulatory Localization Pack Specification (RLPS)
+Copyright 2026 Squillo and the r14n contributors.
+
+This product's CODE (the reference resolver under /resolver and the tooling
+under /tools) is licensed under the Apache License, Version 2.0 — see
+LICENSE-APACHE.
+
+This product's SPECIFICATION TEXT, SCHEMAS, CONTROL CATALOG, CONFORMANCE
+VECTORS, REGISTRY SCHEMAS, VOCABULARY, and PROSE DOCS are licensed under the
+Creative Commons Attribution 4.0 International license — see LICENSE-CC-BY.
+
+NOT LEGAL ADVICE. Nothing in this repository is legal advice or a compliance
+guarantee; see docs/not-legal-advice.md.

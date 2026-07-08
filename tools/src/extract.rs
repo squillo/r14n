@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 //! `r14n extract` — catalog → pack TEMPLATE (the i18n "extract keys" analogue).
 //!
 //! The generated template is FAIL-CLOSED: the floor defaults to EVERY catalog

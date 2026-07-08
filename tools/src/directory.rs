@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 //! Reviewer-key directory verification (spec §6 trust root; council-audit M9).
 //!
 //! Loads a reviewer-key directory (schema `/registry/reviewer-key.schema.json`)

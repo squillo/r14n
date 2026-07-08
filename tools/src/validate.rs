@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 //! `r14n validate` — the pack LINTER (spec §2.5/§3/§6/§7).
 //!
 //! Enforces the cross-field rules `schema/pack.schema.json` can only document:

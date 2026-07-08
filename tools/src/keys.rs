@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 //! `r14n keygen` / `sign` / `verify` — Ed25519 pack signing (spec §6).
 //!
 //! Signatures are DETACHED (`<pack>.sig`, JSON): signing the exact pack bytes

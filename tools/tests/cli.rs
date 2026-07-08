@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 //! CLI integration tests — drive the BUILT `r14n` binary end-to-end (council
 //! audit N7: the `main()` dispatch layer, exit codes, and the publish
 //! lint-before-index gate had zero coverage; the unit tests stop at `parse_args`

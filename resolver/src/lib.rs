@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 //! # r14n — the RLPS reference resolver (`r14n : controls :: i18n : strings`)
 //!
 //! Compliance rules should be no more hardcoded than user-facing strings are.

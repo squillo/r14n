@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 //! # RLPS decision receipts — ISO/IEC TS 27560 + W3C DPV serialization (spec §8)
 //!
 //! Serializes a [`crate::ControlDecision`] as the RLPS DECISION-provenance

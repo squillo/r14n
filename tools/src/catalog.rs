@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 //! Control-catalog loading shared by `extract`, `merge`, and `validate`.
 //!
 //! A catalog (`/catalog/<domain>.catalog.toml`) declares the control-key

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 //! EU AI Act Art. 50 receipt example (spec §8).
 //!
 //! Scenario: an AI notetaker (a "twin") attends a meeting; the operator has

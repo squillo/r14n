@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 //! # r14n — the RLPS pack-lifecycle CLI (maintainer-notes roadmap item 5)
 //!
 //! `extract` (catalog → fail-closed pack template) · `merge` (regulation-change

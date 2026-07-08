@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 //! Shared `.r14n.toml` pack accessors — the ONE place `controls = [...]` lists
 //! are pulled out of a parsed pack. `merge` (delta detection) and `validate`
 //! (lint rules) both consume these, so the definition of "what a pack

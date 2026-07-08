@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 //! `r14n publish` — content-addressed supersession into the LOCAL registry
 //! index (`/registry/index.json`, schema `/registry/pack-index.schema.json`).
 //!
