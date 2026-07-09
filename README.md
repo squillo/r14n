@@ -1,5 +1,9 @@
 # r14n — Regulatory Localization
 
+[![License](https://img.shields.io/badge/license-Apache--2.0_%2F_CC--BY--4.0-blue)](LICENSE)
+[![Status](https://img.shields.io/badge/status-v0.1_pre--1.0-orange)](#status)
+[![NOT LEGAL ADVICE](https://img.shields.io/badge/⚠-NOT_LEGAL_ADVICE_·_counsel--gated-red)](docs/not-legal-advice.md)
+
 > **`r14n : compliance controls :: i18n : strings`**
 
 **r14n** is the home of the **Regulatory Localization Pack Specification (RLPS)** — an open,
@@ -29,6 +33,24 @@ Whether you may record a meeting — and what you must do first (get consent, sh
 indicator, announce an AI notetaker, …) — depends on **where** everyone is and **what kind** of
 recording it is. Today that logic is usually buried in application code: hard to audit, easy to get
 subtly wrong, and impossible for a compliance officer to review without reading source.
+
+```text
+# BEFORE — jurisdiction rules tangled into app code (pseudocode, any language)
+if any(participant in a two-party-consent state):
+    require(consent)
+else if any(participant in the EU):
+    if ai_notetaker: require(announcement)
+    require(consent)
+# …dozens more brittle branches — invisible to a compliance reviewer, easy to get subtly wrong
+```
+
+```toml
+# AFTER — the same rules as a reviewable pack: recording_consent.r14n.toml
+[subject.twin_attend]
+controls = ["announcement", "aph_mandate"]
+```
+
+The app stops *deciding* and just *enforces* what the resolver returns.
 
 RLPS pulls those rules out of the code into **packs** — small, human-diffable TOML files that map a
 `(profile × jurisdiction × subject)` to the **set of compliance controls required**. An app asks a
@@ -73,6 +95,9 @@ A pack may also declare `[prohibited]` (controls no posture may add — the data
 
 ### 2. Resolving — the reference resolver (Rust)
 
+<details>
+<summary><b>Rust — build a query and resolve the required controls</b> (click to expand)</summary>
+
 ```rust
 use std::collections::BTreeSet;
 
@@ -99,6 +124,7 @@ let decision = r14n::RegulatoryPolicyPort::required_controls(&adapter, &query);
 // decision.provenance    — pack source, review status, fell_back, advisory-only taint
 assert!(decision.required.contains(&r14n::ControlKey("indicator_mount".into())));
 ```
+</details>
 
 The port is **infallible**: a missing/malformed/expired/floor-less pack returns
 aggressive-over-universe with `provenance.fell_back = true`, never an empty set.
@@ -122,8 +148,10 @@ controls for legal re-review, preserving the reviewed pack byte-for-byte.
 ### 4. The decision receipt (ISO/IEC TS 27560 + W3C DPV JSON-LD)
 
 Every decision can be serialized as a signed, machine-readable receipt — audit evidence of *what*
-was decided, by *which* pack, and whether provenance was verified. Trimmed
-([full example](docs/examples/receipt-ai-act-50.json)):
+was decided, by *which* pack, and whether provenance was verified.
+
+<details>
+<summary><b>JSON — a decision receipt</b> (trimmed; click to expand — <a href="docs/examples/receipt-ai-act-50.json">full example</a>)</summary>
 
 ```jsonc
 {
@@ -138,9 +166,27 @@ was decided, by *which* pack, and whether provenance was verified. Trimmed
   "disclaimer": "NOT LEGAL ADVICE. …"
 }
 ```
+</details>
 
 `advisory_only` stays `true` until a signature from a directory-listed, non-revoked reviewer is
 verified — a self-declared `legal_review.status = "approved"` never clears it on its own.
+
+## Agents acting on a human's behalf (APH)
+
+When an AI agent — a "twin" — records or attends on a person's behalf, the question isn't only
+*may this be recorded here* but *is this agent authorized to act for this human at all*. RLPS
+already carries that as a first-class control: **`aph_mandate`** ("a valid standing mandate
+authorizes a delegate/twin to act on the user's behalf"), required on the delegate/twin rails
+(`twin_attend`, `telepresence`).
+
+That control is the plug-in point for **APH — Agent-Per-Human notarization** (Squillo's protocol
+extending Google's **A2A** agent-to-agent protocol and the **AP2** agent-payments protocol): the
+APH mandate is the machine-verifiable proof that a specific agent may act for a specific human, and
+RLPS consumes a **verified** mandate as a satisfied control. So the same fail-closed resolver that
+decides *which recording controls apply* also gates *whether a delegated agent is permitted to act
+in the first place* — a missing or unverified mandate simply leaves `aph_mandate` unmet, and the
+action does not proceed. RLPS **interoperates with** APH (it treats the mandate as a control); it
+does not define the mandate itself. Still NOT legal advice.
 
 ## Status
 
