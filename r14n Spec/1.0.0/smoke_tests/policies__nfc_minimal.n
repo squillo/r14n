@@ -1,0 +1,20 @@
+// r14n smoke test — nfc / minimal (core-book instance form).
+// NOT LEGAL ADVICE. strictness=minimal: only `legally_required` enforced. The floor
+// keeps session_scoped so even minimal posture never permits ambient/unbounded tag polling.
+
+mod policies {
+  nfc_minimal: <PolicyPack> {
+    id: "nfc"
+    domain: "nfc"
+    strictness: "minimal"
+    summary: "Least-restrictive floor — consent + usage description; every scan session-scoped, never ambient polling."
+    legal_review_status: "requires_signoff"
+    legal_review_counsel: "TBD"
+    subjects: [
+      { key: "read",           controls: ["consent_prompt", "usage_description"] },
+      { key: "write",          controls: ["consent_prompt", "usage_description", "session_scoped"] },
+      { key: "background_tag", controls: ["consent_prompt", "usage_description"] }
+    ]
+    legally_required: ["consent_prompt", "usage_description", "session_scoped"]
+  }
+}

@@ -1,0 +1,18 @@
+// r14n smoke test — photo_library / aggressive (core-book instance form).
+// NOT LEGAL ADVICE — Squillo's own fail-closed Photos baseline.
+
+mod policies {
+  photo_library_aggressive: <PolicyPack> {
+    id: "photo_library"
+    domain: "photo_library"
+    strictness: "aggressive"
+    summary: "Fail-closed baseline — full Photos control universe; limited selection + EXIF-location withholding required."
+    legal_review_status: "not_required"
+    subjects: [
+      { key: "read",     controls: ["consent_prompt", "usage_description", "limited_selection", "on_device_only"] },
+      { key: "write",    controls: ["consent_prompt", "usage_description", "on_device_only"] },
+      { key: "metadata", controls: ["consent_prompt", "usage_description", "no_location_egress", "on_device_only"] }
+    ]
+    legally_required: ["consent_prompt", "usage_description", "limited_selection", "on_device_only", "no_location_egress"]
+  }
+}

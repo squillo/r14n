@@ -1,0 +1,21 @@
+// r14n smoke test — photo_library / minimal (core-book instance form).
+// NOT LEGAL ADVICE. strictness=minimal: only `legally_required` enforced. The floor
+// keeps limited_selection so even minimal posture prefers scoped PHPicker access
+// over full-library authorization.
+
+mod policies {
+  photo_library_minimal: <PolicyPack> {
+    id: "photo_library"
+    domain: "photo_library"
+    strictness: "minimal"
+    summary: "Least-restrictive floor — consent + usage description; scoped picker access preferred over full-library."
+    legal_review_status: "requires_signoff"
+    legal_review_counsel: "TBD"
+    subjects: [
+      { key: "read",     controls: ["consent_prompt", "usage_description", "limited_selection"] },
+      { key: "write",    controls: ["consent_prompt", "usage_description"] },
+      { key: "metadata", controls: ["consent_prompt", "usage_description", "no_location_egress"] }
+    ]
+    legally_required: ["consent_prompt", "usage_description", "limited_selection"]
+  }
+}

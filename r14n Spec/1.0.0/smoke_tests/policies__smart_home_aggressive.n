@@ -1,0 +1,20 @@
+// r14n smoke test — smart_home / aggressive (core-book instance form).
+// NOT LEGAL ADVICE — Squillo's own fail-closed HomeKit baseline. HomeKit control
+// stays Privileged: state-changing control requires a confirmation token (the
+// consuming OS gate enforces; this pack only prescribes the required control key).
+
+mod policies {
+  smart_home_aggressive: <PolicyPack> {
+    id: "smart_home"
+    domain: "smart_home"
+    strictness: "aggressive"
+    summary: "Fail-closed baseline — full HomeKit control universe; state-changing control requires a confirmation token."
+    legal_review_status: "not_required"
+    subjects: [
+      { key: "enumerate",  controls: ["consent_prompt", "usage_description", "local_network_only"] },
+      { key: "read_state", controls: ["consent_prompt", "usage_description", "local_network_only"] },
+      { key: "control",    controls: ["consent_prompt", "usage_description", "local_network_only", "confirmation_token", "audit_log"] }
+    ]
+    legally_required: ["consent_prompt", "usage_description", "local_network_only", "confirmation_token", "audit_log"]
+  }
+}

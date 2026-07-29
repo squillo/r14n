@@ -1,0 +1,20 @@
+// r14n smoke test — location / aggressive (core-book instance form).
+// NOT LEGAL ADVICE — Squillo's own fail-closed CoreLocation/MapKit baseline.
+// `geocode` (address<->coordinate) exposes no device position; current_location/
+// background do and carry the full control set.
+
+mod policies {
+  location_aggressive: <PolicyPack> {
+    id: "location"
+    domain: "location"
+    strictness: "aggressive"
+    summary: "Fail-closed baseline — full location control universe; background delivery denied, precise accuracy opt-in only."
+    legal_review_status: "not_required"
+    subjects: [
+      { key: "geocode",          controls: ["usage_description"] },
+      { key: "current_location", controls: ["consent_prompt", "usage_description", "when_in_use_only", "precise_opt_in"] },
+      { key: "background",       controls: ["consent_prompt", "usage_description", "no_background", "audit_log"] }
+    ]
+    legally_required: ["consent_prompt", "usage_description", "when_in_use_only", "precise_opt_in", "no_background", "audit_log"]
+  }
+}

@@ -8,3 +8,8 @@
 *.seed
 **/*.rs.bk
 .DS_Store
+# N Lang Snapp build artifacts (source + emitted snapp/ are committed; build cache is not)
+**/.n/build/
+**/.n/wal/
+**/.n/deps/
+**/.n/dist/

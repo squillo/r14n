@@ -1,0 +1,20 @@
+// r14n smoke test — health / aggressive (core-book instance form; the v1 wire).
+// Validated via `nlang check -r "<r14n Spec/1.0.0>"` alongside the framework.
+// PolicyPack is globally visible (pub mod * blocks "PolicyPack") — no @deps needed
+// in-Snapp. NOT LEGAL ADVICE — Squillo's own fail-closed HealthKit baseline.
+
+mod policies {
+  health_aggressive: <PolicyPack> {
+    id: "health"
+    domain: "health"
+    strictness: "aggressive"
+    summary: "Fail-closed baseline — the full HealthKit control universe, every read/write facet."
+    legal_review_status: "not_required"
+    subjects: [
+      { key: "read",       controls: ["consent_prompt", "usage_description", "on_device_only", "read_scope_limit"] },
+      { key: "write",      controls: ["consent_prompt", "usage_description", "on_device_only", "audit_log"] },
+      { key: "background", controls: ["consent_prompt", "usage_description", "on_device_only", "audit_log"] }
+    ]
+    legally_required: ["consent_prompt", "usage_description", "on_device_only", "read_scope_limit", "audit_log"]
+  }
+}

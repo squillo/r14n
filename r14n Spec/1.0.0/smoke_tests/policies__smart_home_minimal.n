@@ -1,0 +1,21 @@
+// r14n smoke test — smart_home / minimal (core-book instance form).
+// NOT LEGAL ADVICE. strictness=minimal: only `legally_required` enforced. The floor
+// deliberately retains confirmation_token so even minimal posture never allows
+// unconfirmed home-actuation (the token gate is independent of strictness).
+
+mod policies {
+  smart_home_minimal: <PolicyPack> {
+    id: "smart_home"
+    domain: "smart_home"
+    strictness: "minimal"
+    summary: "Least-restrictive floor — consent + usage description; unconfirmed home-actuation never allowed."
+    legal_review_status: "requires_signoff"
+    legal_review_counsel: "TBD"
+    subjects: [
+      { key: "enumerate",  controls: ["consent_prompt", "usage_description"] },
+      { key: "read_state", controls: ["consent_prompt", "usage_description"] },
+      { key: "control",    controls: ["consent_prompt", "usage_description", "confirmation_token"] }
+    ]
+    legally_required: ["consent_prompt", "usage_description", "confirmation_token"]
+  }
+}

@@ -1,0 +1,21 @@
+// r14n smoke test — health / minimal (core-book instance form).
+// NOT LEGAL ADVICE. strictness=minimal: only `legally_required` is enforced; the
+// subject table is documentary. Even the floor keeps explicit consent + a usage
+// description present (health data is sensitive-category everywhere).
+
+mod policies {
+  health_minimal: <PolicyPack> {
+    id: "health"
+    domain: "health"
+    strictness: "minimal"
+    summary: "Least-restrictive floor — explicit consent + usage description always required for health data."
+    legal_review_status: "requires_signoff"
+    legal_review_counsel: "TBD"
+    subjects: [
+      { key: "read",       controls: ["consent_prompt", "usage_description"] },
+      { key: "write",      controls: ["consent_prompt", "usage_description"] },
+      { key: "background", controls: ["consent_prompt", "usage_description", "on_device_only"] }
+    ]
+    legally_required: ["consent_prompt", "usage_description"]
+  }
+}

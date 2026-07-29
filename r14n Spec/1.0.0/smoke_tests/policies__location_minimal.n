@@ -1,0 +1,20 @@
+// r14n smoke test — location / minimal (core-book instance form).
+// NOT LEGAL ADVICE. strictness=minimal: only `legally_required` enforced. The floor
+// keeps when_in_use_only so even minimal posture never grants always-authorization.
+
+mod policies {
+  location_minimal: <PolicyPack> {
+    id: "location"
+    domain: "location"
+    strictness: "minimal"
+    summary: "Least-restrictive floor — consent + usage description; always-authorization never granted."
+    legal_review_status: "requires_signoff"
+    legal_review_counsel: "TBD"
+    subjects: [
+      { key: "geocode",          controls: ["usage_description"] },
+      { key: "current_location", controls: ["consent_prompt", "usage_description", "when_in_use_only"] },
+      { key: "background",       controls: ["consent_prompt", "usage_description"] }
+    ]
+    legally_required: ["consent_prompt", "usage_description", "when_in_use_only"]
+  }
+}

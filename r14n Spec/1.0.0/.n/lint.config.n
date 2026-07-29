@@ -1,0 +1,11 @@
+// r14n Linter Configuration
+
+lint.rules.deeply_nested_nodes {
+  level     = "allow"
+  max_depth = 25
+}
+
+lint.rules.excessive_nesting {
+  level     = "allow"
+  max_depth = 25
+}

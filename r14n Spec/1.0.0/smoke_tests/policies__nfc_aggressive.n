@@ -1,0 +1,19 @@
+// r14n smoke test — nfc / aggressive (core-book instance form).
+// NOT LEGAL ADVICE — Squillo's own fail-closed Core NFC baseline. Tag write is the
+// highest-risk facet (mutates external state) and carries a no_write lock under aggressive.
+
+mod policies {
+  nfc_aggressive: <PolicyPack> {
+    id: "nfc"
+    domain: "nfc"
+    strictness: "aggressive"
+    summary: "Fail-closed baseline — full Core NFC control universe; tag writes hard-denied, every scan session-scoped."
+    legal_review_status: "not_required"
+    subjects: [
+      { key: "read",           controls: ["consent_prompt", "usage_description", "session_scoped", "read_only"] },
+      { key: "write",          controls: ["consent_prompt", "usage_description", "session_scoped", "no_write"] },
+      { key: "background_tag", controls: ["consent_prompt", "usage_description", "session_scoped"] }
+    ]
+    legally_required: ["consent_prompt", "usage_description", "read_only", "session_scoped", "no_write"]
+  }
+}
