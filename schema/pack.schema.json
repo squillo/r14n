@@ -67,7 +67,21 @@
             "bar_credential": { "type": "string" },
             "review_date": { "type": "string", "format": "date" },
             "regulation_article": { "type": "string" },
-            "signature_ed25519": { "type": "string" }
+            "signature_ed25519": { "type": "string" },
+            "authorities": {
+              "type": "array",
+              "description": "OPTIONAL review record: the statutes, cases, and secondary sources the reviewer relied on. Audit metadata for the attestation only — resolvers MUST NOT vary decisions on it, and listing an authority is NOT a representation of what that authority requires (spec §6; docs/not-legal-advice.md).",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["citation"],
+                "properties": {
+                  "citation": { "type": "string", "description": "Full citation, e.g. 'Kearney v. Salomon Smith Barney, 137 P.3d 914 (Cal. 2006)'." },
+                  "url": { "type": "string", "format": "uri" },
+                  "note": { "type": "string", "description": "What the reviewer relied on it for." }
+                }
+              }
+            }
           },
           "allOf": [
             {

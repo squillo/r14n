@@ -44,6 +44,13 @@ What RLPS deliberately is **not**:
 5. Anything counsel identifies that we have not — this brief frames our questions; it does not
    bound the review.
 
+**Evidence annex (added 2026-07-31 at counsel's request):** `docs/secondary-sources.md` — 28
+verified secondary sources (law reviews, peer-reviewed economics, government/intergovernmental
+reports, trackers, top-firm alerts) documenting the scale and cost of the fragmentation problem,
+the AI-era amplification, and the institutional lineage of machine-readable regulation. A
+companion memo, `docs/wiretap-us-dossier.md`, organizes the secondary-source material for the
+future §6-step-(3) `wiretap/us` engagement — it contains no pack and no legal conclusions.
+
 ## 3. UPL question
 
 **The concern (an internal design memo §11):** a tool that appears to produce authoritative legal conclusions
@@ -141,7 +148,9 @@ registry schemas, decision-receipt serializer, and governance doc since the firs
 - `packs/aggressive/`, `packs/minimal/` — Squillo's own posture baselines; **no jurisdiction
   claims** (their `legal_review.status` is `not_required` / `requires_signoff` respectively).
 - `docs/` — not-legal-advice, this brief, the name-check record, the namespace registry, a worked
-  receipt example, and the audit reports under `docs/audits/`.
+  receipt example, the audit reports under `docs/audits/`, and (added 2026-07-31) the
+  secondary-source evidence annex (`secondary-sources.md`) + the `wiretap/us` research dossier
+  (`wiretap-us-dossier.md`).
 - `GOVERNANCE.md`, `README.md`, `the maintainer notes`, `LICENSE` (Apache-2.0), `LICENSE-SPEC` (CC BY 4.0).
 
 ## 8. Decision receipts — an added review surface (please opine)

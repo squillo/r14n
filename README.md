@@ -34,6 +34,15 @@ indicator, announce an AI notetaker, …) — depends on **where** everyone is a
 recording it is. Today that logic is usually buried in application code: hard to audit, easy to get
 subtly wrong, and impossible for a compliance officer to review without reading source.
 
+This is a measured problem, not a hypothetical. US recording-consent law alone splits three ways
+(38 one-party states + DC, 11 all-party states, one with no wiretap statute — 12 Harv. L. & Pol'y
+Rev. 177). A think-tank estimate puts the US state *privacy* patchwork at $98–112B/year in
+projected out-of-state compliance costs (ITIF 2022), the FCA/Bank of England pilots found
+**inconsistent interpretation of regulations is the single biggest cost driver** of manual
+compliance, and the AI era is multiplying the surface: state AI laws grew from 1/year (2016) to
+131/year (2024) (Stanford HAI AI Index). Full annotated bibliography — 28 verified sources — in
+[`docs/secondary-sources.md`](docs/secondary-sources.md).
+
 ```text
 # BEFORE — jurisdiction rules tangled into app code (pseudocode, any language)
 if any(participant in a two-party-consent state):
@@ -224,7 +233,11 @@ the resolver already ships inside [Squillo OS](https://squillo.com) as `the Squi
   [`TRADEMARKS.md`](TRADEMARKS.md) (name + conformance-claim usage),
   [`SECURITY.md`](SECURITY.md) + [`docs/key-management.md`](docs/key-management.md) (crypto threat
   surface + key hygiene), [`docs/receipt-data-handling.md`](docs/receipt-data-handling.md) (receipts
-  carry PII), and [`docs/audits/`](docs/audits/) (the standing council-audit reports).
+  carry PII), [`docs/secondary-sources.md`](docs/secondary-sources.md) (the 28-source annotated
+  evidence annex: fragmentation cost + AI-era amplification + policy-as-code lineage),
+  [`docs/wiretap-us-dossier.md`](docs/wiretap-us-dossier.md) (secondary-source research memo for
+  the counsel-gated `wiretap/us` engagement — no pack, no legal conclusions), and
+  [`docs/audits/`](docs/audits/) (the standing council-audit reports).
 - CI: [`.github/workflows/gates.yml`](.github/workflows/gates.yml) runs both test suites (which
   include the schema-vs-producers conformance tests in
   [`tools/tests/schema_conformance.rs`](tools/tests/schema_conformance.rs)) and lints the shipped
@@ -238,10 +251,14 @@ counsel — see the spec §Governance. **This repo is not public until that lega
 ## Honest positioning
 
 RLPS is **not** the first attempt to make compliance machine-readable — see the related work in the
-spec (NIST OSCAL, W3C DPV / ISO 27560, Policy Cards, LegalRuleML, OPA/Cedar). RLPS occupies one
-specific, un-owned layer: the **control-prescription layer**, authored in i18n-ergonomic TOML a
-compliance officer *and* an engineer can diff in a PR, with an RFC-4647-style jurisdiction-negotiation
-algorithm and a fail-closed floor. It interoperates with those standards rather than replacing them.
+spec (NIST OSCAL, W3C DPV / ISO 27560, Policy Cards, LegalRuleML, OPA/Cedar), and it sits in a
+recognized *institutional* lineage: governments themselves publish and pilot machine-consumable
+rules (OECD "Rules as Code"; the FCA/Bank of England machine-executable-regulation pilots; FSB
+suptech; BIS embedded supervision — spec §11 and [`docs/secondary-sources.md`](docs/secondary-sources.md) §V).
+RLPS occupies one specific, un-owned layer: the **control-prescription layer**, authored in
+i18n-ergonomic TOML a compliance officer *and* an engineer can diff in a PR, with an
+RFC-4647-style jurisdiction-negotiation algorithm and a fail-closed floor. It interoperates with
+those standards rather than replacing them.
 
 ## License
 

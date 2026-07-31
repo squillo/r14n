@@ -110,6 +110,14 @@ against each applicable jurisdiction's pack chain, then merge **most-restrictive
    resolver MUST NOT resolve such a conflict by silently dropping either side.
 4. The merge operates within one domain only; §3's per-domain independence still holds.
 
+*Informative note.* The most-restrictive merge is a fail-safe design rule, not a statement of any
+jurisdiction's law — but it is consistent with how at least one US court has resolved the
+cross-jurisdiction recording-consent conflict: applying the stricter (all-party) state's rule to a
+call spanning a one-party and an all-party state (*Kearney v. Salomon Smith Barney*, 137 P.3d 914
+(Cal. 2006); discussed in 12 Harv. L. & Pol'y Rev. 177 (2018) — see
+`/docs/wiretap-us-dossier.md`). Choice of law for any real pack remains the reviewing attorney's
+call (§6).
+
 ### 4.3 Inheritance & delta-merge (normative)
 
 A pack MAY declare `[meta] inherits = "<parent-profile>"` (an RFC-4647-style parent tag, e.g.
@@ -150,6 +158,12 @@ to `aggressive` over the caller's declared universe and MUST flag the decision a
 - A resolver MUST treat an unattested or self-attested pack's decisions as **advisory-only**: the
   verdict MUST carry an `unverified_provenance` (or `fell_back`) flag that propagates into the
   decision receipt.
+- `[meta.legal_review]` MAY carry an `authorities` array — the review record: the statutes, cases,
+  and secondary sources the reviewer relied on (each entry a `citation` string plus optional `url`
+  and `note`). For a pack claiming a real jurisdiction the reviewing attorney SHOULD populate it.
+  Authorities are **audit metadata for the attestation**, not content a resolver interprets: a
+  resolver MUST NOT vary its decision based on this field, and listing an authority is NOT a
+  representation of what that authority requires (see `/docs/not-legal-advice.md`).
 - A registry MUST publish a reviewer-key directory with `jurisdiction` + `credential_type` fields
   and a revocation mechanism. The spec mandates the provenance *envelope*, not who is a valid
   signer (code-signing trust model).
@@ -214,3 +228,27 @@ ISO/IEC 29184, IEEE 7012, GPC, EU AI Act §50, OPA/Cedar/XACML, LegalRuleML/Akom
 2025 "Policy Cards" proposal (arXiv 2510.24383). None of these makes the **control-prescription
 layer** practitioner-diffable, jurisdiction-negotiated, and fail-closed in one portable format —
 that is RLPS's contribution.
+
+It also sits in a recognized institutional lineage of machine-consumable regulation, run by
+governments and standard-setters themselves (all informative; annotated in
+`/docs/secondary-sources.md` §V):
+
+- **OECD "Rules as Code"** (Mohun & Roberts, *Cracking the Code*, OECD Working Papers on Public
+  Governance No. 42, 2020) — an official machine-consumable version of rules published alongside
+  the natural-language text, piloted by public-sector teams in New Zealand, France, Australia,
+  Canada, Germany and Jersey.
+- **FCA / Bank of England Digital Regulatory Reporting** (2018–2020 pilots; Phase 2 Viability
+  Assessment, 2020) — two regulators converting rulebook text into machine-readable / machine-
+  executable regulation; the pilots found *inconsistent interpretation of regulations* to be the
+  single biggest cost driver of the manual approach.
+- **FSB suptech/regtech survey** (2020) — a G20-mandated standard-setter documenting that
+  regulatory complexity has outgrown ad-hoc human interpretation across jurisdictions, with the
+  lack of common data standards cited as a principal barrier.
+- **BIS "Embedded Supervision"** (Auer, BIS Working Papers No. 811, 2019) — compliance verified
+  from a system's native data against authored rules rather than bolted on through manual
+  reporting; RLPS's decision receipts (§8) are this project's version of that idea.
+
+RLPS differs from Rules-as-Code programs in scope, deliberately: those encode *the rules
+themselves* (a government's authoritative act); RLPS encodes only the **controls an application
+enforces** for a profile, leaving what the law *is* to the sources above it (see §1 and
+`/docs/not-legal-advice.md`).
