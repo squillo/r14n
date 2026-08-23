@@ -53,6 +53,13 @@ repo it touches:
 - The **resolver stays generic** (serde + toml + serde_json + std, zero Squillo deps): a twin of
   it ships inside Squillo OS as the live first consumer. Flag any breaking resolver API/format
   change prominently in the PR and in `CHANGELOG.md` so downstream consumers can coordinate.
+- **Bindings are generated from the Rust resolver — never hand-written.** Any TypeScript/JS or
+  Python package this repo ships must be produced directly from `resolver/` (wasm-bindgen for
+  JS/TS, PyO3 abi3 wheels for Python) or run the compiled wasm/WASI module — one behavior, one
+  source of truth, nothing to drift. A hand-ported implementation is not accepted here even if
+  its tests pass. This is distinct from **independent resolvers** (GOVERNANCE.md Stage 2), which
+  are welcome — in their own repositories, proving themselves against `/conformance`; an in-repo
+  binding wraps the reference implementation and is NOT an independent implementation.
 - Follow the house style already in the tree (fully-qualified paths, Revision History blocks).
 
 ## Pack contributions — the gate

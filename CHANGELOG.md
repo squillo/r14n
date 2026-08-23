@@ -41,6 +41,14 @@ History banner in the spec for normative changes), rather than forking a version
   identifiers, and local paths were removed from all published files; the internal maintainer
   handoff brief was withdrawn from the tree. No normative behavior changed.
 
+### Added (revision 2026-08-23d — bindings policy: generated from Rust, or wasm/WASI)
+
+- `CONTRIBUTING.md` engineering rule: any TS/JS or Python package shipped from this repo must be
+  generated from the Rust reference resolver (wasm-bindgen / PyO3 abi3) or run the compiled
+  wasm/WASI module — hand-written ports are not accepted in-repo. Independent resolvers remain
+  welcome in their own repositories via the conformance suite (GOVERNANCE.md Stage 2); a binding
+  is not an independent implementation.
+
 ### Changed (revision 2026-08-23c — the repository is public, so counsel can review in the open)
 
 - The steward re-scoped GOVERNANCE.md hard gate 1: the repository was made public to enable
