@@ -1,0 +1,28 @@
+# CODEOWNERS makes GOVERNANCE.md §Change process platform-visible: these entries drive GitHub's
+# required Code Owners review. An unknown username here fails SILENTLY — GitHub skips it without
+# warning — so every entry below is a verified account. Later rules override earlier ones; the
+# last match wins.
+
+# Default: everything routes to the steward.
+* @scott-wyatt
+
+# THE NORMATIVE SURFACE — the paths where a change can alter what conformance means.
+# Listed separately so that when a second maintainer exists, adding them to THESE lines is the
+# one-line change that makes GOVERNANCE.md's two-approval rule enforceable.
+/spec/ @scott-wyatt
+/catalog/ @scott-wyatt
+/schema/ @scott-wyatt
+/conformance/ @scott-wyatt
+/ns/ @scott-wyatt
+/registry/ @scott-wyatt
+
+# Packs are governance-gated content, not just data: the legal_review / attestation metadata is
+# an organizational statement (GOVERNANCE.md hard gates).
+/packs/ @scott-wyatt
+
+# Governance and legal-posture documents are organizational statements.
+/GOVERNANCE.md @scott-wyatt
+/TRADEMARKS.md @scott-wyatt
+/LICENSE @scott-wyatt
+/NOTICE @scott-wyatt
+/SECURITY.md @scott-wyatt

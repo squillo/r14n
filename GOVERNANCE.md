@@ -7,7 +7,7 @@
 > **⚠ NOT LEGAL ADVICE.** Governance here covers the *specification and its artifacts*. Nothing
 > in this process makes any pack a statement of law. See `docs/not-legal-advice.md`.
 
-## Stages (from an internal design memo §10; do not skip gates)
+## Stages (do not skip gates)
 
 | Stage | Window | Exit criteria |
 |---|---|---|
@@ -33,13 +33,26 @@ CONDITIONAL GO as a config-interop convention; NOT-YET a "standard for legal com
   `/conformance` suite (all capabilities of the level, all vectors).
 - **Reviewers (licensed counsel):** appear in the reviewer-key directory with jurisdiction +
   credential; may attest packs within their jurisdiction. Directory admission standard is the
-  hardest open governance question (an internal design memo §12.3) — until counsel defines it, admission is
+  hardest open governance question — until counsel defines it, admission is
   steward-manual and conservative.
 
 ## Change process
 
+Substantive changes start as a GitHub issue, not a PR — three issue forms carry the process:
+**RFC** for any change to normative text (spec, catalog semantics, resolution algorithm),
+**Erratum** for published text that is simply wrong, and **Conformance disagreement** for an
+implementation that disagrees with a published vector or schema. Review routing is codified in
+`.github/CODEOWNERS`; the PR template restates the approval bar at the moment it applies.
+Normative changes require two maintainer approvals and a dated entry in `CHANGELOG.md`.
+
+*Enforcement status, kept honest:* the maintainer roster cannot yet satisfy a two-review quorum,
+so branch protection requires one approving review plus Code Owners review plus the always-run
+status checks. The required count moves to two in the same change that names a second maintainer
+in `.github/CODEOWNERS`.
+
 - **Spec:** versioned `spec/RLPS-vX.Y.md`; normative changes bump the version; breaking wire
-  changes require a major bump + a migration note + coordinated twin-sync (the maintainer notes).
+  changes require a major bump + a migration note, flagged prominently in `CHANGELOG.md` so
+  downstream consumers (including Squillo OS) can coordinate.
 - **Control Catalog:** additive by default (new keys with deontic kind + facets). Renames and
   removals are DEPRECATIONS (a control key is long-lived audit evidence; `r14n merge` flags the
   delta for legal re-review). New terms enter `/docs/namespace.md` before first shipped use.
@@ -48,10 +61,11 @@ CONDITIONAL GO as a config-interop convention; NOT-YET a "standard for legal com
 - **Packs:** content-addressed and immutable at a version; changes publish a new version whose
   `supersedes` chains the prior sha256 (`registry/pack-index.schema.json`).
 
-## Hard gates (restated from the maintainer notes — these override everything above)
+## Hard gates (these override everything above)
 
-1. This repository stays **PRIVATE** until licensed counsel clears the UPL/liability posture
-   (`docs/counsel-brief.md` is the gate document).
+1. **Publication is counsel-gated.** The repository goes — and stays — public only with licensed
+   counsel's clearance of the UPL/liability posture (`docs/counsel-brief.md` is the gate
+   document).
 2. **Jurisdiction packs are held out** until counsel signs off; each requires an attorney of
    record. The counsel-safe subset is: spec, schemas, catalog, resolver, tools, conformance,
    and Squillo's own `aggressive`/`minimal` posture baselines.

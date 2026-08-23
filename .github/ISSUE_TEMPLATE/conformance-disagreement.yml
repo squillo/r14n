@@ -1,0 +1,47 @@
+# The conformance-disagreement form. Precedence, so reports land in the right lane:
+# the SPECIFICATION is normative; vectors and schemas are published test artifacts. Where a
+# vector or schema and the spec conflict, the vector/schema is the defect. Where your
+# implementation and the reference resolver disagree and the spec is silent — that silence is
+# itself a spec defect, and this report becomes an erratum.
+name: Conformance disagreement — my implementation disagrees with a published artifact
+description: >
+  Your resolver disagrees with a conformance vector, a schema, or the reference resolver's
+  behavior, and you believe your reading of the spec is right.
+title: "Conformance: "
+labels: ["conformance"]
+body:
+  - type: markdown
+    attributes:
+      value: >
+        **Precedence:** the spec (`spec/RLPS-vX.Y.md`) is normative; vectors and schemas are
+        not. Where a vector and the spec conflict, the vector is the defect. Where the spec is
+        silent, that silence is itself a spec defect. Level-claim wording rules are in
+        `TRADEMARKS.md`; suite semantics in `conformance/VERSIONING.md`.
+  - type: input
+    id: artifact
+    attributes:
+      label: The artifact you disagree with
+      description: "e.g. `conformance/level-2.json` vector `temporal_envelope/expired_pack`, or `schema/pack.schema.json`."
+    validations:
+      required: true
+  - type: textarea
+    id: your-behavior
+    attributes:
+      label: What your implementation does
+      description: Input, output, and the spec section (§) you read to get there.
+    validations:
+      required: true
+  - type: textarea
+    id: published-behavior
+    attributes:
+      label: What the published artifact says
+      description: The expected value / schema constraint / reference-resolver behavior you disagree with.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Implementation and environment
+      description: Language, version, suite version (`suite` field), how you ran the vectors.
+    validations:
+      required: true

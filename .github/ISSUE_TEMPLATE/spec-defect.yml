@@ -1,0 +1,39 @@
+# The Erratum form — for published text that is simply wrong (as opposed to an RFC, which
+# proposes that correct text become different).
+name: Erratum — published text is wrong
+description: >
+  The spec, catalog, schema, or a doc says something incorrect — a defect in the published
+  bytes, not a design disagreement.
+title: "Erratum: "
+labels: ["erratum"]
+body:
+  - type: input
+    id: section
+    attributes:
+      label: Section
+      description: "Where the defect lives, e.g. `spec/RLPS-v0.1.md §4.2` or `catalog/recording_consent.catalog.toml`."
+    validations:
+      required: true
+  - type: textarea
+    id: published-text
+    attributes:
+      label: The text as published
+      description: Quote it exactly — the defect is in the bytes, so cite the bytes.
+    validations:
+      required: true
+  - type: textarea
+    id: why-wrong
+    attributes:
+      label: Why it is wrong
+      description: >
+        Contradiction with another section, with a shipped vector, with the reference resolver's
+        actual behavior, or an internal inconsistency. Cite both sides.
+    validations:
+      required: true
+  - type: textarea
+    id: correction
+    attributes:
+      label: Proposed correction
+      description: Optional — the corrected text, if you have it.
+    validations:
+      required: false

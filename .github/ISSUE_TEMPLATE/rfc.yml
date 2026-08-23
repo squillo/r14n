@@ -1,0 +1,80 @@
+# The RFC form — the request-for-change entry point for anything that moves normative text.
+# The design conversation lives in the issue; the PR that lands it references the issue.
+# See CONTRIBUTING.md §Issue-first change process and GOVERNANCE.md §Change process.
+name: RFC — propose a change to normative text
+description: >
+  Propose a change to the spec, the resolution algorithm, the Control Catalog, conformance
+  levels, schemas, or pack semantics. Problem first, proposal second.
+title: "RFC: "
+labels: ["rfc"]
+body:
+  - type: markdown
+    attributes:
+      value: >
+        **⚠ NOT LEGAL ADVICE.** RLPS is a configuration/interchange standard; nothing in an RFC
+        or its resolution is a statement of law (`docs/not-legal-advice.md`).
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: >
+        What breaks, misleads, or cannot be expressed today? Cite the spec section (§) or
+        artifact you are reading. A change without a named problem is a preference.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: The proposed change
+      description: >
+        Stated concretely enough to disagree with. If there are alternatives you rejected, name
+        them and say why — the rejected options are half the value of an RFC.
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Which surface does this touch?
+      description: If you are unsure, pick the strictest that could apply.
+      options:
+        - Normative spec text (spec/RLPS-vX.Y.md — data model, posture, resolution algorithm, fail-closed rules, conformance levels)
+        - Control Catalog or vocabulary (catalog/, ns/, docs/namespace.md — new/renamed/deprecated terms)
+        - Published vectors or schemas (conformance/, schema/, registry/ — bytes other implementations test against)
+        - Packs (packs/ — posture/example baselines; jurisdiction packs stay counsel-gated)
+        - Reference resolver or tools only (no normative text moves)
+    validations:
+      required: true
+  - type: textarea
+    id: compatibility
+    attributes:
+      label: Compatibility and migration
+      description: >
+        What happens to a pack authored yesterday, and to a resolver that has not updated? Say
+        "breaking" plainly if it is breaking. State the version consequence under GOVERNANCE.md
+        §Change process and conformance/VERSIONING.md (suite MINOR = append-only; MAJOR =
+        breaking; level claims do not carry across a MAJOR).
+    validations:
+      required: true
+  - type: textarea
+    id: legal-boundary
+    attributes:
+      label: Legal boundary
+      description: >
+        Does this move the NOT-LEGAL-ADVICE line — e.g. make any output read as a statement of
+        law, touch jurisdiction claims or attestation semantics, or interact with a hard gate in
+        GOVERNANCE.md? "None that I can see" is an acceptable answer; silence is not.
+    validations:
+      required: true
+  - type: checkboxes
+    id: scope-check
+    attributes:
+      label: Scope check
+      options:
+        - label: >
+            I checked CHANGELOG.md and GOVERNANCE.md §Change process for an existing decision on
+            this — this is not re-litigating something already decided.
+          required: true
+        - label: >
+            I understand the change lands as a PR with a dated CHANGELOG.md entry, and that
+            normative changes need two maintainer approvals (GOVERNANCE.md §Change process).
+          required: true

@@ -4,8 +4,26 @@ Thank you for your interest. This document covers **how** to contribute and the 
 gating** rules that keep the project counsel-safe. **NOT LEGAL ADVICE** — see
 [`docs/not-legal-advice.md`](docs/not-legal-advice.md).
 
-> This repository is **PRIVATE** pending legal review (spec §Governance). External contribution
-> opens when it goes public; the rules below are the standing policy.
+> External contributions are welcome. For substantive changes, open a GitHub issue **before** a
+> PR — see [Issue-first change process](#issue-first-change-process) below. Jurisdiction-claiming
+> packs remain counsel-gated regardless (see [Pack contributions](#pack-contributions--the-gate)).
+
+## Issue-first change process
+
+For substantive discussion, open a GitHub issue before opening a PR so the design conversation
+lives in the issue tracker. Three issue forms carry the process:
+
+- **RFC** — any change to normative text: the spec, the resolution algorithm, catalog semantics,
+  conformance levels, or schema shape. Problem first, proposal second, compatibility and the
+  legal boundary after that.
+- **Erratum** — published text that is simply wrong (spec, catalog, or schema). Quote the bytes.
+- **Conformance disagreement** — your implementation disagrees with a published vector, schema,
+  or the reference resolver. The spec is normative; where a vector and the spec conflict, the
+  vector is the defect; where the spec is silent, that silence is itself a spec defect.
+
+Review routing is codified in `.github/CODEOWNERS`; the PR template restates the approval bar at
+the moment it applies (see `GOVERNANCE.md` §Change process). Normative changes land with a dated
+entry in `CHANGELOG.md` and a Revision History entry in the spec.
 
 ## Developer Certificate of Origin (DCO)
 
@@ -32,9 +50,9 @@ repo it touches:
   (`.github/workflows/gates.yml`) enforces `cargo test`.
 - **Every test carries a `/// Why:` doc** stating the invariant / spec section / regression it
   guards — never a restatement of the body.
-- The **resolver stays generic** (serde + toml + serde_json + std, zero Squillo deps): it is a
-  twin of Squillo's `the Squillo OS policy engine`. Coordinate any breaking resolver API/format change
-  (see `the maintainer notes`).
+- The **resolver stays generic** (serde + toml + serde_json + std, zero Squillo deps): a twin of
+  it ships inside Squillo OS as the live first consumer. Flag any breaking resolver API/format
+  change prominently in the PR and in `CHANGELOG.md` so downstream consumers can coordinate.
 - Follow the house style already in the tree (fully-qualified paths, Revision History blocks).
 
 ## Pack contributions — the gate
@@ -54,3 +72,8 @@ Packs are **federated-with-attestation** (spec §Governance):
 ## Reporting security issues
 
 Do **not** open a public issue — see [`SECURITY.md`](SECURITY.md).
+
+## Code of conduct
+
+This project follows the [Contributor Covenant 2.1](CODE_OF_CONDUCT.md); conduct reports go to
+**legal@squillo.com**.

@@ -1,0 +1,16 @@
+# Blank issues stay enabled: a report that fits no template is still worth having, and a closed
+# template list is how edge cases go unreported.
+blank_issues_enabled: true
+contact_links:
+  - name: Security disclosure
+    url: https://github.com/squillo/r14n/blob/main/SECURITY.md
+    about: >
+      For a vulnerability in the signing/verification tooling, the resolver's untrusted-input
+      parsing, or key handling, use the private channel in SECURITY.md (security@squillo.com) —
+      not a public issue.
+  - name: Legal boundary and the counsel gate
+    url: https://github.com/squillo/r14n/blob/main/docs/counsel-brief.md
+    about: >
+      Jurisdiction packs and hosted-registry questions are counsel-gated (GOVERNANCE.md hard
+      gates). For legal questions about the project, contact legal@squillo.com. Nothing in this
+      repository is legal advice.
