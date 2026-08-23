@@ -1,6 +1,8 @@
-# RLPS gates — all tests (incl. the schema-vs-producers conformance suite, now a
-# Rust test in tools/tests/schema_conformance.rs) + the shipped-packs lint, on
-# every push/PR. Rust only — no Python. NOT LEGAL ADVICE.
+# RLPS gates — all tests (incl. the schema-vs-producers conformance suite, a Rust test in
+# tools/tests/schema_conformance.rs) + the shipped-packs lint + the sanitization gate, on every
+# push/PR. No path filters on purpose: every job here is an always-run check, so branch
+# protection can require them without wedging unrelated PRs on Expected. Rust only — no Python.
+# NOT LEGAL ADVICE.
 name: gates
 
 on:
@@ -8,7 +10,46 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Least privilege: nothing here writes to the repo.
+permissions:
+  contents: read
+
+concurrency:
+  group: gates-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  # The publication-hygiene gate: greps tracked files for internal markers that must never ship
+  # in a public tree — internal design-doc ids, private component names, dev paths, session ids,
+  # personal emails, and AI-authorship markers. `.github` is excluded because this workflow
+  # necessarily contains every pattern as data. `git grep` exits 1 on "no matches", which is the
+  # PASS condition; any other non-zero exit is an error and must not pass.
+  sanitization:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: no internal references in tracked files
+        run: |
+          set +e
+          fail=0
+          scan() {
+            git grep -InE "$1" -- ':!.github' ; status=$?
+            if [ $status -eq 0 ]; then
+              echo "::error::forbidden pattern group matched: $2"
+              fail=1
+            elif [ $status -ne 1 ]; then
+              echo "::error::git grep errored (exit $status) scanning: $2"
+              fail=1
+            fi
+          }
+          # Group 1 — internal numbering / design-doc schemes
+          scan 'PRD-[0-9]|the N Language Book|SQUILLO_BOOK|the N Lang toolchain|maintainer-notes|DEFERRED-PLAN' 'internal doc schemes'
+          # Group 2 — internal component names, identities, session ids, dev paths
+          scan 'squillo_[a-z]|wf_[0-9a-f]{6,}|scottwyatt86|scott@squillo\.com|squillo\.io|/Users/|~/@squillo' 'internal names/paths/identities'
+          # Group 3 — AI-authorship / internal-tooling markers
+          scan 'Claude|Anthropic|Co-Authored-By|Generated with|claude\.ai|noreply@anthropic\.com|\.claude/|MEMORY\.md' 'authorship/tooling markers'
+          exit $fail
+
   resolver:
     runs-on: ubuntu-latest
     defaults:
@@ -17,6 +58,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: resolver
       - run: cargo test --locked
 
   tools:
@@ -24,6 +68,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: tools
       - name: tools test suite
         run: cargo test --locked
         working-directory: tools
@@ -38,13 +85,70 @@ jobs:
   # Schema-vs-producers validation runs inside the `tools` job above
   # (tools/tests/schema_conformance.rs) — no separate job / no Python needed.
 
+  # No rustfmt gate on purpose: the tree follows a documented hand-rolled house style
+  # (CONTRIBUTING.md — fully-qualified paths, 2-space indent) that rustfmt would rewrite.
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: |
+            resolver
+            tools
+      - name: clippy (warnings are errors)
+        run: |
+          cargo clippy --manifest-path resolver/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path tools/Cargo.toml --all-targets -- -D warnings
+
+  # Verifies the rust-version declared in both Cargo.tomls actually builds — a stated MSRV that
+  # CI never exercises is a claim, not a guarantee.
+  msrv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.85
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: |
+            resolver
+            tools
+      - run: cargo check --locked --manifest-path resolver/Cargo.toml
+      - run: cargo check --locked --manifest-path tools/Cargo.toml
+
+  # DCO: CONTRIBUTING.md requires a Signed-off-by trailer on every commit. PR-scoped so history
+  # predating the rule does not wedge the gate.
+  dco:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: every commit carries Signed-off-by
+        run: |
+          bad=0
+          for sha in $(git rev-list --no-merges \
+              ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}); do
+            if ! git log -1 --format=%B "$sha" | grep -qi '^Signed-off-by: '; then
+              echo "::error::commit $sha is missing a Signed-off-by trailer (git commit -s)"
+              bad=1
+            fi
+          done
+          exit $bad
+
   coverage:
     # Non-gating: publishes a coverage number for the reference implementation.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - uses: taiki-e/install-action@cargo-llvm-cov
+      - uses: taiki-e/install-action@82cd3e7658a6f96c86c0234aeeda1748937cb0a1 # v2.85.13
+        with:
+          tool: cargo-llvm-cov
       - name: resolver coverage
         run: cargo llvm-cov --summary-only
         working-directory: resolver
