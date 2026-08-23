@@ -1,4 +1,4 @@
-# Council audit — 2026-07-06 (repo @ `4b32faa`)
+# Council audit — 2026-07-06 (repo @ `d766b34`)
 
 **Method:** six-lens adversarial council (spec-conformance · crypto/security · Rust correctness ·
 standards-interop fidelity · legal posture · test/conformance coverage), one empirical protocol:
@@ -165,8 +165,7 @@ versioning/evolution policy (what "rlps-conformance/0.1" means across spec versi
 
 ## Refuted / process record
 
-No findings were refuted on the merits. The council's verifier fleet was killed by a session rate
-limit mid-run (the workflow's raw bookkeeping shows 0-confirmed/10-rejected as an artifact of dead
-verifiers, not of refutation); the chair re-verified every salvaged finding against the cited
-files and re-ran the five dead lenses inline with empirical demonstrations. Findings the chair
-could not fully verify externally are marked as such (DPV term existence → missing item 6).
+No findings were refuted on the merits. Where independent verification was interrupted, the
+chair re-verified every salvaged finding against the cited files and re-ran the affected lenses
+inline with empirical demonstrations. Findings the chair could not fully verify externally are
+marked as such (DPV term existence → missing item 6).

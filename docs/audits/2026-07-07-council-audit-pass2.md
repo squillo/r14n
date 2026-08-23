@@ -1,4 +1,4 @@
-# Council audit — pass 2 (independent re-run) — 2026-07-07 (repo @ `8f9789d`)
+# Council audit — pass 2 (independent re-run) — 2026-07-07 (repo @ `5de95e5`)
 
 **Why a second pass:** pass 2 is a **blind independent re-run** of pass 1
 (`docs/audits/2026-07-06-council-audit.md`): all six audit lenses were re-run without reading
@@ -204,49 +204,49 @@ high-confidence-unverified, not refuted.*
 
 ---
 
-## Remediation status (2026-07-07, commits `5899e01`…`5d728af`)
+## Remediation status (2026-07-07, commits `4a5ebdd`…`7050ced`)
 
 Fixed across six batches (each gated + committed; resolver 27+3-conformance tests, tools 27+4):
 
-- **Blockers — all fixed.** B1 minimal-missing/empty-floor now fails closed (`5899e01`, lib tests +
-  level-1 vector); counsel brief refreshed to the real tree + counts + a receipts §8 (`e769cdd`);
-  both packs carry the disclaimer (`5899e01`).
-- **Sign/publish integrity (NN2/NN3, N6) — fixed** (`38c559d`): `publish` cryptographically verifies
+- **Blockers — all fixed.** B1 minimal-missing/empty-floor now fails closed (`4a5ebdd`, lib tests +
+  level-1 vector); counsel brief refreshed to the real tree + counts + a receipts §8 (`b354217`);
+  both packs carry the disclaimer (`4a5ebdd`).
+- **Sign/publish integrity (NN2/NN3, N6) — fixed** (`7b54632`): `publish` cryptographically verifies
   embedded signatures (forged-sig test), refuses corrupt/duplicate versions, stores relative paths;
   conformance runner rejects `..`/absolute vector keys (NN8).
-- **Receipt fidelity (NN1/NN4/NN5/NN6/NN7/NN9, NN11/NN12) — fixed** (`d9c52f7`): advisory taint no
+- **Receipt fidelity (NN1/NN4/NN5/NN6/NN7/NN9, NN11/NN12) — fixed** (`17bb5d2`): advisory taint no
   longer cleared by a self-declared status (`PROVENANCE_VERIFIED=false`); `@context` coerces minted
   terms to IRIs (pyld-verified); dropped the false dpv-27560 lineage, fabricated Kantara
   `consentType`, and hardcoded `legal_basis_hint`; explicit sort canonicalizer; fixture epochs
   corrected; example marks VoiceRecording sensitive.
-- **Spec/CLI/linter (NN10, N3, NN13, N5) — fixed** (`1f890eb`): §2.1 namespacing reworded to the
+- **Spec/CLI/linter (NN10, N3, NN13, N5) — fixed** (`bb9ec81`): §2.1 namespacing reworded to the
   on-disk reality; RFC-4647 softened to "-style"; CLI errors on dangling/duplicate/leftover args;
   linter enforces ISO date shape (warn-draft / error-non-draft); `tools/tests/cli.rs` covers the
   `main()` dispatch layer.
-- **Structural (M5/M8/M6) — fixed** (`80939d7`): `ControlDecision.verdict` (receipts read it, not a
+- **Structural (M5/M8/M6) — fixed** (`4ccf792`): `ControlDecision.verdict` (receipts read it, not a
   literal); `last_reviewed_against_guidance` deserialized + carried into the receipt (spec §7 MUST);
   conformance runner is closed-set (panics on unknown `expect` keys, requires `receipt_context`).
-- **Temporal envelope (M4) — fixed** (`1e0c5a3`): `PackMeta` deserializes the envelope; a supplied
+- **Temporal envelope (M4) — fixed** (`926b48c`): `PackMeta` deserializes the envelope; a supplied
   `as_of` outside it fails closed; linter requires `effective_from` on approved packs; new
   `temporal_envelope` capability + level-2 vectors. *(Breaking `RegulatoryQuery` change — flagged
   for downstream consumers.)*
-- **Coverage + infra (M7, missing-items) — fixed** (`5d728af`): authored-ahead `ieee7012_escalation`
+- **Coverage + infra (M7, missing-items) — fixed** (`7050ced`): authored-ahead `ieee7012_escalation`
   + `ambiguous_attribution` vectors; capability meta-validation test; `scripts/check-schemas.py`
   (packs/fixtures ↔ schemas); `.github/workflows/gates.yml`; `SECURITY.md`.
 
-**Previously-deferred, now FIXED (2026-07-08, `95d5a47`…`be3ca99`):**
+**Previously-deferred, now FIXED (2026-07-08, `67b0ac1`…`ab805eb`):**
 
-- **M1 (signature binds bytes, not profile) — FIXED** (`95d5a47`): `sign`/`verify` now sign a
+- **M1 (signature binds bytes, not profile) — FIXED** (`67b0ac1`): `sign`/`verify` now sign a
   domain-separated `rlps-sig/1` payload binding `<profile>/<domain>` (derived from the pack path) +
   sha256; `verify` re-derives the id from the pack's current location and rejects on mismatch. Test:
   a signed pack copied byte-identically (sig too) into another profile dir fails with "identity
   mismatch." Sig schema + pack-index schema + spec §6 updated.
-- **M9 (reviewer-key directory verification) — FIXED** (`3f1b245`): new `tools/directory.rs` +
+- **M9 (reviewer-key directory verification) — FIXED** (`110e81c`): new `tools/directory.rs` +
   `r14n verify --directory <d> [--as-of] [--jurisdiction]` — a listed, non-revoked, non-expired,
   jurisdiction-matched signer is `Trusted` (exit 0, may escape advisory-only); otherwise exit 3 and
   the decision stays advisory-only. Revocation is forward-dated, expiry treated as revocation
   (spec §6). 4 unit tests + an end-to-end CLI test. The generic resolver stays directory-agnostic.
-- **NN15 (grammar-conformant profile example) — FIXED** (`be3ca99`):
+- **NN15 (grammar-conformant profile example) — FIXED** (`ab805eb`):
   `packs/example/region/recording_consent.r14n.toml` demonstrates the `<regime>/<jurisdiction>`
   profile grammar as a deliberately-fictional, heavily-marked non-jurisdiction draft; a resolver test
   proves the nested profile dir loads.
