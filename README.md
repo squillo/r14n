@@ -13,6 +13,8 @@ human-readable, machine-readable format for expressing *which compliance control
 for a given **(regulatory-profile × jurisdiction × subject)**, with a fail-closed default, a
 posture selector, and legal-review provenance.
 
+**▶ [Watch the explainer video](https://drive.google.com/file/d/1N9q9FhnVUT6jzMLTHg-trTCcxBmdNVVa/view?usp=sharing)** — the i18n analogy, the fail-closed resolver, and the counsel-gating model in plain language, before the spec makes them precise.
+
 Where **i18n** maps `locales/<lang>/<feature>.toml` → localized strings, **RLPS** maps
 `packs/<profile>/<domain>.r14n.toml` → **required controls**. A translation key is a stable id
 for a user-facing string; an RLPS **control key** is a stable id for a required compliance action.
@@ -140,6 +142,36 @@ assert!(decision.required.contains(&r14n::ControlKey("indicator_mount".into())))
 The port is **infallible**: a missing/malformed/expired/floor-less pack returns
 aggressive-over-universe with `provenance.fell_back = true`, never an empty set.
 
+<details>
+<summary><b>JS/TS and Python — the same resolver, generated from the Rust core</b> (click to expand)</summary>
+
+Both packages are **generated** from `resolver/` — wasm-bindgen for JS/TS, a PyO3 abi3 wheel for
+Python — so they are the same decision logic, not re-implementations. Neither has runtime
+dependencies. There is no filesystem in wasm, so packs are passed in as a JSON object mapping
+`"<profile>/<domain>.r14n.toml"` to the pack's TOML text (the same layout as on disk).
+
+```console
+$ npm install @squillo/r14n     # https://www.npmjs.com/package/@squillo/r14n
+$ pip install r14n              # https://pypi.org/project/r14n/
+```
+
+```js
+import { resolve } from "@squillo/r14n";
+const decision = JSON.parse(resolve(JSON.stringify(packs), JSON.stringify(query)));
+decision.provenance.fell_back; // true ⇒ NO reviewed pack governed this decision
+```
+
+```python
+import json, r14n
+decision = json.loads(r14n.resolve(json.dumps(packs), json.dumps(query)))
+```
+
+`resolve_with_receipts` additionally returns both serialized receipt forms (TS 27560 + DPV
+JSON-LD, and the Kantara CR v1.1 shim). Fail-closed behavior is identical in every host; a
+*caller's* malformed JSON throws/raises instead, so a bug is never mistaken for a policy
+fallback.
+</details>
+
 ### 3. The pack lifecycle — the `r14n` CLI
 
 ```console
@@ -231,6 +263,12 @@ regulatory-policy engine — the live first consumer.
   directory (revocation + expiry + jurisdiction); `publish` writes a local content-addressed index.
 - [`registry/`](registry/) — reviewer-key directory + pack-index schemas (trust root, versioning,
   supersession).
+- [`bindings/`](bindings/) — the JS/TS and Python packages, **generated from `resolver/`**:
+  [`bindings/wasm`](bindings/wasm) (wasm-bindgen shim → [`@squillo/r14n`](https://www.npmjs.com/package/@squillo/r14n)
+  on npm, built by [`bindings/npm/build.mjs`](bindings/npm/build.mjs)) and
+  [`bindings/python`](bindings/python) (PyO3 abi3 shim → [`r14n`](https://pypi.org/project/r14n/)
+  on PyPI, built by maturin). Both are thin FFI shims over one tested JSON boundary
+  ([`resolver/src/wire.rs`](resolver/src/wire.rs)) — not ports, so there is nothing to drift.
 - [`site/`](site/) — the [r14n.squillo.com](https://r14n.squillo.com) Worker: the splash page and
   the vocabulary namespace host (`/ns`), which serves the `ns/` artifacts byte-identical by
   importing them directly at bundle time.

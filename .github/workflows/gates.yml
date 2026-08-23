@@ -85,6 +85,68 @@ jobs:
   # Schema-vs-producers validation runs inside the `tools` job above
   # (tools/tests/schema_conformance.rs) — no separate job / no Python needed.
 
+  # The JS/TS binding, tested as the artifact a consumer installs: build the
+  # wasm package from resolver/ exactly as a release would, then run the smoke
+  # tests against the built package. The boundary's LOGIC is pinned by the
+  # resolver job (r14n::wire tests); what this proves is that the generated
+  # glue, the .wasm, and the published metadata work together under Node.
+  bindings-js:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: bindings/wasm
+      - uses: taiki-e/install-action@82cd3e7658a6f96c86c0234aeeda1748937cb0a1 # v2.85.13
+        with:
+          tool: wasm-pack
+      # Node 20 is the floor the package supports; 22 is current LTS. The
+      # binding is wasm + generated glue, so both runtimes exercise the same
+      # bytes — a version that stops loading them is the failure we want caught.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: build the npm package from the Rust core
+        run: node bindings/npm/build.mjs
+      # The test file is named explicitly: `node --test bindings/npm/` would
+      # also try to execute build.mjs as a test and fail on a file that
+      # declares none.
+      - name: smoke-test the built package (Node 20)
+        run: node --test bindings/npm/smoke.test.mjs
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: smoke-test the built package (Node 22 LTS)
+        run: node --test bindings/npm/smoke.test.mjs
+
+  # The Python binding, tested as the artifact a consumer pip-installs. One
+  # Python version only, deliberately: the wheel is abi3 (3.9+), so a matrix
+  # would rebuild the same stable-ABI artifact and prove nothing new. The
+  # binding crate has no cargo tests because it has no logic — it is a thin
+  # #[pyfunction] shim over r14n::wire, which the resolver job tests.
+  bindings-python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: bindings/python
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: build the wheel from the Rust core
+        run: |
+          python -m pip install --quiet 'maturin>=1.7,<2.0'
+          maturin build --release --manifest-path bindings/python/Cargo.toml --out dist/wheels
+      - name: install the built wheel and run its tests
+        run: |
+          python -m pip install --quiet dist/wheels/r14n-*.whl
+          python -m unittest discover -s bindings/python/tests -v
+
   # No rustfmt gate on purpose: the tree follows a documented hand-rolled house style
   # (CONTRIBUTING.md — fully-qualified paths, 2-space indent) that rustfmt would rewrite.
   clippy:
@@ -99,10 +161,15 @@ jobs:
           workspaces: |
             resolver
             tools
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
       - name: clippy (warnings are errors)
         run: |
           cargo clippy --manifest-path resolver/Cargo.toml --all-targets -- -D warnings
           cargo clippy --manifest-path tools/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path bindings/wasm/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path bindings/python/Cargo.toml --all-targets -- -D warnings
 
   # Verifies the rust-version declared in both Cargo.tomls actually builds — a stated MSRV that
   # CI never exercises is a claim, not a guarantee.

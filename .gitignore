@@ -16,3 +16,12 @@
 
 # wrangler local state for the site Worker (deploy artifacts, never source)
 site/.wrangler/
+
+# Binding build output. The wasm/wheel artifacts are GENERATED from resolver/
+# on every release (CONTRIBUTING.md bindings policy) — never source, never
+# committed, so a stale copy can't drift from the core.
+/bindings/wasm/target
+/bindings/python/target
+/dist
+__pycache__/
+*.py[cod]

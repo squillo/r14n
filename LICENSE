@@ -2,8 +2,9 @@ Copyright 2026 Squillo and the r14n contributors.
 
 DUAL LICENSE (SPDX: Apache-2.0 AND CC-BY-4.0):
 
-- CODE (the reference resolver under /resolver, any tooling under /tools, and
-  the r14n.squillo.com site Worker under /site) is
+- CODE (the reference resolver under /resolver, any tooling under /tools, the
+  generated-from-Rust language bindings under /bindings, and the
+  r14n.squillo.com site Worker under /site) is
   licensed under the Apache License, Version 2.0 (SPDX: Apache-2.0).
   Full text vendored at ./LICENSE-APACHE (canonical:
   https://www.apache.org/licenses/LICENSE-2.0). Every .rs source carries an

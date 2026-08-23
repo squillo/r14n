@@ -41,6 +41,26 @@ History banner in the spec for normative changes), rather than forking a version
   identifiers, and local paths were removed from all published files; the internal maintainer
   handoff brief was withdrawn from the tree. No normative behavior changed.
 
+### Added (revision 2026-08-23f — the JS/TS and Python bindings, generated from the Rust core)
+
+- **`resolver/src/wire.rs`** — the JSON boundary every binding is generated over: JSON text in,
+  JSON text out, packs as a `"<profile>/<domain>.r14n.toml" → TOML text` object. Defined and
+  tested once, in the core, for every host. A missing or malformed *pack* still resolves
+  fail-closed (spec §4/§5); an error from this layer always means the *caller's* JSON was
+  unusable, so a consumer can tell a bug from a policy fallback.
+- **`resolver`: `InMemoryRegulatoryPolicyAdapter`** — the pack transport for hosts with no
+  filesystem (wasm, embedded callers). The whole decision pipeline moved into a shared
+  `decide_from_pack_text`, so the filesystem and in-memory adapters cannot drift; an
+  fs-vs-memory equivalence test pins it. Additive — no existing behavior changed.
+- **`bindings/wasm`** → **`@squillo/r14n`** on npm: a wasm-bindgen shim, built by
+  `bindings/npm/build.mjs`, with zero runtime dependencies. **`bindings/python`** →
+  **`r14n`** on PyPI: a PyO3 abi3 shim (one wheel serves CPython 3.9+), built by maturin.
+  Both are thin — FFI attribute and error mapping only — because the boundary lives in the core.
+- **CI**: `bindings-js` builds the npm package and smoke-tests it under Node 20 and 22;
+  `bindings-python` builds the wheel and runs its tests against the installed artifact. Both
+  gate on what a consumer actually installs, not on source. Clippy now covers both shims.
+  `CONTRIBUTING.md` gained the thin-shim rule that keeps logic out of bindings.
+
 ### Added (revision 2026-08-23e — the r14n.squillo.com site lives in-repo)
 
 - `site/` — the Cloudflare Worker behind `r14n.squillo.com`: a single-file splash page at `/`

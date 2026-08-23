@@ -1,0 +1,46 @@
+# r14n-py — Python bindings GENERATED from the reference resolver
+# (CONTRIBUTING.md bindings policy: one behavior, one source of truth, nothing
+# to drift; hand-written ports are not accepted). Ships to PyPI as the `r14n`
+# wheel via maturin; not published to crates.io — a Python consumer installs it
+# with pip, and cargo is not where they would look.
+[package]
+name = "r14n-py"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+license = "Apache-2.0"
+description = "Python bindings for the RLPS reference resolver (r14n) — generated from the Rust core"
+repository = "https://github.com/squillo/r14n"
+publish = false
+
+[lib]
+# The Python module is `r14n`, and CPython derives the initialiser symbol it
+# calls (`PyInit_r14n`) from the module name — so the lib target must be named
+# `r14n`. The `rlib` beside `cdylib` keeps the crate linkable as ordinary Rust.
+name = "r14n"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# The core: the resolver crate is named `r14n`, aliased so this shim reads as
+# what it is. The JSON boundary lives in that crate's `wire` module — which is
+# why there is no serde and no `pythonize` here: nothing crosses as a Python
+# object, and the boundary is tested once, in the core, for both bindings.
+r14n_core = { package = "r14n", path = "../../resolver" }
+# `abi3-py39` builds against CPython's stable ABI, so ONE wheel serves 3.9 and
+# every later version instead of one wheel per minor release.
+#
+# `auto-initialize` is deliberately ABSENT: it exists to start an interpreter
+# inside `cargo test`, and it requires a Python distribution shipping a shared
+# libpython (pyo3's build script refuses otherwise) — a constraint many dev
+# machines and runners quietly fail. This shim has no Rust tests to run because
+# it has no logic of its own: the boundary is tested in the core crate, and the
+# real Python surface is tested against the built wheel (tests/test_r14n.py).
+#
+# `extension-module` tells pyo3 to leave libpython unlinked — correct for a
+# wheel, where the host interpreter supplies those symbols. It is opt-in below
+# so a plain `cargo check` of this crate still type-checks the shim.
+pyo3 = { version = "0.29", features = ["abi3-py39"] }
+
+[features]
+# Turned on by maturin for wheel builds and by nothing else.
+extension-module = ["pyo3/extension-module"]

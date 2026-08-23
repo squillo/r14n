@@ -60,6 +60,7 @@
 
 /// ISO/IEC TS 27560 + W3C DPV decision-receipt serialization (spec §8).
 pub mod receipt;
+pub mod wire;
 
 // ── Value types ──────────────────────────────────────────────────────────────
 

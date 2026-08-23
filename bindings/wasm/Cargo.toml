@@ -1,0 +1,33 @@
+# r14n-wasm — WebAssembly/JS bindings GENERATED from the reference resolver
+# (CONTRIBUTING.md bindings policy: one behavior, one source of truth, nothing
+# to drift; hand-written ports are not accepted). Published to npm as
+# @squillo/r14n via wasm-pack; not published to crates.io — a JS consumer
+# installs it with npm, and cargo is not where they would look.
+[package]
+name = "r14n-wasm"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+license = "Apache-2.0"
+description = "WebAssembly/JS bindings for the RLPS reference resolver (r14n) — generated from the Rust core"
+repository = "https://github.com/squillo/r14n"
+publish = false
+
+[lib]
+# cdylib is the wasm artifact; the rlib beside it is what lets `cargo test`
+# link the same code into a native test binary (the aph-ts pattern).
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# The core: the resolver crate is named `r14n`, aliased here so the binding
+# code reads as what it is — a wrapper over the core. The JSON boundary lives
+# in that crate's `wire` module, which is why this shim needs no serde of its
+# own and no serde-wasm-bindgen: nothing crosses as a structured JsValue.
+r14n_core = { package = "r14n", path = "../../resolver" }
+wasm-bindgen = "0.2"
+
+# The wasm smoke harness is wasm32-only by construction: the native
+# `cargo test` run exercises the module tests in src/lib.rs and compiles
+# tests/wasm.rs to an empty binary (see its crate-level cfg).
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen-test = "0.3"

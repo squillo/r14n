@@ -1,0 +1,29 @@
+# Wheel metadata for maturin. The distribution name is the import name
+# (`import r14n`) and is reserved on PyPI. `abi3-py39` in Cargo.toml is what
+# makes one wheel serve every version from the floor up; keep the two floors
+# equal or the wheel claims a range it cannot actually load on.
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "r14n"
+description = "RLPS reference resolver for Python — bindings generated from the Rust core. Fail-closed regulatory-control resolution with legal-review provenance. NOT LEGAL ADVICE."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "Apache-2.0" }
+keywords = ["compliance", "regulatory", "policy-as-code", "rlps", "r14n"]
+dynamic = ["version"]
+
+[project.urls]
+Repository = "https://github.com/squillo/r14n"
+Homepage = "https://r14n.squillo.com"
+
+[tool.maturin]
+# Must equal the `[lib] name` in Cargo.toml so the `PyInit_r14n` symbol maturin
+# packages is the one CPython looks for.
+module-name = "r14n"
+# Forwards to `pyo3/extension-module`: a wheel must NOT link libpython — the
+# host interpreter supplies those symbols.
+features = ["extension-module"]
+manifest-path = "Cargo.toml"

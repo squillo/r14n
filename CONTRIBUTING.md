@@ -37,8 +37,8 @@ than a CLA — no copyright assignment; you keep your copyright.
 By contributing you agree your contribution is licensed under the same terms as the part of the
 repo it touches:
 
-- **Code** (`/resolver`, `/tools`, `/scripts`, `/site`, fuzz targets) → **Apache-2.0**. New `.rs`
-  files carry an `SPDX-License-Identifier: Apache-2.0` header.
+- **Code** (`/resolver`, `/tools`, `/scripts`, `/bindings`, `/site`, fuzz targets) →
+  **Apache-2.0**. New `.rs` files carry an `SPDX-License-Identifier: Apache-2.0` header.
 - **Spec, schemas, catalog, conformance vectors, registry schemas, vocabulary, prose docs** →
   **CC-BY-4.0**.
 - **Packs** carry their own SPDX header (CC0-1.0 or CC-BY-4.0 for the data).
@@ -60,6 +60,13 @@ repo it touches:
   its tests pass. This is distinct from **independent resolvers** (GOVERNANCE.md Stage 2), which
   are welcome — in their own repositories, proving themselves against `/conformance`; an in-repo
   binding wraps the reference implementation and is NOT an independent implementation.
+- **Binding shims stay thin.** The JSON boundary every binding exposes lives in
+  `resolver/src/wire.rs` and is tested there, once. A shim under `/bindings` adds the FFI
+  attribute and maps the error type — nothing else. Logic that appears in a shim is logic the
+  other language does not get and no test covers; put it in the core. Each binding is then
+  gated as the *artifact a consumer installs*: `bindings-js` builds the npm package and runs
+  `bindings/npm/smoke.test.mjs` against it, `bindings-python` builds the wheel and runs
+  `bindings/python/tests/`.
 - Follow the house style already in the tree (fully-qualified paths, Revision History blocks).
 
 ## Pack contributions — the gate
