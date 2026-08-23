@@ -20,6 +20,10 @@ counsel (see `docs/counsel-brief.md` §5). All findings below are framed as
 name in `resolver/Cargo.toml`); consider `rlps` + `regloc` defensively on crates.io, and `r14n`
 on npm/PyPI for future bindings.
 
+**Update 2026-08-23 (done):** `r14n` 0.1.0 (the reference resolver) published to crates.io;
+`rlps` and `regloc` reserved as honest 0.0.0 placeholders pointing at `r14n`. npm/PyPI names
+remain unreserved (no bindings exist yet).
+
 ## 2. GitHub namespace
 
 | Handle | Status | Assessment |

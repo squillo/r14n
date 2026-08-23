@@ -1,6 +1,7 @@
 # r14n — Regulatory Localization
 
 [![gates](https://github.com/squillo/r14n/actions/workflows/gates.yml/badge.svg)](https://github.com/squillo/r14n/actions/workflows/gates.yml)
+[![crates.io](https://img.shields.io/crates/v/r14n)](https://crates.io/crates/r14n)
 [![License](https://img.shields.io/badge/license-Apache--2.0_%2F_CC--BY--4.0-blue)](LICENSE)
 [![Status](https://img.shields.io/badge/status-v0.1_pre--1.0-orange)](#status)
 [![NOT LEGAL ADVICE](https://img.shields.io/badge/⚠-NOT_LEGAL_ADVICE_·_counsel--gated-red)](docs/not-legal-advice.md)
