@@ -300,6 +300,25 @@ regulatory-policy engine — the live first consumer.
 jurisdiction MUST carry a `reviewing_attorney_of_record` + bar number and be attested by licensed
 counsel — see the spec §Governance and the counsel gate in [`GOVERNANCE.md`](GOVERNANCE.md).
 
+## Agent pack
+
+Coding agents get RLPS as a first-class skill rather than a re-read of the spec. One knowledge
+source serves both ecosystems: [`skills/spec/SKILL.md`](skills/spec/SKILL.md) is written in the
+open [Agent Skills](https://agents.md) format, [`AGENTS.md`](AGENTS.md) is the agents.md-convention
+entry point (Codex and others) carrying orientation plus the invariants that must not break, and
+[`.claude-plugin/`](.claude-plugin/) packages the same skill with slash commands
+([`/validate`](commands/validate.md), [`/resolve`](commands/resolve.md),
+[`/conformance`](commands/conformance.md)).
+
+```console
+/plugin marketplace add squillo/r14n
+/plugin install r14n@r14n-rlps
+```
+
+The pack teaches the fail-closed rule, the advisory-only taint, and the governed
+conformance-claim wording — and it refuses to author a real-jurisdiction pack, because those are
+counsel-gated.
+
 ## Honest positioning
 
 RLPS is **not** the first attempt to make compliance machine-readable — see the related work in the

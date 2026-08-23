@@ -41,6 +41,20 @@ History banner in the spec for normative changes), rather than forking a version
   identifiers, and local paths were removed from all published files; the internal maintainer
   handoff brief was withdrawn from the tree. No normative behavior changed.
 
+### Added (revision 2026-08-23g — the agent pack: one knowledge source, both ecosystems)
+
+- **`skills/spec/SKILL.md`** — RLPS as a loadable skill in the open Agent Skills format: the
+  seven pieces, pack shape, the resolution algorithm and the fail-closed rule, the
+  advisory-only taint, the CLI, conformance levels with the governed claim wording, and the
+  hard gates. **`AGENTS.md`** is the agents.md-convention entry point (Codex and others) —
+  orientation, the exact commands CI runs, and nine invariants — and it points *into* the
+  skill rather than duplicating it, so there is one source to keep true.
+- **`.claude-plugin/`** (plugin + marketplace manifests) and **`commands/`** — `/validate`
+  (lint a pack and diagnose against the spec), `/resolve` (resolve a query and explain the
+  decision, leading with any fallback), `/conformance` (run the vectors and report level
+  claims in the wording `TRADEMARKS.md` requires). Each command carries the NOT-LEGAL-ADVICE
+  framing and stops rather than authoring a counsel-gated jurisdiction pack.
+
 ### Added (revision 2026-08-23f — the JS/TS and Python bindings, generated from the Rust core)
 
 - **`resolver/src/wire.rs`** — the JSON boundary every binding is generated over: JSON text in,

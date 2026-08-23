@@ -1,0 +1,16 @@
+{
+  "name": "r14n-rlps",
+  "owner": {
+    "name": "Squillo, Inc."
+  },
+  "plugins": [
+    {
+      "name": "r14n",
+      "source": {
+        "source": "github",
+        "repo": "squillo/r14n"
+      },
+      "description": "Work with RLPS — regulatory localization packs, the fail-closed resolver, decision receipts, conformance. NOT LEGAL ADVICE."
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "name": "r14n",
+  "displayName": "RLPS / r14n",
+  "version": "0.1.0",
+  "description": "Work with RLPS — regulatory localization packs, the fail-closed resolver, decision receipts, legal-review provenance, and conformance. NOT LEGAL ADVICE.",
+  "author": {
+    "name": "Squillo, Inc."
+  },
+  "homepage": "https://r14n.squillo.com",
+  "repository": "https://github.com/squillo/r14n",
+  "license": "Apache-2.0",
+  "keywords": [
+    "r14n",
+    "rlps",
+    "compliance",
+    "regulatory",
+    "policy-as-code",
+    "consent",
+    "decision-receipt",
+    "fail-closed"
+  ]
+}
