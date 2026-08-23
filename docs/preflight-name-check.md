@@ -25,7 +25,9 @@ on npm/PyPI for future bindings.
 name is **permanently unavailable** — npm's similarity guard rejects `r14n` as too close to
 `i18n`/`y18n` (a rule invisible to the availability probe above, which only checked for a 404) —
 so the reservation is the scoped **`@squillo/r14n`** (0.0.0 placeholder; wasm-generated bindings
-will publish there). PyPI `r14n` remains unreserved pending credentials.
+will publish there). PyPI **`r14n`** is reserved (0.0.0 placeholder; PyO3-generated bindings will
+publish there). All three registries are now held: crates.io `r14n` 0.1.0 (real crate) +
+`rlps`/`regloc` placeholders, npm `@squillo/r14n`, PyPI `r14n`.
 
 ## 2. GitHub namespace
 
