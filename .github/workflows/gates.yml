@@ -43,7 +43,7 @@ jobs:
             fi
           }
           # Group 1 — internal numbering / design-doc schemes
-          scan 'PRD-[0-9]|the N Language Book|SQUILLO_BOOK|the N Lang toolchain|maintainer-notes|DEFERRED-PLAN' 'internal doc schemes'
+          scan 'PRD-[0-9]|N_BOOK|SQUILLO_BOOK|nlang_x|HANDOFF|DEFERRED-PLAN' 'internal doc schemes'
           # Group 2 — internal component names, identities, session ids, dev paths
           scan 'squillo_[a-z]|wf_[0-9a-f]{6,}|scottwyatt86|scott@squillo\.com|squillo\.io|/Users/|~/@squillo' 'internal names/paths/identities'
           # Group 3 — AI-authorship / internal-tooling markers
