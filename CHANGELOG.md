@@ -41,6 +41,14 @@ History banner in the spec for normative changes), rather than forking a version
   identifiers, and local paths were removed from all published files; the internal maintainer
   handoff brief was withdrawn from the tree. No normative behavior changed.
 
+### Fixed (revision 2026-08-23b — the vocabulary Turtle was unparseable)
+
+- `ns/rlps.ttl` used `rdf:Property` without declaring the `rdf:` prefix, so every conformant
+  Turtle parser rejected the whole file. Added the missing
+  `@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>` declaration; the file now parses
+  (38 triples). Caught while standing up the `r14n.squillo.com/ns` host, before the artifact was
+  ever served.
+
 ### Added (initial draft — 2026-07-06 onward)
 
 - `spec/RLPS-v0.1.md` (data model, posture, fail-closed resolution, provenance/trust-root,
