@@ -1,8 +1,9 @@
 # The RLPS namespace — minted terms + graceful degradation
 
 **Namespace URI:** `https://r14n.squillo.com/ns#` (constant [`RLPS_NS`] in the resolver's
-`receipt` module). Minted under squillo.com control; a `w3id.org/rlps` alias is planned
-**post-publication** (registering w3id before the counsel gate would be a public step). The URI
+`receipt` module). Minted under squillo.com control and **live** (content-negotiated JSON-LD /
+Turtle at `/ns`); a `w3id.org/rlps` permanent-identifier alias is requested in
+[perma-id/w3id.org#6593](https://github.com/perma-id/w3id.org/pull/6593) (2026-08-23). The URI
 is an identifier first — receipts are valid whether or not it dereferences.
 
 > **⚠ NOT LEGAL ADVICE.** Terms name *controls and receipt structures*, not legal conclusions.
