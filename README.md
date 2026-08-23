@@ -231,6 +231,9 @@ regulatory-policy engine — the live first consumer.
   directory (revocation + expiry + jurisdiction); `publish` writes a local content-addressed index.
 - [`registry/`](registry/) — reviewer-key directory + pack-index schemas (trust root, versioning,
   supersession).
+- [`site/`](site/) — the [r14n.squillo.com](https://r14n.squillo.com) Worker: the splash page and
+  the vocabulary namespace host (`/ns`), which serves the `ns/` artifacts byte-identical by
+  importing them directly at bundle time.
 - [`r14n Spec/`](r14n%20Spec/) + [`baselines/`](baselines/) + [`snapp/`](snapp/) — the RLPS
   specification expressed as an **N Lang Snapp** (typed, machine-checkable spec sources), a
   baseline-pack consumer Snapp, and the emitted ABI bundle other Snapps consume. The Snapp

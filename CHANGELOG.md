@@ -41,6 +41,14 @@ History banner in the spec for normative changes), rather than forking a version
   identifiers, and local paths were removed from all published files; the internal maintainer
   handoff brief was withdrawn from the tree. No normative behavior changed.
 
+### Added (revision 2026-08-23e — the r14n.squillo.com site lives in-repo)
+
+- `site/` — the Cloudflare Worker behind `r14n.squillo.com`: a single-file splash page at `/`
+  (NOT-LEGAL-ADVICE banner, before/after pack contrast, packs/resolver/receipts overview, the
+  measured-problem numbers, standards positioning) and the existing `/ns` vocabulary routes. The
+  vocabulary is imported directly from `ns/` at bundle time — no copies, byte-identical by
+  construction. Apache-2.0, added to the LICENSE code bucket.
+
 ### Added (revision 2026-08-23d — bindings policy: generated from Rust, or wasm/WASI)
 
 - `CONTRIBUTING.md` engineering rule: any TS/JS or Python package shipped from this repo must be

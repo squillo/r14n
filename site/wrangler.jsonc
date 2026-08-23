@@ -1,0 +1,12 @@
+{
+  "name": "r14n-ns",
+  "main": "src/index.js",
+  "compatibility_date": "2026-08-01",
+  "routes": [{ "pattern": "r14n.squillo.com", "custom_domain": true }],
+  // Data modules bundle the splash page and the vocabulary as raw bytes. The vocabulary is
+  // imported directly from /ns — never copied — so the served artifacts are byte-identical to
+  // the repo's source of record by construction.
+  "rules": [
+    { "type": "Data", "globs": ["**/*.ttl", "**/*.jsonld", "**/*.html"], "fallthrough": false }
+  ]
+}

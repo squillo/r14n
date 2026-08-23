@@ -37,8 +37,8 @@ than a CLA — no copyright assignment; you keep your copyright.
 By contributing you agree your contribution is licensed under the same terms as the part of the
 repo it touches:
 
-- **Code** (`/resolver`, `/tools`, `/scripts`, fuzz targets) → **Apache-2.0**. New `.rs` files
-  carry an `SPDX-License-Identifier: Apache-2.0` header.
+- **Code** (`/resolver`, `/tools`, `/scripts`, `/site`, fuzz targets) → **Apache-2.0**. New `.rs`
+  files carry an `SPDX-License-Identifier: Apache-2.0` header.
 - **Spec, schemas, catalog, conformance vectors, registry schemas, vocabulary, prose docs** →
   **CC-BY-4.0**.
 - **Packs** carry their own SPDX header (CC0-1.0 or CC-BY-4.0 for the data).

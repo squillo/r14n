@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>r14n — Regulatory Localization Pack Specification (RLPS)</title>
+<meta name="description" content="RLPS externalizes compliance controls the way i18n externalizes strings: human-diffable packs, a fail-closed resolver, signed decision receipts. NOT LEGAL ADVICE.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230f766e'/%3E%3Ctext x='32' y='42' font-family='ui-monospace,monospace' font-size='26' font-weight='700' fill='white' text-anchor='middle'%3Er14%3C/text%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #ffffff; --bg2: #f6f8f8; --fg: #17242b; --muted: #52646d;
+    --line: #dde5e8; --accent: #0f766e; --accent-fg: #ffffff;
+    --code-bg: #0e1a1f; --code-fg: #d7e4e9; --code-dim: #7d97a3; --code-good: #7fd1b9;
+    --warn-bg: #fff7e6; --warn-line: #e8c76e; --warn-fg: #6b4e0e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1518; --bg2: #111c21; --fg: #dbe6ea; --muted: #8aa0aa;
+      --line: #22333b; --accent: #2fa79a; --accent-fg: #06211e;
+      --code-bg: #0a1114; --code-fg: #cfdde3; --code-dim: #6f8894; --code-good: #6fc4ab;
+      --warn-bg: #2a2410; --warn-line: #6b5a1e; --warn-fg: #e5c96f;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--bg); color: var(--fg); font: 16px/1.65 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  .wrap { max-width: 66rem; margin: 0 auto; padding: 0 1.25rem; }
+
+  .notice { background: var(--warn-bg); border-bottom: 1px solid var(--warn-line); color: var(--warn-fg); font-size: .9rem; padding: .5rem 0; text-align: center; }
+  .notice strong { letter-spacing: .02em; }
+
+  header.site { display: flex; align-items: center; gap: 1.5rem; padding: 1.1rem 0; }
+  .mark { font-family: ui-monospace, monospace; font-weight: 700; font-size: 1.25rem; }
+  .mark span { color: var(--accent); }
+  nav { margin-left: auto; display: flex; gap: 1.25rem; flex-wrap: wrap; font-size: .95rem; }
+
+  .hero { padding: 3.5rem 0 2.5rem; }
+  .hero h1 { font-size: clamp(1.7rem, 4.5vw, 2.6rem); line-height: 1.15; max-width: 44rem; }
+  .analogy { display: inline-block; margin: 1.1rem 0 0; padding: .35rem .7rem; background: var(--bg2); border: 1px solid var(--line); border-radius: .5rem; font-family: ui-monospace, monospace; font-size: .95rem; }
+  .hero p.lead { margin-top: 1.1rem; max-width: 44rem; color: var(--muted); font-size: 1.08rem; }
+  .cta { margin-top: 1.6rem; display: flex; gap: .75rem; flex-wrap: wrap; }
+  .btn { display: inline-block; padding: .6rem 1.1rem; border-radius: .55rem; border: 1px solid var(--line); font-weight: 600; font-size: .95rem; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+  .btn:hover { text-decoration: none; filter: brightness(1.06); }
+
+  section { padding: 2.4rem 0; border-top: 1px solid var(--line); }
+  h2 { font-size: 1.35rem; margin-bottom: 1rem; }
+  .grid2 { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr)); }
+  .panel { background: var(--code-bg); color: var(--code-fg); border-radius: .7rem; overflow: hidden; }
+  .panel h3 { font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; padding: .6rem .9rem; color: var(--code-dim); border-bottom: 1px solid rgba(255,255,255,.07); }
+  .panel pre { padding: .9rem; overflow-x: auto; font-size: .82rem; line-height: 1.55; }
+  .panel .c { color: var(--code-dim); } .panel .g { color: var(--code-good); }
+
+  .cards { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
+  .card { background: var(--bg2); border: 1px solid var(--line); border-radius: .7rem; padding: 1.1rem 1.2rem; }
+  .card h3 { font-size: 1.02rem; margin-bottom: .4rem; }
+  .card p { font-size: .93rem; color: var(--muted); }
+
+  .stats { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); }
+  .stat { border-left: 3px solid var(--accent); padding: .1rem 0 .1rem 1rem; }
+  .stat b { display: block; font-size: 1.25rem; }
+  .stat span { font-size: .88rem; color: var(--muted); }
+
+  .prose { max-width: 46rem; color: var(--muted); }
+  .prose b { color: var(--fg); }
+
+  footer.site { border-top: 1px solid var(--line); padding: 2rem 0 2.6rem; font-size: .9rem; color: var(--muted); }
+  footer .links { display: flex; gap: 1.1rem 1.4rem; flex-wrap: wrap; margin-bottom: 1rem; }
+</style>
+</head>
+<body>
+
+<div class="notice"><strong>⚠ NOT LEGAL ADVICE.</strong> RLPS is a data-interchange and configuration standard — it does not state what the law is, and "aggressive" ≠ "compliant".</div>
+
+<div class="wrap">
+  <header class="site">
+    <div class="mark">r14<span>n</span></div>
+    <nav>
+      <a href="https://github.com/squillo/r14n/blob/main/spec/RLPS-v0.1.md">Spec</a>
+      <a href="https://github.com/squillo/r14n/tree/main/conformance">Conformance</a>
+      <a href="/ns">Vocabulary</a>
+      <a href="https://crates.io/crates/r14n">crates.io</a>
+      <a href="https://github.com/squillo/r14n">GitHub</a>
+    </nav>
+  </header>
+
+  <div class="hero">
+    <h1>Pull regulatory rules out of your code — the way i18n pulled out your strings.</h1>
+    <div class="analogy">r14n : compliance controls&nbsp;&nbsp;::&nbsp;&nbsp;i18n : strings</div>
+    <p class="lead"><b>RLPS</b> — the Regulatory Localization Pack Specification — maps a
+      <em>(regulatory-profile × jurisdiction × subject)</em> to the set of required compliance
+      controls, in human-diffable TOML packs, resolved <b>fail-closed</b>, with legal-review
+      provenance and signed decision receipts.</p>
+    <div class="cta">
+      <a class="btn primary" href="https://github.com/squillo/r14n">View on GitHub</a>
+      <a class="btn" href="https://github.com/squillo/r14n/blob/main/spec/RLPS-v0.1.md">Read the spec</a>
+      <a class="btn" href="https://crates.io/crates/r14n">cargo add r14n</a>
+    </div>
+  </div>
+
+  <section>
+    <h2>Before / after</h2>
+    <div class="grid2">
+      <div class="panel">
+        <h3>Before — rules tangled into app code</h3>
+        <pre><span class="c"># pseudocode, any language</span>
+if any(participant in a two-party-consent state):
+    require(consent)
+else if any(participant in the EU):
+    if ai_notetaker: require(announcement)
+    require(consent)
+<span class="c"># …dozens more brittle branches — invisible
+# to a compliance reviewer, easy to get wrong</span></pre>
+      </div>
+      <div class="panel">
+        <h3>After — the same rules as a reviewable pack</h3>
+        <pre><span class="c"># recording_consent.r14n.toml</span>
+<span class="g">[subject.twin_attend]</span>
+controls = ["announcement", "aph_mandate"]
+
+<span class="g">[legally_required]</span>  <span class="c"># the fail-closed floor</span>
+controls = ["attestation", "announcement",
+            "signal_notice", "aph_mandate"]</pre>
+      </div>
+    </div>
+    <p class="prose" style="margin-top:1rem">The app stops <em>deciding</em> and just
+      <em>enforces</em> what the resolver returns. A compliance officer and an engineer review the
+      same file in the same pull request.</p>
+  </section>
+
+  <section>
+    <h2>How it works</h2>
+    <div class="cards">
+      <div class="card">
+        <h3>Packs</h3>
+        <p>Small, content-addressed TOML files mapping a profile × domain to required controls —
+          with posture selection, inheritance, temporal validity, and an attorney-of-record
+          attestation envelope for jurisdiction claims.</p>
+      </div>
+      <div class="card">
+        <h3>A fail-closed resolver</h3>
+        <p>Missing, malformed, or expired pack? Ambiguous jurisdiction? The resolver demands
+          everything the app can enforce and loudly flags the fallback — it never silently
+          under-restricts. Reference implementation in Rust, zero framework deps.</p>
+      </div>
+      <div class="card">
+        <h3>Signed receipts</h3>
+        <p>Every decision serializes to an ISO/IEC TS 27560-structured, W3C DPV JSON-LD receipt —
+          audit evidence of which pack drove the decision and whether provenance was verified.
+          Advisory-only until a directory-listed reviewer's signature checks out.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>A measured problem</h2>
+    <div class="stats">
+      <div class="stat"><b>38 / 11 / 1</b><span>US recording-consent split: one-party states + DC / all-party / no wiretap statute (12 Harv. L. &amp; Pol'y Rev. 177)</span></div>
+      <div class="stat"><b>$98–112B / yr</b><span>projected out-of-state compliance cost of the US state privacy patchwork (ITIF, 2022)</span></div>
+      <div class="stat"><b>1 → 131 / yr</b><span>state AI laws per year, 2016 → 2024 (Stanford HAI AI Index)</span></div>
+    </div>
+    <p class="prose" style="margin-top:1rem">Regulators themselves are moving to machine-consumable
+      rules (OECD "Rules as Code", the FCA/Bank of England machine-executable-regulation pilots).
+      RLPS occupies one specific, un-owned layer in that lineage: the
+      <b>control-prescription layer</b> — between legal text and application configuration —
+      interoperating with NIST OSCAL, W3C DPV / ISO 27560, LegalRuleML, and OPA/Cedar rather than
+      replacing them.</p>
+  </section>
+
+  <section>
+    <h2>Status</h2>
+    <p class="prose"><b>v0.1 — draft, reference-implementation-first.</b> The spec, a three-level
+      conformance suite, the Rust resolver + <code>r14n</code> pack-lifecycle CLI, and Squillo's
+      own posture baselines are public. Real-jurisdiction packs are deliberately held out until
+      licensed counsel signs off — each will carry a named attorney of record. Governance,
+      trademark, and conformance-claim rules live in the
+      <a href="https://github.com/squillo/r14n/blob/main/GOVERNANCE.md">repository</a>.</p>
+  </section>
+
+  <footer class="site">
+    <div class="links">
+      <a href="https://github.com/squillo/r14n/blob/main/spec/RLPS-v0.1.md">Specification</a>
+      <a href="https://github.com/squillo/r14n/blob/main/SECURITY.md">Security</a>
+      <a href="https://github.com/squillo/r14n/blob/main/CONTRIBUTING.md">Contributing &amp; governance</a>
+      <a href="https://github.com/squillo/r14n/blob/main/TRADEMARKS.md">Trademarks</a>
+      <a href="/ns">Vocabulary (JSON-LD / Turtle)</a>
+      <a href="https://crates.io/crates/r14n">crates.io</a>
+      <a href="https://www.npmjs.com/package/@squillo/r14n">npm</a>
+      <a href="https://pypi.org/project/r14n/">PyPI</a>
+    </div>
+    <div>© 2026 Squillo, Inc. · Apache-2.0 (code) / CC-BY-4.0 (spec &amp; vocabulary) · <strong>NOT LEGAL ADVICE</strong></div>
+  </footer>
+</div>
+
+</body>
+</html>

@@ -13,3 +13,6 @@
 **/.n/wal/
 **/.n/deps/
 **/.n/dist/
+
+# wrangler local state for the site Worker (deploy artifacts, never source)
+site/.wrangler/
