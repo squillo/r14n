@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-//! # r14n — the RLPS pack-lifecycle CLI (maintainer-notes roadmap item 5)
+//! # r14n — the RLPS pack-lifecycle CLI (roadmap item 5)
 //!
 //! `extract` (catalog → fail-closed pack template) · `merge` (regulation-change
 //! delta; flags ONLY changed controls for legal re-review — the gettext-msgmerge
@@ -39,7 +39,7 @@ USAGE:
   r14n publish  <pack> --id <profile/domain> [--registry <index.json>]
 
 `publish` writes only the LOCAL registry index; making anything public is a
-human decision behind the counsel gate (see the maintainer notes).";
+human decision behind the counsel gate (see GOVERNANCE.md).";
 
 /// Parsed invocation — one variant per subcommand (exhaustive dispatch).
 #[derive(::std::fmt::Debug)]

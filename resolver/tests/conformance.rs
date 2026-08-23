@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-//! RLPS conformance-vector runner (maintainer-notes roadmap item 4; spec §9).
+//! RLPS conformance-vector runner (roadmap item 4; spec §9).
 //!
 //! Runs every vector in `/conformance/level-*.json` whose `capabilities` are
 //! all implemented by this reference resolver, and asserts drift-protected run

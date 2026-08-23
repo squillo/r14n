@@ -1,5 +1,6 @@
 # r14n — Regulatory Localization
 
+[![gates](https://github.com/squillo/r14n/actions/workflows/gates.yml/badge.svg)](https://github.com/squillo/r14n/actions/workflows/gates.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0_%2F_CC--BY--4.0-blue)](LICENSE)
 [![Status](https://img.shields.io/badge/status-v0.1_pre--1.0-orange)](#status)
 [![NOT LEGAL ADVICE](https://img.shields.io/badge/⚠-NOT_LEGAL_ADVICE_·_counsel--gated-red)](docs/not-legal-advice.md)
@@ -200,7 +201,8 @@ does not define the mandate itself. Still NOT legal advice.
 ## Status
 
 **v0.1 — draft. Reference-implementation-first.** This repository is the working existence proof;
-the resolver already ships inside [Squillo OS](https://squillo.com) as `the Squillo OS policy engine`.
+a twin of the resolver already ships inside [Squillo OS](https://squillo.com) as its
+regulatory-policy engine — the live first consumer.
 
 ## Repository layout (counsel-safe subset)
 
@@ -211,7 +213,7 @@ the resolver already ships inside [Squillo OS](https://squillo.com) as `the Squi
   [`docs/receipt-27560-mapping.md`](docs/receipt-27560-mapping.md)).
 - [`ns/`](ns/) — the published RLPS vocabulary: the `@context`
   ([`context.jsonld`](ns/context.jsonld)) + SKOS/RDFS term definitions ([`rlps.ttl`](ns/rlps.ttl)),
-  so the `https://rlps.squillo.com/ns#` namespace resolves.
+  so the `https://r14n.squillo.com/ns#` namespace resolves.
 - [`catalog/`](catalog/) — the canonical CONTROL CATALOG (control keys + deontic kind + facets).
 - [`resolver/`](resolver/) — the Rust reference resolver (embeddable crate; run `cargo test`)
   including the [`receipt`](resolver/src/receipt.rs) module: ISO/IEC TS 27560-structured + W3C DPV
@@ -228,8 +230,15 @@ the resolver already ships inside [Squillo OS](https://squillo.com) as `the Squi
   directory (revocation + expiry + jurisdiction); `publish` writes a local content-addressed index.
 - [`registry/`](registry/) — reviewer-key directory + pack-index schemas (trust root, versioning,
   supersession).
+- [`r14n Spec/`](r14n%20Spec/) + [`baselines/`](baselines/) + [`snapp/`](snapp/) — the RLPS
+  specification expressed as an **N Lang Snapp** (typed, machine-checkable spec sources), a
+  baseline-pack consumer Snapp, and the emitted ABI bundle other Snapps consume. The Snapp
+  *sources* are Apache-2.0 like the code; **N Lang itself** (language, compiler, runtime, Snapp
+  tooling) is proprietary to Squillo, Inc. and not required to use RLPS — the markdown spec in
+  [`spec/`](spec/) is the normative text, and where the two disagree, `spec/` wins.
 - [`GOVERNANCE.md`](GOVERNANCE.md) — reference-impl-first staging, federated-with-attestation
-  ownership, SDO entry criteria. [`CONTRIBUTING.md`](CONTRIBUTING.md) (DCO + pack gate),
+  ownership, SDO entry criteria. [`CONTRIBUTING.md`](CONTRIBUTING.md) (issue-first RFC process,
+  DCO + pack gate), [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md), [`CHANGELOG.md`](CHANGELOG.md),
   [`TRADEMARKS.md`](TRADEMARKS.md) (name + conformance-claim usage),
   [`SECURITY.md`](SECURITY.md) + [`docs/key-management.md`](docs/key-management.md) (crypto threat
   surface + key hygiene), [`docs/receipt-data-handling.md`](docs/receipt-data-handling.md) (receipts
@@ -240,13 +249,14 @@ the resolver already ships inside [Squillo OS](https://squillo.com) as `the Squi
   [`docs/audits/`](docs/audits/) (the standing council-audit reports).
 - CI: [`.github/workflows/gates.yml`](.github/workflows/gates.yml) runs both test suites (which
   include the schema-vs-producers conformance tests in
-  [`tools/tests/schema_conformance.rs`](tools/tests/schema_conformance.rs)) and lints the shipped
-  packs. Rust only — no Python.
+  [`tools/tests/schema_conformance.rs`](tools/tests/schema_conformance.rs)), lints the shipped
+  packs, and gates on sanitization (no internal references in tracked files), clippy
+  (warnings-as-errors), the declared MSRV (1.85), and DCO sign-off on PRs. Rust only — no Python.
 
 **Deliberately NOT here yet (held for licensed counsel):** real jurisdiction packs
 (`wiretap/us` 50-state matrix, `gdpr/eu`, `ccpa-cpra/us/ca`, …). Any pack claiming a real
 jurisdiction MUST carry a `reviewing_attorney_of_record` + bar number and be attested by licensed
-counsel — see the spec §Governance. **This repo is not public until that legal review is complete.**
+counsel — see the spec §Governance and the counsel gate in [`GOVERNANCE.md`](GOVERNANCE.md).
 
 ## Honest positioning
 
@@ -265,5 +275,6 @@ those standards rather than replacing them.
 Dual: the **spec text, catalog, and schemas** are **CC BY 4.0**; the **reference resolver and
 tooling code** are **Apache-2.0**. See [`LICENSE`](LICENSE) (code) and [`LICENSE-SPEC`](LICENSE-SPEC) (docs).
 
----
-*Reference: Squillo OS an internal design memo. Research provenance: adversarially-verified workflow (5 web sweeps + synthesis + critique).*
+## Authors
+
+Squillo, Inc.

@@ -1,9 +1,7 @@
 # Council audit — 2026-07-06 (repo @ `4b32faa`)
 
 **Method:** six-lens adversarial council (spec-conformance · crypto/security · Rust correctness ·
-standards-interop fidelity · legal posture · test/conformance coverage). The test-coverage lens ran
-as an independent agent (10 findings, salvaged in full); the other five lenses were executed by the
-chair inline after a rate-limit outage killed the agent fleet, using the same empirical protocol:
+standards-interop fidelity · legal posture · test/conformance coverage), one empirical protocol:
 every finding below was verified against files at cited lines or demonstrated with a command run
 against the prebuilt CLI / a JSON-LD processor. Gates at audit time: resolver 21/21, tools 22/22,
 tree clean. **NOT LEGAL ADVICE** — this is an engineering + process audit.
@@ -52,8 +50,8 @@ Demonstrated: `reviewer.seed` lands `-rw-r--r--`. Reviewer signing keys are the 
 `docs/counsel-brief.md` §7 lists the repo contents counsel will review: it omits `conformance/`,
 `tools/` (the CLI!), `registry/` schemas, `GOVERNANCE.md`, and the receipt module, and claims
 "6 unit tests" (actual: 43). A representations document with wrong numbers invites "what else is
-stale." Same sweep: `README.md` "18 tests", `the maintainer notes` "State" section "6 pass",
-`tools/README.md` "15 tests". **Fix:** refresh §7 + the three counts (or replace counts with the
+stale." Same sweep: `README.md` "18 tests", `tools/README.md` "15 tests". **Fix:** refresh §7 +
+the stale counts (or replace counts with the
 gate command). *(legal + test-coverage lenses converged.)*
 
 ### M4. The effective-date envelope is decorative everywhere
@@ -121,8 +119,8 @@ authors will copy first — carry SPDX + comments but not the disclaimer. (Code-
   defines matching for BCP-47 *language* tags with `-` subtags; ours are `/` profile tags. An SDO
   reviewer will flag it. Reword to "RFC-4647-**style** progressive truncation (normatively defined
   here)". *(spec.)*
-- **N4. Internal Squillo references leak in the aggressive pack** (`an internal design memo…`,
-  `an internal component`) — scrub/genericize before anything leaves the repo. *(legal.)*
+- **N4. Internal Squillo references leaked in the aggressive pack** (an internal design-doc id
+  and an internal component name) — scrubbed/genericized before anything leaves the repo. *(legal.)*
 - **N5. TODO placeholder dates lint clean and publish** — demonstrated: the extract template's
   `TODO-YYYY-MM-DD` passes `validate` (0 warnings) and `publish` indexes it. Add a date-shape
   rule (warning for drafts, error otherwise); update the template test to expect the warning.

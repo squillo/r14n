@@ -1,7 +1,7 @@
 {
   "dpv_27560": {
     "@context": {
-      "@vocab": "https://rlps.squillo.com/ns#",
+      "@vocab": "https://r14n.squillo.com/ns#",
       "dpv": "https://w3id.org/dpv#",
       "event_type": {
         "@id": "rlps:event_type",
@@ -12,7 +12,7 @@
         "@id": "rlps:operations",
         "@type": "@id"
       },
-      "rlps": "https://rlps.squillo.com/ns#"
+      "rlps": "https://r14n.squillo.com/ns#"
     },
     "@type": "rlps:ControlDecisionReceipt",
     "ai_disclosure": {

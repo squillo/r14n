@@ -4,7 +4,7 @@ A starting research memo for **roadmap item 8** (the counsel-gated `wiretap/us` 
 pack). **NOT LEGAL ADVICE.** This document contains **no pack, no control prescriptions, and no
 statement of current law** — it summarizes what published secondary sources say, so the engagement
 with the attorney-of-record starts from organized material instead of a blank page. The pack
-itself MUST NOT be authored until counsel signs off (maintainer-notes constraint 4; counsel-brief §6), and
+itself MUST NOT be authored until counsel signs off (GOVERNANCE.md hard gate 2; counsel-brief §6), and
 everything below must be **re-verified against current statutes by the attorney-of-record** — the
 principal source predates this memo by eight years.
 

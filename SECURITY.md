@@ -4,11 +4,15 @@
 > implementation. It is not a warranty and does not address legal compliance. See
 > [`docs/not-legal-advice.md`](docs/not-legal-advice.md).
 
-## Status
+## Status and supported versions
 
-RLPS is **pre-1.0 and this repository is private** pending legal review. There is no public
-release and no supported-version guarantee yet. Once published, this policy will name supported
-versions.
+RLPS is **pre-1.0**: the wire format, schemas, and APIs may change between 0.x releases, and
+security fixes land only on the current draft line.
+
+| Version | Supported |
+|---|---|
+| 0.1.x (current draft) | ✅ |
+| < 0.1 | ❌ |
 
 ## Reporting a vulnerability
 

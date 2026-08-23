@@ -8,7 +8,7 @@ version: "1_0_0"
 ```nlang
 @name: "r14n_policies"
 @author: "Scott Wyatt <legal@squillo.com>"
-@license: "SEE LICENSE IN LICENSE.md"
+@license: "SEE LICENSE IN LICENSE"
 ```
 
 # r14n Specification: Reserved Block Predicate Keywords: `policies` [DRAFT 1_0_0]
@@ -29,7 +29,7 @@ This document covers the reserved predicate keyword `policies`. A `PolicyPack` i
 
 ## What is a Policy Pack?
 
-A Policy Pack is a typed N Lang document declaring the required compliance controls for one `(profile × domain)`, resolved against a `subject` facet. The consuming resolver (`RegulatoryPolicyPort`, `the Squillo OS policy engine`) folds the pack's ledger into an effective decision and BLOCKs a capability whose declared controls do not satisfy the pack — fail-closed.
+A Policy Pack is a typed N Lang document declaring the required compliance controls for one `(profile × domain)`, resolved against a `subject` facet. The consuming resolver (`RegulatoryPolicyPort`, the Squillo OS regulatory-policy engine) folds the pack's ledger into an effective decision and BLOCKs a capability whose declared controls do not satisfy the pack — fail-closed.
 
 **How Policy Packs Work:**
 1. **Domain + Profile**: `domain` names a capability family (`health`, `smart_home`, `photo_library`, `location`, `nfc`, `recording_consent`, …). `strictness` is the dial (`aggressive` / `as_configured` / `minimal`).
@@ -38,7 +38,7 @@ A Policy Pack is a typed N Lang document declaring the required compliance contr
 4. **Defaults**: `strictness` and `legal_review_status` are inherited from `R14N.n` when omitted.
 5. **Fold Position**: base declaration vs tighten-only overlay is decided by ledger position, not syntax.
 
-**Strictness semantics** (mirrors the resolver twin, `the Squillo OS policy engine`):
+**Strictness semantics** (mirrors the resolver twin in Squillo OS):
 - `aggressive` — the caller's FULL declared control universe is required regardless of the subject table (fail-closed install default; the resolver degrades to exactly this when no pack matches).
 - `as_configured` — the per-`subject` table is honored exactly.
 - `minimal` — only the `legally_required` floor is enforced; the subject table is documentary. USE WITH CARE.
@@ -47,7 +47,7 @@ A Policy Pack is a typed N Lang document declaring the required compliance contr
 
 ## Object Blocks
 
-The keyword and its types are defined as follows. Per the N Language Book `3. Reference/8. Items/8. Blocks, Props.md`: a `blocks` definition with `props` is a complete type; block references use `type = <T>`; closed string sets use `values`; a list-of-blocks prop uses `atom = list` + `items { type = <T> }`; `min_items` bounds a list. This shape mirrors the Taxa `ClassifierSpec` gold standard (scalars + lists-of-blocks — the compilable wire form; NO map-of-blocks).
+The keyword and its types are defined as follows. Per the N Language Book, `3. Reference/8. Items/8. Blocks, Props.md`: a `blocks` definition with `props` is a complete type; block references use `type = <T>`; closed string sets use `values`; a list-of-blocks prop uses `atom = list` + `items { type = <T> }`; `min_items` bounds a list. This shape mirrors the Taxa `ClassifierSpec` gold standard (scalars + lists-of-blocks — the compilable wire form; NO map-of-blocks).
 
 ```nlang
 blocks "policies" {
@@ -206,6 +206,6 @@ mod policies {
 - [R14N.n.md](../R14N.n.md) — global defaults document
 - [mod.n.md](mod.n.md) — keyword index
 - r14n `spec/RLPS-v0.1.md` — the Regulatory Localization Pack Specification
-- the N Language Book `3. Reference/8. Items/8. Blocks, Props.md` — blocks / props / values / items / min_items
-- the N Language Book `3. Reference/8. Items/15. External Snapps.md` — `@deps` + integrity + `use: ["$::*"]`
-- Consuming OS twin: `the Squillo OS policy engine` (`RegulatoryPolicyPort`) — fail-closed resolver
+- N Language Book `3. Reference/8. Items/8. Blocks, Props.md` — blocks / props / values / items / min_items
+- N Language Book `3. Reference/8. Items/15. External Snapps.md` — `@deps` + integrity + `use: ["$::*"]`
+- Consuming OS twin: the Squillo OS regulatory-policy engine (`RegulatoryPolicyPort`) — fail-closed resolver

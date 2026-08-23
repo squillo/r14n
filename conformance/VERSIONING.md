@@ -41,5 +41,5 @@ vocabulary; `tools/tests/schema_conformance.rs` + the runner's meta-validation t
 
 ## Changelog
 
-Suite-version changes are recorded in the spec's revision history and in the commit that bumps the
-`suite` field; there is no separate changelog file until the first MINOR bump.
+Suite-version changes are recorded in the spec's Revision History banner, in the repo's
+`CHANGELOG.md`, and in the commit that bumps the `suite` field.

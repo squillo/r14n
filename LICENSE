@@ -9,10 +9,18 @@ DUAL LICENSE (SPDX: Apache-2.0 AND CC-BY-4.0):
   `SPDX-License-Identifier: Apache-2.0` header; see also ./NOTICE.
 
 - SPECIFICATION TEXT, SCHEMAS, the CONTROL CATALOG, the CONFORMANCE VECTORS, the
-  REGISTRY SCHEMAS, and all prose docs (/spec, /schema, /catalog, /conformance,
-  /registry, /docs, and the root *.md files) are licensed under Creative Commons
-  Attribution 4.0 International (SPDX: CC-BY-4.0).
+  REGISTRY SCHEMAS, the VOCABULARY (/ns), and all prose docs (/spec, /schema,
+  /catalog, /conformance, /registry, /ns, /docs, and the root *.md files) are
+  licensed under Creative Commons Attribution 4.0 International (SPDX: CC-BY-4.0).
   Canonical text: https://creativecommons.org/licenses/by/4.0/
+
+- N LANG SNAPP SOURCES AND THE EMITTED BUNDLE ("r14n Spec/", /baselines, /snapp)
+  are licensed under the Apache License, Version 2.0 (SPDX: Apache-2.0), the same
+  as the code. Two separate things are licensed there, and conflating them is the
+  mistake to avoid: the Snapp *sources* (.n.md files, configs, smoke tests) and
+  the emitted bundle are Apache-2.0; N Lang *itself* — the language, compiler,
+  runtime, and Snapp tooling — is proprietary to Squillo, Inc. and commercially
+  licensable only through Squillo, Inc.
 
 - PACKS (/packs) carry their own SPDX headers; contributors may choose CC0-1.0 or
   CC-BY-4.0 for pack data.

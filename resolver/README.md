@@ -25,15 +25,15 @@ aggressive-over-universe with a loud `fell_back` flag — never an empty set. Se
 ## Design
 
 - **Generic:** `serde` + `toml` + `serde_json` + `std` only, zero framework deps. It is a twin of
-  Squillo OS's `the Squillo OS policy engine`; keep it generic so the two stay in sync.
+  the Squillo OS regulatory-policy engine; keep it generic so the two stay in sync.
 - **Fail-closed everywhere** (spec §4/§5); receipts are `advisory_only` until provenance is
   cryptographically verified (the reference resolver verifies none — that is the tooling's job).
 
 ## Stability
 
 Pre-1.0: the API and pack/receipt formats **may change** between `0.x` minor versions; breaking
-changes are noted in the repo's `the maintainer notes` sync notes. From `1.0` the crate will follow semver.
-**MSRV: Rust 1.74.**
+changes are noted in the repo's `CHANGELOG.md`. From `1.0` the crate will follow semver.
+**MSRV: Rust 1.85.**
 
 ## License
 

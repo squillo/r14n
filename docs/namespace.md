@@ -1,6 +1,6 @@
 # The RLPS namespace — minted terms + graceful degradation
 
-**Namespace URI:** `https://rlps.squillo.com/ns#` (constant [`RLPS_NS`] in the resolver's
+**Namespace URI:** `https://r14n.squillo.com/ns#` (constant [`RLPS_NS`] in the resolver's
 `receipt` module). Minted under squillo.com control; a `w3id.org/rlps` alias is planned
 **post-publication** (registering w3id before the counsel gate would be a public step). The URI
 is an identifier first — receipts are valid whether or not it dereferences.
@@ -8,7 +8,7 @@ is an identifier first — receipts are valid whether or not it dereferences.
 > **⚠ NOT LEGAL ADVICE.** Terms name *controls and receipt structures*, not legal conclusions.
 > See `/docs/not-legal-advice.md`.
 
-## Why an RLPS-owned namespace (spec §8 / an internal design memo must-fix #6)
+## Why an RLPS-owned namespace (spec §8)
 
 W3C DPV does not (yet) define recording-operation terms at the granularity RLPS needs
 (`AudioRecording` vs `VoiceRecording` matters — voice is a biometric-adjacent special-category

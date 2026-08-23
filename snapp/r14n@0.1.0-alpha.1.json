@@ -4,7 +4,7 @@
     "version": "0.0.0",
     "description": "Squillo r14n Framework: Regulatory Localization Pack Specification (RLPS) — (regulatory-profile × jurisdiction × subject) → required compliance controls, fail-closed.",
     "author": "Scott Wyatt <legal@squillo.com>",
-    "license": "SEE LICENSE IN LICENSE.md",
+    "license": "SEE LICENSE IN LICENSE",
     "tags": [],
     "framework": "r14n",
     "nlang": "0.0.0-alpha.1",

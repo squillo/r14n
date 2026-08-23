@@ -6,7 +6,7 @@
 //! a version entry (id, monotonic version, sha256, supersedes-chain, optional
 //! detached-signature embed) to the local index; making anything PUBLIC —
 //! pushing the repo, crates.io, a hosted registry — is a human decision behind
-//! the legal review (maintainer-notes governing constraint 3). NOT LEGAL ADVICE.
+//! the legal review (GOVERNANCE.md hard gate 1). NOT LEGAL ADVICE.
 //!
 //! Revision History
 //! - 2026-07-06: authored — roadmap item 5 (pack-lifecycle CLI) + item 6

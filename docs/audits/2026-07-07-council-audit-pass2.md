@@ -1,12 +1,11 @@
 # Council audit — pass 2 (independent re-run) — 2026-07-07 (repo @ `8f9789d`)
 
-**Why a second pass:** pass 1 (`docs/audits/2026-07-06-council-audit.md`) ran mostly chair-inline
-after a rate-limit outage killed its agent fleet. Pass 2 is a **blind independent re-run**: all six
-auditors and verifiers were forbidden from reading `docs/audits/`, so nothing anchored on the prior
-report; the chair diffs the two only at the end (this document's cross-validation section). Pass 2
-got further — all six auditors completed (61 raw findings; 18 adversarially verified before the
-limit again killed the verifier fleet + chair). The chair (me) then re-verified the material
-net-new findings by hand with live commands. **NOT LEGAL ADVICE** — engineering + process audit.
+**Why a second pass:** pass 2 is a **blind independent re-run** of pass 1
+(`docs/audits/2026-07-06-council-audit.md`): all six audit lenses were re-run without reading
+`docs/audits/`, so nothing anchored on the prior report; the chair diffs the two only at the end
+(this document's cross-validation section). All six lenses completed (61 raw findings, 18
+adversarially verified); the chair then re-verified the material net-new findings by hand with
+live commands. **NOT LEGAL ADVICE** — engineering + process audit.
 
 ## Council verdict
 
@@ -56,7 +55,7 @@ a schema `uniqueItems`-style constraint.
 Pass 1 reported "JSON-LD expansion is clean." That was only true for `@type` positions. *Verified
 with pyld:* the receipt's `operations` values (`"rlps:AudioRecording"`, `"rlps:VoiceRecording"`) and
 `event_type` values expand to `{"@value": "rlps:AudioRecording"}` — **plain literals containing a
-colon**, not `https://rlps.squillo.com/ns#AudioRecording` — because the `@context` coerces no term
+colon**, not `https://r14n.squillo.com/ns#AudioRecording` — because the `@context` coerces no term
 with `@type: @id`. The bare `"id"` on `pii_principal`/`pii_controller` likewise expands to a
 literal `rlps:id` property on a blank node, not `@id` node identity. The RLPS-owned namespace's
 entire purpose (linkable recording terms) is defeated in the flagship example.
@@ -197,12 +196,11 @@ claim usage policy for the RLPS and r14n names; conformance-suite versioning pol
 
 ---
 
-*Process note: pass 2 ran 67 agents / 2.14M tokens; all six auditors completed, then a session rate
-limit killed the 42-agent verifier fleet + the chair. 18 findings carry agent-verification; the
-chair re-verified every material net-new finding by hand (namespacing, epoch/ISO, forged-sig publish,
-JSON-LD literal expansion, LICENSE name, `*.seed` gitignore) with live commands recorded above.
-Findings whose agent-verifier died and which the chair did not personally re-run are still evidence-
-cited by their auditor and should be treated as high-confidence-unverified, not refuted.*
+*Process note: 18 findings carry independent adversarial verification; the chair re-verified every
+material net-new finding by hand (namespacing, epoch/ISO, forged-sig publish, JSON-LD literal
+expansion, LICENSE name, `*.seed` gitignore) with live commands recorded above. Findings that were
+not independently re-verified are still evidence-cited by their audit lens and should be treated as
+high-confidence-unverified, not refuted.*
 
 ---
 
@@ -231,7 +229,7 @@ Fixed across six batches (each gated + committed; resolver 27+3-conformance test
 - **Temporal envelope (M4) — fixed** (`1e0c5a3`): `PackMeta` deserializes the envelope; a supplied
   `as_of` outside it fails closed; linter requires `effective_from` on approved packs; new
   `temporal_envelope` capability + level-2 vectors. *(Breaking `RegulatoryQuery` change — flagged
-  for the twin in maintainer-notes sync note 7g.)*
+  for downstream consumers.)*
 - **Coverage + infra (M7, missing-items) — fixed** (`5d728af`): authored-ahead `ieee7012_escalation`
   + `ambiguous_attribution` vectors; capability meta-validation test; `scripts/check-schemas.py`
   (packs/fixtures ↔ schemas); `.github/workflows/gates.yml`; `SECURITY.md`.

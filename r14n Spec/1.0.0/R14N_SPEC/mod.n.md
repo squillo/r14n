@@ -6,7 +6,7 @@ version: "1_0_0"
 # r14n Specification — Module Index
 
 Deterministic declaration index for the R14N_SPEC directory.
-Per the N Language Book `1. Introduction/1. Introduction.md` §1.1 "The Determinism Invariant":
+Per the N Language Book, `1. Introduction/1. Introduction.md` §1.1 "The Determinism Invariant":
 declaration order IS load order.
 
 R14N defines the core block type schema + global defaults. R14N_SPEC_KEYWORDS

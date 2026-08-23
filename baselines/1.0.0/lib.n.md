@@ -7,7 +7,7 @@ name: "r14n Baseline Policy Packs"
 Squillo's own regulatory-policy baselines (`aggressive` / `minimal`), authored as a
 consumer Snapp that `@deps` the r14n framework (its `policies` keyword + `PolicyPack`
 / `Subject` type blocks fold in through the dep). Emitted via `nlang export -f json`
-to an ABI-consumable dist that `the Squillo OS policy engine` reads through `nlang_abi`.
+to an ABI-consumable dist that the Squillo OS regulatory-policy engine reads through the N Lang ABI.
 
 **NOT LEGAL ADVICE** — Squillo's own `aggressive`/`minimal` posture only; jurisdiction
 packs are counsel-gated and held out.

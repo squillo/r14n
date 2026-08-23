@@ -10,7 +10,7 @@
 //!
 //! This crate is the **reference resolver** for the Regulatory Localization Pack
 //! Specification (RLPS). It was extracted verbatim from the live Squillo OS substrate
-//! (`the Squillo OS policy engine`) and is fully generic — `serde` + `toml` + `std` only.
+//! (its regulatory-policy engine) and is fully generic — `serde` + `toml` + `std` only.
 //!
 //! ## The posture selector ([`Strictness`] — spec calls this the *posture*)
 //!
@@ -38,8 +38,8 @@
 //! they are not required by RLPS and may be relaxed in future resolver revisions.
 //!
 //! Revision History
-//! - 2026-07-06: extracted as the RLPS reference resolver (r14n) from Squillo OS
-//!   `the Squillo OS policy engine` (an internal design memo §PS.R / an internal design memo).
+//! - 2026-07-06: extracted as the RLPS reference resolver (r14n) from the Squillo OS
+//!   regulatory-policy engine.
 //! - 2026-07-06: + `receipt` module (ISO 27560 / W3C DPV + Kantara CR v1.1) and
 //!   `Strictness::as_str` — additive; mirror to the Squillo twin (roadmap item 3).
 //! - 2026-07-06: pack_path prefers `<domain>.r14n.toml` (falls back `.toml`);
@@ -685,7 +685,7 @@ mod tests {
     ::std::assert!(d.provenance.source.ends_with("recording_consent.r14n.toml"));
   }
 
-  /// Why: an internal design memo must-fix #1 — "aggressive" is a posture, not a legal
+  /// Why: council-audit must-fix #1 — "aggressive" is a posture, not a legal
   /// ordering; requiring a control a jurisdiction PROHIBITS (the shipped
   /// aggressive-floor-superset bug) is itself a violation. This pins
   /// aggressive = union of permitted-or-required, never prohibited (spec §3).

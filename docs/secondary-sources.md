@@ -316,7 +316,7 @@ decision-receipt lane (spec §8, `resolver/src/receipt.rs`) is RLPS's version of
 
 ## Mapping: sources → planned pack families
 
-| Pack family (an internal design memo Phase E / roadmap item 8) | Primary sources above | Concrete statutory anchors the sources identify |
+| Pack family (roadmap item 8) | Primary sources above | Concrete statutory anchors the sources identify |
 |---|---|---|
 | `recording_consent` (shipped catalog) / `wiretap/us` (counsel-gated) | 1, 2 | One-party/all-party split; *Kearney* cross-border rule; within-category divergence — see [`wiretap-us-dossier.md`](wiretap-us-dossier.md) |
 | `ai_disclosure` | 11, 15, 18, 20, 22 | EU AI Act Art. 50(1) interaction disclosure; Utah SB 452 chatbot notice; Colorado AI Act (SB 205) annual impact re-assessment triggers; 24-state election-deepfake and 22-state NCII patchworks |
@@ -332,6 +332,6 @@ packs must carry the reviewing attorney's scoping notes rather than assume a sha
 ## Provenance
 
 Collected via a fan-out research workflow (5 parallel search sweeps → 25 full-source fetches with
-verbatim quote extraction → adversarial verification), then hand-verified; Squillo OS session
-workflow `an-internal-workflow`, 2026-07-31. A formatted, shareable rendering of this bibliography was
-delivered to counsel separately; **this file is the source of record for the repo.**
+verbatim quote extraction → adversarial verification), then hand-verified 2026-07-31. A formatted,
+shareable rendering of this bibliography was delivered to counsel separately; **this file is the
+source of record for the repo.**

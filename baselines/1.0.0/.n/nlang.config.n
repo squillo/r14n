@@ -5,7 +5,7 @@
   "description": "Squillo's own r14n regulatory-policy baseline packs (aggressive/minimal) — a consumer Snapp that @deps the r14n framework. NOT LEGAL ADVICE.",
   "author": "Scott Wyatt <legal@squillo.com>",
   "authors": [],
-  "license": "SEE LICENSE IN LICENSE.md",
+  "license": "SEE LICENSE IN LICENSE",
   "tags": [],
   "framework": "n",
   "src_dir": "../",
@@ -38,7 +38,6 @@
     ".nde/*",
     ".git/*",
     "node_modules/*",
-    ".claude/*",
     "how/*"
   ],
   "export": [

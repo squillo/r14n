@@ -6,6 +6,18 @@
 > what the law is. A conforming implementation makes no representation that any posture or pack is
 > lawful in any jurisdiction. **"aggressive" ≠ "compliant."** See `/docs/not-legal-advice.md`.
 
+> ### Revision 2026-08-23 — the vocabulary namespace moved to `r14n.squillo.com`
+>
+> The RLPS-owned vocabulary namespace (spec §8, the `@vocab` of every decision receipt and the
+> `RLPS_NS` constant in the reference resolver's `receipt` module) is now
+> `https://r14n.squillo.com/ns#`. The URI is an identifier first — receipts are valid whether or
+> not it dereferences — but a receipt consumer comparing term IRIs byte-for-byte will see the new
+> host in receipts minted after this revision. **What did NOT change:** the term names, the
+> receipt structure, the resolution algorithm, the conformance vectors, and every control
+> semantic are untouched; no shipped vector asserts the namespace host, so no conformance claim
+> moves. Recorded in `CHANGELOG.md` (which this revision also introduces, together with the
+> issue-form change process in `CONTRIBUTING.md`).
+
 ## 1. Scope
 
 RLPS specifies a portable format and resolution algorithm for the **control-prescription layer**:
@@ -197,7 +209,7 @@ to `aggressive` over the caller's declared universe and MUST flag the decision a
 - **ISO/IEC TS 27560 + W3C DPV** — the decision receipt SHOULD serialize natively as a 27560 +
   DPV Consent Record; a flat Kantara CR v1.1 shim MAY be emitted. RLPS mints recording controls in
   an **RLPS-owned namespace** that MUST degrade gracefully if DPV does not adopt them (v0.1
-  namespace: `https://rlps.squillo.com/ns#`; term registry `/docs/namespace.md`; reference
+  namespace: `https://r14n.squillo.com/ns#`; term registry `/docs/namespace.md`; reference
   serializer: the resolver's `receipt` module; worked AI-Act §50 example:
   `/docs/examples/receipt-ai-act-50.json`).
 - **NIST OSCAL** — the pack structure mirrors OSCAL Catalog→Profile→Baseline; the Control Catalog

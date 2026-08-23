@@ -11,7 +11,7 @@ The keywords "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "SH
 
 The keywords "N Lang" and "N" are ubiquitous of "N Language".
 
-This document is currently privately licensed. Copyright Scott Wyatt <legal@squillo.com>, 2026 Copyright Squillo INC. 2026 <legal@squillo.com>.
+Copyright 2026 Squillo, Inc. <legal@squillo.com>. These Snapp sources are licensed under Apache-2.0 like the rest of this repository's code (see the repo `LICENSE`); N Lang itself — the language, compiler, runtime, and Snapp tooling — is proprietary to Squillo, Inc.
 
 ---
 

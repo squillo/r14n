@@ -15,6 +15,6 @@ subcommand operates on configuration artifacts; none states what any jurisdictio
 | `publish <pack> --id <profile>/<domain>` | — | Validate, then append a content-addressed version entry (monotonic version, `supersedes` sha chain, signature embed) to the **LOCAL** `registry/index.json`. |
 
 `publish` never touches a network. Making anything public — pushing this repo, crates.io, a
-hosted registry — is a human decision behind the counsel gate (`the maintainer notes` constraint 3).
+hosted registry — is a human decision behind the counsel gate (GOVERNANCE.md hard gate 1).
 
 Gate: `cargo test` here (unit + `tests/cli.rs` integration) alongside the resolver's suite.

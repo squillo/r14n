@@ -2,10 +2,11 @@
 
 **Prepared:** 2026-07-06, by the RLPS maintainers (Squillo). **Audience:** licensed counsel
 retained to review this project before the repository is made public.
-**Design record:** Squillo OS an internal design memo; normative spec: `spec/RLPS-v0.1.md` in this repo.
+**Normative spec:** `spec/RLPS-v0.1.md` in this repo.
 
-**Status quo:** this repository is **PRIVATE** and stays private until the reviews requested
-here are complete (an internal design memo §11 gate). Nothing has been published, announced, or distributed.
+**Status quo (at preparation):** the repository is private, and publication is gated on the
+reviews requested here (§6). Nothing has been published, announced, or distributed until they
+complete.
 
 ---
 
@@ -53,7 +54,7 @@ future §6-step-(3) `wiretap/us` engagement — it contains no pack and no legal
 
 ## 3. UPL question
 
-**The concern (an internal design memo §11):** a tool that appears to produce authoritative legal conclusions
+**The concern:** a tool that appears to produce authoritative legal conclusions
 ("in Germany you must do X") could be characterized as practicing law, and a *jurisdiction pack*
 authored by a non-lawyer could be characterized as legal advice to every downstream user.
 
@@ -85,7 +86,7 @@ authored by a non-lawyer could be characterized as legal advice to every downstr
 
 ## 4. Liability-allocation question
 
-**The concern (an internal design memo §12.1, the "dial-down attack"):** a consuming application sets the
+**The concern (the "dial-down attack"):** a consuming application sets the
 `minimal` posture (or authors a lax pack), under-restricts, and violates a recording/consent
 law. Where does liability land — the pack author, the resolver implementer (us), the spec
 publisher (us), or the deploying operator?
@@ -124,7 +125,7 @@ want counsel's view on whether to file, or rely on use + the descriptive-mark we
 
 ## 6. The counsel-gated publication sequence (for context)
 
-Per an internal design memo §9–11 the publication order is: (1) this review; (2) publish spec + resolver +
+The publication order is: (1) this review; (2) publish spec + resolver +
 Squillo's own two non-jurisdictional baseline packs; (3) only thereafter, jurisdiction packs
 authored/attested by licensed counsel with attorney-of-record metadata — the first two planned
 are a US recording-consent matrix (`wiretap/us`) and `gdpr/eu`. Counsel review of *those* packs
@@ -151,7 +152,11 @@ registry schemas, decision-receipt serializer, and governance doc since the firs
   receipt example, the audit reports under `docs/audits/`, and (added 2026-07-31) the
   secondary-source evidence annex (`secondary-sources.md`) + the `wiretap/us` research dossier
   (`wiretap-us-dossier.md`).
-- `GOVERNANCE.md`, `README.md`, `the maintainer notes`, `LICENSE` (Apache-2.0), `LICENSE-SPEC` (CC BY 4.0).
+- `GOVERNANCE.md`, `README.md`, `LICENSE` (Apache-2.0), `LICENSE-SPEC` (CC BY 4.0).
+- *(Added after this snapshot, 2026-08:)* `r14n Spec/` + `baselines/` + `snapp/` — the spec
+  expressed as typed N Lang Snapp sources plus the emitted bundle (Apache-2.0; see `LICENSE`),
+  and `ns/` — the published JSON-LD/SKOS vocabulary. Flagged here so counsel's review covers
+  them; they contain no jurisdiction claims.
 
 ## 8. Decision receipts — an added review surface (please opine)
 

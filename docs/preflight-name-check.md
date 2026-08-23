@@ -3,7 +3,7 @@
 **Date:** 2026-07-06. **Method:** live registry API calls (crates.io, npm registry, PyPI JSON API,
 GitHub REST), DNS NS/SOA lookups, and web search. **This is a best-effort engineering pre-flight,
 NOT a formal trademark clearance** — formal USPTO TESS / EUIPO / WIPO searches are assigned to
-counsel (see `docs/counsel-brief.md` §5). Per an internal design memo §1, all findings below are framed as
+counsel (see `docs/counsel-brief.md` §5). All findings below are framed as
 **"no dominant prior claim"** — absence of hits is not clearance.
 
 > **⚠ NOT LEGAL ADVICE.** See `/docs/not-legal-advice.md`.
@@ -59,7 +59,7 @@ blocking (the repo can live under `squillo.com` / GitHub Pages).
 - **"r14n" (numeronym):** not a documented numeronym anywhere found; the numeronym *pattern*
   (i18n, l10n, c14n, i14y, k8s) is established practice and unowned. *No prior claim found.*
 - **"regulatory localization" (phrase):** only generic/descriptive usage (adapting a product to
-  local regulation). **Known adjacent collision (from the an internal design memo critique, reconfirmed):** some
+  local regulation). **Known adjacent collision (reconfirmed):** some
   industry usage of "localization + regulatory compliance" means *making compliance content
   multilingual* — we deliberately do NOT use "compliance localization" and lead with the full
   "Regulatory Localization Pack Specification" expansion to avoid that reading.
@@ -79,6 +79,6 @@ blocking (the repo can live under `squillo.com` / GitHub Pages).
 ## 6. Naming posture (unchanged)
 
 Lead with **RLPS / Regulatory Localization Pack Specification** for formal/SDO/legal audiences;
-`r14n` is dev shorthand only. De-emphasize any "localizes law" phrasing (UPL profile — an internal design memo
-§11). Never claim the name-space is "confirmed clean / zero hits"; the operative claim is **no
+`r14n` is dev shorthand only. De-emphasize any "localizes law" phrasing (UPL profile — see
+`docs/counsel-brief.md` §3). Never claim the name-space is "confirmed clean / zero hits"; the operative claim is **no
 dominant prior claim as of 2026-07-06**.

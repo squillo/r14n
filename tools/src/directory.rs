@@ -255,9 +255,9 @@ mod tests {
     )
     .expect("write directory");
     // Unsigned ⇒ verify returns Ok(false).
-    ::std::assert_eq!(super::verify_directory_steward(&dir).expect("verify"), false);
+    ::std::assert!(!super::verify_directory_steward(&dir).expect("verify"));
     super::sign_directory(&dir, &seed).expect("sign directory");
-    ::std::assert_eq!(super::verify_directory_steward(&dir).expect("verify signed"), true);
+    ::std::assert!(super::verify_directory_steward(&dir).expect("verify signed"));
     // Tamper: add a key after signing ⇒ steward signature must no longer verify.
     let mut doc: ::serde_json::Value =
       ::serde_json::from_str(&::std::fs::read_to_string(&dir).expect("read")).expect("json");

@@ -20,7 +20,7 @@
 //! Recording/receipt terms (`rlps:ControlDecisionReceipt`,
 //! `rlps:RegulatedActivity`, `rlps:AudioRecording`, …) are minted in the
 //! RLPS-OWNED namespace [`RLPS_NS`] so interop degrades gracefully if DPVCG
-//! declines to adopt them (spec §8 / an internal design memo must-fix #6): the `@context` is
+//! declines to adopt them (spec §8; council-audit must-fix #6): the `@context` is
 //! self-contained (`@vocab` = [`RLPS_NS`]) and coerces the term-bearing keys
 //! (`operations`, `event_type`, and `id` → `@id`) so minted terms expand to
 //! namespace IRIs rather than string literals. Term registry:
@@ -56,7 +56,7 @@
 /// The RLPS-owned JSON-LD namespace (spec §8). Minted under squillo.com
 /// control; a `w3id.org` alias is planned post-publication. Terms remain valid
 /// RLPS identifiers even if DPVCG never adopts them (graceful degradation).
-pub const RLPS_NS: &str = "https://rlps.squillo.com/ns#";
+pub const RLPS_NS: &str = "https://r14n.squillo.com/ns#";
 
 /// W3C Data Privacy Vocabulary namespace (only established DPV terms are used:
 /// `dpv:DataSubject`, `dpv:DataController`, `dpv:hasJurisdiction`).
@@ -427,7 +427,7 @@ mod tests {
       v["provenance"]["advisory_only"], true,
       "self-declared approved must stay advisory until crypto verification exists"
     );
-    ::std::assert!(!super::PROVENANCE_VERIFIED, "v0.1 constant guards the above");
+    const _: () = ::std::assert!(!super::PROVENANCE_VERIFIED, "v0.1 constant guards the above");
   }
 
   /// Why: council-audit NN4 — the minted terms are the whole point of the

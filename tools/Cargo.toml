@@ -1,4 +1,4 @@
-# RLPS pack-lifecycle CLI (maintainer-notes roadmap item 5): extract / merge / validate /
+# RLPS pack-lifecycle CLI (roadmap item 5): extract / merge / validate /
 # sign / verify / keygen / publish. The `validate` subcommand is the LINTER that
 # enforces the cross-file rules pack.schema.json can only document (attorney-of-
 # record fields on approved packs, prohibited∩floor, catalog membership).
@@ -12,7 +12,7 @@
 name = "r14n-tools"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.74"
+rust-version = "1.85"
 license = "Apache-2.0"
 description = "RLPS pack-lifecycle CLI: extract, merge, validate, sign, verify, keygen, publish (local registry index)"
 repository = "https://github.com/squillo/r14n"
