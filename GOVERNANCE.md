@@ -63,9 +63,11 @@ in `.github/CODEOWNERS`.
 
 ## Hard gates (these override everything above)
 
-1. **Publication is counsel-gated.** The repository goes — and stays — public only with licensed
-   counsel's clearance of the UPL/liability posture (`docs/counsel-brief.md` is the gate
-   document).
+1. **The counsel review runs in the open.** The repository was made public on 2026-08-23 so
+   outside licensed counsel can review it directly (`docs/counsel-brief.md` is the working
+   brief). Publication of the *source* is not clearance: everything that asserts legal standing
+   stays counsel-gated — jurisdiction packs, hosted registries, and any language presenting a
+   pack or decision as a statement of law.
 2. **Jurisdiction packs are held out** until counsel signs off; each requires an attorney of
    record. The counsel-safe subset is: spec, schemas, catalog, resolver, tools, conformance,
    and Squillo's own `aggressive`/`minimal` posture baselines.

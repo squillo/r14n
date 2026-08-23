@@ -8,6 +8,10 @@ retained to review this project before the repository is made public.
 reviews requested here (§6). Nothing has been published, announced, or distributed until they
 complete.
 
+**Update 2026-08-23:** the repository was made public ahead of these reviews so outside counsel
+can review in the open. The requests below stand unchanged; jurisdiction packs remain held out,
+and nothing in the repository asserts legal clearance.
+
 ---
 
 ## 1. What RLPS is (plain language)

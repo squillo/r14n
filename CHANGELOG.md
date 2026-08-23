@@ -41,6 +41,13 @@ History banner in the spec for normative changes), rather than forking a version
   identifiers, and local paths were removed from all published files; the internal maintainer
   handoff brief was withdrawn from the tree. No normative behavior changed.
 
+### Changed (revision 2026-08-23c — the repository is public, so counsel can review in the open)
+
+- The steward re-scoped GOVERNANCE.md hard gate 1: the repository was made public to enable
+  outside counsel review, rather than waiting for that review to complete in private. What the
+  gate protects is unchanged — jurisdiction packs, hosted registries, and any assertion of legal
+  standing remain counsel-gated, and nothing in the repository claims legal clearance.
+
 ### Fixed (revision 2026-08-23b — the vocabulary Turtle was unparseable)
 
 - `ns/rlps.ttl` used `rdf:Property` without declaring the `rdf:` prefix, so every conformant
