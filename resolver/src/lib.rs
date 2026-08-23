@@ -38,6 +38,9 @@
 //! they are not required by RLPS and may be relaxed in future resolver revisions.
 //!
 //! Revision History
+//! - 2026-08-23: + `InMemoryRegulatoryPolicyAdapter` and the shared
+//!   `decide_from_pack_text` pipeline (fs adapter refactored onto it, behavior
+//!   unchanged) — the transport for filesystem-less hosts (wasm/Python bindings).
 //! - 2026-07-06: extracted as the RLPS reference resolver (r14n) from the Squillo OS
 //!   regulatory-policy engine.
 //! - 2026-07-06: + `receipt` module (ISO 27560 / W3C DPV + Kantara CR v1.1) and
@@ -347,6 +350,125 @@ fn controls_in_universe(
   control_set(list).into_iter().filter(|k| universe.contains(k)).collect()
 }
 
+/// The whole RLPS decision pipeline over an already-loaded pack text — shared
+/// verbatim by the filesystem adapter and the in-memory adapter so the two can
+/// never drift (one behavior, two transports). `source` is the provenance
+/// string surfaced in the decision (a path for the fs adapter, a map key for
+/// the in-memory one).
+fn decide_from_pack_text(
+  raw: &str,
+  source: &str,
+  strictness_override: &::std::option::Option<Strictness>,
+  query: &RegulatoryQuery,
+) -> ControlDecision {
+  let pack: PolicyPackToml = match ::toml::from_str(raw) {
+    ::std::result::Result::Ok(p) => p,
+    ::std::result::Result::Err(_) => {
+      return aggressive_over_universe(query, ::std::format!("<malformed:{source}>"), true);
+    }
+  };
+
+  // The global dial wins; else the pack's declared strictness; else Aggressive.
+  let strictness = strictness_override.clone().unwrap_or_else(|| {
+    pack
+      .meta
+      .strictness
+      .as_deref()
+      .map(Strictness::parse)
+      .unwrap_or(Strictness::Aggressive)
+  });
+
+  // Text-in-effect envelope (spec §2.5/§4/§7): when the caller supplies a
+  // decision date and the pack declares an envelope, a date outside
+  // `[effective_from, effective_until]` means no in-effect pack governs — fail
+  // closed to aggressive-over-universe, loudly. ISO `YYYY-MM-DD` compares
+  // lexically. `as_of = None` opts out of the temporal check.
+  if let ::std::option::Option::Some(as_of) = &query.as_of {
+    let before_start = pack
+      .meta
+      .effective_from
+      .as_deref()
+      .is_some_and(|from| as_of.as_str() < from);
+    let after_end = pack
+      .meta
+      .effective_until
+      .as_deref()
+      .is_some_and(|until| as_of.as_str() > until);
+    if before_start || after_end {
+      return aggressive_over_universe(
+        query,
+        ::std::format!("<outside-effective-envelope:{source}>"),
+        true,
+      );
+    }
+  }
+
+  // Fail-closed (spec §4/§5): a `minimal` pack whose `[legally_required]` floor
+  // is missing OR empty has no enforceable minimum — it MUST NOT resolve to an
+  // empty required set. Degrade to aggressive-over-universe, loudly, exactly
+  // like a missing/malformed pack. (The linter rejects this at author time; the
+  // resolver is the runtime guarantee against unlinted / adversarial packs.)
+  if ::std::matches!(strictness, Strictness::Minimal) {
+    let has_floor = pack
+      .legally_required
+      .as_ref()
+      .is_some_and(|c| !c.controls.is_empty());
+    if !has_floor {
+      return aggressive_over_universe(
+        query,
+        ::std::format!("<minimal-missing-floor:{source}>"),
+        true,
+      );
+    }
+  }
+
+  // Every resolved set is intersected with the caller's universe
+  // (`controls_in_universe`) — a pack can never demand a control the caller
+  // does not know how to enforce, and can never silently drop below what the
+  // caller declared under Aggressive.
+  let required: ::std::collections::BTreeSet<ControlKey> = match &strictness {
+    Strictness::Aggressive => query.universe.clone(),
+    Strictness::AsConfigured => pack
+      .subject
+      .get(&query.subject)
+      .map(|c| controls_in_universe(c, &query.universe))
+      // A subject absent from an as-configured pack is fail-closed: require all.
+      .unwrap_or_else(|| query.universe.clone()),
+    Strictness::Minimal => pack
+      .legally_required
+      .as_ref()
+      .map(|c| controls_in_universe(c, &query.universe))
+      .unwrap_or_default(),
+    Strictness::Other(_) => query.universe.clone(),
+  };
+
+  // Data-minimization guard (RLPS spec §3): no posture may ADD a control the
+  // resolved pack marks prohibited — subtract [prohibited] from EVERY posture's
+  // set, including Aggressive ("aggressive" = union of permitted-or-required,
+  // never prohibited).
+  let required: ::std::collections::BTreeSet<ControlKey> = match &pack.prohibited {
+    ::std::option::Option::Some(p) => {
+      let prohibited = control_set(p);
+      required.into_iter().filter(|k| !prohibited.contains(k)).collect()
+    }
+    ::std::option::Option::None => required,
+  };
+
+  let legal_review_status = pack.meta.legal_review.and_then(|r| r.status);
+  ControlDecision {
+    verdict: Verdict::Permit,
+    required,
+    provenance: PolicyProvenance {
+      profile: query.profile.clone(),
+      strictness,
+      source: ::std::string::String::from(source),
+      legal_review_status,
+      last_reviewed_against_guidance: pack.meta.last_reviewed_against_guidance,
+      fell_back: false,
+    },
+  }
+}
+
 /// Loads policy packs from a root dir mirroring `locales/`:
 /// `<root>/<profile>/<domain>.toml`. A global `strictness_override` (the DIAL)
 /// wins over each pack's declared strictness when set.
@@ -396,109 +518,65 @@ impl RegulatoryPolicyPort for TomlRegulatoryPolicyAdapter {
         return Self::fallback(query, ::std::format!("<missing:{}>", path.display()));
       }
     };
-    let pack: PolicyPackToml = match ::toml::from_str(&raw) {
-      ::std::result::Result::Ok(p) => p,
-      ::std::result::Result::Err(_) => {
-        return Self::fallback(query, ::std::format!("<malformed:{}>", path.display()));
-      }
-    };
+    decide_from_pack_text(
+      &raw,
+      &path.display().to_string(),
+      &self.strictness_override,
+      query,
+    )
+  }
+}
 
-    // The global dial wins; else the pack's declared strictness; else Aggressive.
-    let strictness = self.strictness_override.clone().unwrap_or_else(|| {
-      pack
-        .meta
-        .strictness
-        .as_deref()
-        .map(Strictness::parse)
-        .unwrap_or(Strictness::Aggressive)
-    });
+/// Resolves policy packs held entirely in memory — the transport for hosts
+/// with no filesystem (the wasm/JS and Python bindings, tests, embedded
+/// callers). Keys mirror the on-disk layout relative to the pack root:
+/// `<profile>/<domain>.r14n.toml` (preferred) or the legacy
+/// `<profile>/<domain>.toml`. Decision behavior is IDENTICAL to
+/// [`TomlRegulatoryPolicyAdapter`] by construction — both call
+/// [`decide_from_pack_text`]; only the pack lookup differs.
+pub struct InMemoryRegulatoryPolicyAdapter {
+  packs: ::std::collections::BTreeMap<::std::string::String, ::std::string::String>,
+  strictness_override: ::std::option::Option<Strictness>,
+}
 
-    // Text-in-effect envelope (spec §2.5/§4/§7): when the caller supplies a
-    // decision date and the pack declares an envelope, a date outside
-    // `[effective_from, effective_until]` means no in-effect pack governs — fail
-    // closed to aggressive-over-universe, loudly. ISO `YYYY-MM-DD` compares
-    // lexically. `as_of = None` opts out of the temporal check.
-    if let ::std::option::Option::Some(as_of) = &query.as_of {
-      let before_start = pack
-        .meta
-        .effective_from
-        .as_deref()
-        .is_some_and(|from| as_of.as_str() < from);
-      let after_end = pack
-        .meta
-        .effective_until
-        .as_deref()
-        .is_some_and(|until| as_of.as_str() > until);
-      if before_start || after_end {
-        return Self::fallback(
-          query,
-          ::std::format!("<outside-effective-envelope:{}>", path.display()),
-        );
-      }
+impl InMemoryRegulatoryPolicyAdapter {
+  /// Construct from `<profile>/<domain>.r14n.toml → TOML text` entries and an
+  /// optional global strictness override (the same DIAL as the fs adapter).
+  pub fn new(
+    packs: ::std::collections::BTreeMap<::std::string::String, ::std::string::String>,
+    strictness_override: ::std::option::Option<Strictness>,
+  ) -> Self {
+    Self { packs, strictness_override }
+  }
+
+  /// Prefer the RLPS pack key `<profile>/<domain>.r14n.toml`; fall back to the
+  /// legacy `<profile>/<domain>.toml` — the same probe order as the fs adapter.
+  fn pack_entry(
+    &self,
+    query: &RegulatoryQuery,
+  ) -> ::std::option::Option<(::std::string::String, &::std::string::String)> {
+    let r14n = ::std::format!("{}/{}.r14n.toml", query.profile.0, query.domain);
+    if let ::std::option::Option::Some(text) = self.packs.get(&r14n) {
+      return ::std::option::Option::Some((r14n, text));
     }
+    let legacy = ::std::format!("{}/{}.toml", query.profile.0, query.domain);
+    self.packs.get(&legacy).map(|text| (legacy, text))
+  }
+}
 
-    // Fail-closed (spec §4/§5): a `minimal` pack whose `[legally_required]` floor
-    // is missing OR empty has no enforceable minimum — it MUST NOT resolve to an
-    // empty required set. Degrade to aggressive-over-universe, loudly, exactly
-    // like a missing/malformed pack. (The linter rejects this at author time; the
-    // resolver is the runtime guarantee against unlinted / adversarial packs.)
-    if ::std::matches!(strictness, Strictness::Minimal) {
-      let has_floor = pack
-        .legally_required
-        .as_ref()
-        .is_some_and(|c| !c.controls.is_empty());
-      if !has_floor {
-        return Self::fallback(
-          query,
-          ::std::format!("<minimal-missing-floor:{}>", path.display()),
-        );
+impl __private_seal::RegulatoryPolicyPortSeal for InMemoryRegulatoryPolicyAdapter {}
+
+impl RegulatoryPolicyPort for InMemoryRegulatoryPolicyAdapter {
+  fn required_controls(&self, query: &RegulatoryQuery) -> ControlDecision {
+    match self.pack_entry(query) {
+      ::std::option::Option::Some((source, raw)) => {
+        decide_from_pack_text(raw, &source, &self.strictness_override, query)
       }
-    }
-
-    // Every resolved set is intersected with the caller's universe
-    // (`controls_in_universe`) — a pack can never demand a control the caller
-    // does not know how to enforce, and can never silently drop below what the
-    // caller declared under Aggressive.
-    let required: ::std::collections::BTreeSet<ControlKey> = match &strictness {
-      Strictness::Aggressive => query.universe.clone(),
-      Strictness::AsConfigured => pack
-        .subject
-        .get(&query.subject)
-        .map(|c| controls_in_universe(c, &query.universe))
-        // A subject absent from an as-configured pack is fail-closed: require all.
-        .unwrap_or_else(|| query.universe.clone()),
-      Strictness::Minimal => pack
-        .legally_required
-        .as_ref()
-        .map(|c| controls_in_universe(c, &query.universe))
-        .unwrap_or_default(),
-      Strictness::Other(_) => query.universe.clone(),
-    };
-
-    // Data-minimization guard (RLPS spec §3): no posture may ADD a control the
-    // resolved pack marks prohibited — subtract [prohibited] from EVERY posture's
-    // set, including Aggressive ("aggressive" = union of permitted-or-required,
-    // never prohibited).
-    let required: ::std::collections::BTreeSet<ControlKey> = match &pack.prohibited {
-      ::std::option::Option::Some(p) => {
-        let prohibited = control_set(p);
-        required.into_iter().filter(|k| !prohibited.contains(k)).collect()
-      }
-      ::std::option::Option::None => required,
-    };
-
-    let legal_review_status = pack.meta.legal_review.and_then(|r| r.status);
-    ControlDecision {
-      verdict: Verdict::Permit,
-      required,
-      provenance: PolicyProvenance {
-        profile: query.profile.clone(),
-        strictness,
-        source: path.display().to_string(),
-        legal_review_status,
-        last_reviewed_against_guidance: pack.meta.last_reviewed_against_guidance,
-        fell_back: false,
-      },
+      ::std::option::Option::None => aggressive_over_universe(
+        query,
+        ::std::format!("<missing:{}/{}.r14n.toml>", query.profile.0, query.domain),
+        true,
+      ),
     }
   }
 }
@@ -526,6 +604,91 @@ mod tests {
       universe: universe(),
       as_of: ::std::option::Option::None,
     }
+  }
+
+  const IN_MEMORY_MINIMAL_PACK: &str = "[meta]\nstrictness = \"minimal\"\n[subject.telepresence]\ncontrols = [\"user_attestation\", \"all_party_consent\"]\n[legally_required]\ncontrols = [\"user_attestation\"]\n";
+
+  fn in_memory(
+    key: &str,
+    text: &str,
+  ) -> super::InMemoryRegulatoryPolicyAdapter {
+    let mut packs = ::std::collections::BTreeMap::new();
+    packs.insert(::std::string::String::from(key), ::std::string::String::from(text));
+    super::InMemoryRegulatoryPolicyAdapter::new(packs, ::std::option::Option::None)
+  }
+
+  /// Why: the in-memory adapter is the bindings' transport (spec §4) — it must
+  /// resolve a well-formed pack exactly like the fs adapter, with the map key
+  /// as the provenance source and no fallback taint.
+  #[test]
+  fn in_memory_resolves_a_pack_with_key_as_source() {
+    let adapter = in_memory(
+      "minimal/recording_consent.r14n.toml",
+      IN_MEMORY_MINIMAL_PACK,
+    );
+    let d = super::RegulatoryPolicyPort::required_controls(&adapter, &query("minimal", "telepresence"));
+    ::std::assert!(!d.provenance.fell_back);
+    ::std::assert_eq!(d.provenance.source, "minimal/recording_consent.r14n.toml");
+    ::std::assert!(d.requires(&super::ControlKey(::std::string::String::from("user_attestation"))));
+  }
+
+  /// Why: fail-closed (spec §4/§5) must hold identically off-filesystem — a
+  /// missing key degrades to aggressive-over-universe with loud provenance,
+  /// never an empty set.
+  #[test]
+  fn in_memory_missing_pack_fails_closed_to_universe() {
+    let adapter = in_memory(
+      "minimal/recording_consent.r14n.toml",
+      IN_MEMORY_MINIMAL_PACK,
+    );
+    let d = super::RegulatoryPolicyPort::required_controls(&adapter, &query("gdpr/eu", "telepresence"));
+    ::std::assert!(d.provenance.fell_back);
+    ::std::assert_eq!(d.required, universe());
+    ::std::assert!(d.provenance.source.starts_with("<missing:gdpr/eu/"));
+  }
+
+  /// Why: the fs and in-memory adapters share `decide_from_pack_text`, and this
+  /// pins that contract — identical pack text yields an identical decision
+  /// (verdict, required set, strictness, review status) modulo the source string.
+  #[test]
+  fn in_memory_and_fs_adapters_agree_on_identical_pack_text() {
+    let dir = ::tempfile::tempdir().expect("tempdir");
+    let profile_dir = dir.path().join("minimal");
+    ::std::fs::create_dir_all(&profile_dir).expect("mkdir");
+    ::std::fs::write(
+      profile_dir.join("recording_consent.r14n.toml"),
+      IN_MEMORY_MINIMAL_PACK,
+    )
+    .expect("write pack");
+    let fs_adapter = super::TomlRegulatoryPolicyAdapter::new(
+      dir.path().to_path_buf(),
+      ::std::option::Option::None,
+    );
+    let mem_adapter = in_memory(
+      "minimal/recording_consent.r14n.toml",
+      IN_MEMORY_MINIMAL_PACK,
+    );
+    let q = query("minimal", "telepresence");
+    let from_fs = super::RegulatoryPolicyPort::required_controls(&fs_adapter, &q);
+    let from_mem = super::RegulatoryPolicyPort::required_controls(&mem_adapter, &q);
+    ::std::assert_eq!(from_fs.verdict, from_mem.verdict);
+    ::std::assert_eq!(from_fs.required, from_mem.required);
+    ::std::assert_eq!(from_fs.provenance.strictness, from_mem.provenance.strictness);
+    ::std::assert_eq!(
+      from_fs.provenance.legal_review_status,
+      from_mem.provenance.legal_review_status
+    );
+    ::std::assert_eq!(from_fs.provenance.fell_back, from_mem.provenance.fell_back);
+  }
+
+  /// Why: the legacy `<domain>.toml` probe order (backward compatibility with
+  /// pre-RLPS pack trees) must survive the in-memory transport too.
+  #[test]
+  fn in_memory_falls_back_to_legacy_toml_key() {
+    let adapter = in_memory("minimal/recording_consent.toml", IN_MEMORY_MINIMAL_PACK);
+    let d = super::RegulatoryPolicyPort::required_controls(&adapter, &query("minimal", "telepresence"));
+    ::std::assert!(!d.provenance.fell_back);
+    ::std::assert_eq!(d.provenance.source, "minimal/recording_consent.toml");
   }
 
   fn ck(s: &str) -> super::ControlKey {
