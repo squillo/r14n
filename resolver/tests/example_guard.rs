@@ -14,7 +14,7 @@
 /// in lockstep with `resolver/examples/ai_act_50.rs`.
 fn rebuild_example() -> ::std::string::String {
   let universe: ::std::collections::BTreeSet<::r14n::ControlKey> = [
-    "attestation", "signal_notice", "indicator_mount", "announcement", "aph_mandate", "ai_disclosure",
+    "attestation", "signal_notice", "indicator_mount", "announcement", "aph_mandate_principal_signed", "ai_disclosure",
   ]
   .into_iter()
   .map(|s| ::r14n::ControlKey(::std::string::String::from(s)))

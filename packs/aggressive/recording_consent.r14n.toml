@@ -12,7 +12,9 @@
 #   signal_notice    — conference recording signal verified active
 #   indicator_mount  — local recording indicator verified mounted
 #   announcement     — in-meeting "an assistant is present" announcement
-#   aph_mandate      — a standing delegate/agent authorization mandate is present
+#   aph_mandate_principal_signed — a delegate mandate the PRINCIPAL signed (APH §8.3;
+#                    see docs/aph-integration.md). The aggressive baseline requires the
+#                    strong mode deliberately: notary-attested is provenance, not consent.
 
 [meta]
 strictness = "aggressive"
@@ -22,16 +24,16 @@ description = "Fail-closed baseline — the full per-rail control universe, ever
 status = "not_required"   # aggressive over-restricts; never under-restricts
 
 [subject.local_piggyback]
-controls = ["attestation", "aph_mandate"]
+controls = ["attestation", "aph_mandate_principal_signed"]
 
 [subject.telepresence]
-controls = ["signal_notice", "indicator_mount", "aph_mandate"]
+controls = ["signal_notice", "indicator_mount", "aph_mandate_principal_signed"]
 
 [subject.twin_attend]
-controls = ["announcement", "aph_mandate"]
+controls = ["announcement", "aph_mandate_principal_signed"]
 
 [subject.import]
-controls = ["attestation", "aph_mandate"]
+controls = ["attestation", "aph_mandate_principal_signed"]
 
 [legally_required]
-controls = ["attestation", "signal_notice", "indicator_mount", "announcement", "aph_mandate"]
+controls = ["attestation", "signal_notice", "indicator_mount", "announcement", "aph_mandate_principal_signed"]

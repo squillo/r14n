@@ -95,6 +95,23 @@ controls = ["attestation", "signal_notice"]
 controls = ["biometric_retention"]
 ```
 
+## APH-backed controls — pick the right one of the two
+
+Delegate/agent authorization comes in two control keys, not one, because
+[APH](https://github.com/squillo/aph) distinguishes two trust models:
+
+- **`aph_mandate_principal_signed`** — the human's own key signed the act. Consent,
+  cryptographically. **This is what a consent-gating pack requires.**
+- **`aph_mandate_notary_attested`** — a notary *asserts* the human authorized it. Provenance,
+  not consent.
+- **`aph_mandate`** — **deprecated and ambiguous**; never use it in a new pack.
+
+Two rules that are easy to get wrong: an absent `attestationMode` on an APH envelope means the
+**weak** mode, never "probably the strong one"; and neither key supplies any *other*
+participant's consent — a mandate authorizes an agent to act for **its own** principal, which is
+what `attestation` / `announcement` / `signal_notice` are for. Full contract, with citations:
+`docs/aph-integration.md`. Do not restate APH's verification rules in r14n docs — cite them.
+
 ## Resolution — and the fail-closed rule that matters most
 
 The caller supplies a **universe**: every control it can actually enforce. That is the

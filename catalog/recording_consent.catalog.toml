@@ -41,12 +41,45 @@ description = "An in-meeting announcement that a recording/notetaking agent is p
 trigger = "on_join"
 mechanism = "in_meeting_notice"
 
-[control.aph_mandate]
+# ── Delegate/agent authorization (APH-backed) ────────────────────────────────
+#
+# APH distinguishes two trust models that are NOT interchangeable, so RLPS gives
+# them two control keys. A control key is long-lived audit evidence; one key
+# satisfiable by either model would record that SOMETHING authorized the act while
+# concealing whether a human ever signed anything — the badge-collapse APH's
+# security considerations §2.6 exists to prevent. Full rationale, citations, and
+# the enforcement-gate contract: /docs/aph-integration.md. NOT LEGAL ADVICE.
+#
+# Neither key supplies any OTHER participant's consent: a mandate authorizes an
+# agent to act for ITS OWN principal. All-party consent is `attestation` /
+# `announcement` / `signal_notice`.
+
+[control.aph_mandate_principal_signed]
 kind = "permit"
-title = "Delegate/agent authorization mandate"
-description = "A valid standing mandate authorizes a delegate/twin to act (record) on the user's behalf."
+title = "Delegate mandate — principal-signed"
+description = "An APH envelope passing APH spec §8.3 verification with attestationMode = PrincipalSigned, evaluated at decision time with a live revocation-status check. The principal's own key signed this act: consent, cryptographically."
 trigger = "before_capture"
 mechanism = "authorization_grant"
+verified_by = "aph:0.1#8.3"
+attestation_mode = "PrincipalSigned"
+
+[control.aph_mandate_notary_attested]
+kind = "permit"
+title = "Delegate mandate — notary-attested"
+description = "An APH envelope passing APH spec §8.3 verification with attestationMode = NotaryAttested (or absent), evaluated at decision time with a live revocation-status check. A notary ASSERTS the human authorized this; the human's key never touched the envelope — provenance, not consent. A pack requiring human consent MUST require the principal-signed key instead."
+trigger = "before_capture"
+mechanism = "authorization_grant"
+verified_by = "aph:0.1#8.3"
+attestation_mode = "NotaryAttested"
+
+[control.aph_mandate]
+kind = "permit"
+title = "Delegate/agent authorization mandate (DEPRECATED — ambiguous)"
+description = "DEPRECATED 2026-08-24: ambiguous between APH's two attestation modes, so a receipt naming it cannot tell an auditor whether a human signed anything. Retained because a control key is long-lived audit evidence and shipped receipts reference it; MUST NOT be used in new packs. Use aph_mandate_principal_signed (consent) or aph_mandate_notary_attested (provenance)."
+trigger = "before_capture"
+mechanism = "authorization_grant"
+deprecated = "2026-08-24"
+superseded_by = ["aph_mandate_principal_signed", "aph_mandate_notary_attested"]
 
 # ── Reserved for future domains (declared, not yet used by shipped packs) ──
 # ai_disclosure  (EU AI Act Art.50 — obligation; trigger=before_capture; mechanism=ai_notice)

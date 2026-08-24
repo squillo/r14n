@@ -32,7 +32,7 @@ const decision = JSON.parse(resolve(
     jurisdiction: "all_party",
     subject: "telepresence",
     // EVERY control you can enforce — the fail-closed ceiling.
-    universe: ["attestation", "signal_notice", "indicator_mount", "aph_mandate"],
+    universe: ["attestation", "signal_notice", "indicator_mount", "aph_mandate_principal_signed"],
     as_of: "2026-08-23", // optional; enables the effective-date check
   }),
   // optional global strictness dial: "aggressive" | "as_configured" | "minimal"

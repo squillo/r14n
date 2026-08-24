@@ -28,7 +28,7 @@
       "required_controls": [
         "ai_disclosure",
         "announcement",
-        "aph_mandate",
+        "aph_mandate_principal_signed",
         "attestation",
         "indicator_mount",
         "signal_notice"
@@ -116,7 +116,7 @@
       "required_controls": [
         "ai_disclosure",
         "announcement",
-        "aph_mandate",
+        "aph_mandate_principal_signed",
         "attestation",
         "indicator_mount",
         "signal_notice"

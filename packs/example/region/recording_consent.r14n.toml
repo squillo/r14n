@@ -22,7 +22,7 @@ status = "draft"
 controls = ["signal_notice", "indicator_mount"]
 
 [subject.twin_attend]
-controls = ["announcement", "aph_mandate"]
+controls = ["announcement", "aph_mandate_principal_signed"]
 
 # The fail-closed floor.
 [legally_required]

@@ -24,7 +24,7 @@ fn main() {
     "signal_notice",
     "indicator_mount",
     "announcement",
-    "aph_mandate",
+    "aph_mandate_principal_signed",
     "ai_disclosure",
   ]
   .into_iter()

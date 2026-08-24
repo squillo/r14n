@@ -60,7 +60,7 @@ else if any(participant in the EU):
 ```toml
 # AFTER — the same rules as a reviewable pack: recording_consent.r14n.toml
 [subject.twin_attend]
-controls = ["announcement", "aph_mandate"]
+controls = ["announcement", "aph_mandate_principal_signed"]
 ```
 
 The app stops *deciding* and just *enforces* what the resolver returns.
@@ -94,13 +94,13 @@ strictness = "aggressive"      # posture — NOT a legal ordering; "aggressive" 
 status = "not_required"        # this baseline over-restricts; it can never under-restrict
 
 [subject.telepresence]
-controls = ["signal_notice", "indicator_mount", "aph_mandate"]
+controls = ["signal_notice", "indicator_mount", "aph_mandate_principal_signed"]
 
 [subject.twin_attend]
-controls = ["announcement", "aph_mandate"]
+controls = ["announcement", "aph_mandate_principal_signed"]
 
 [legally_required]             # the floor: required under the `minimal` posture / as a catch-all
-controls = ["attestation", "signal_notice", "indicator_mount", "announcement", "aph_mandate"]
+controls = ["attestation", "signal_notice", "indicator_mount", "announcement", "aph_mandate_principal_signed"]
 ```
 
 A pack may also declare `[prohibited]` (controls no posture may add — the data-minimization guard),
@@ -116,7 +116,7 @@ use std::collections::BTreeSet;
 
 // The caller declares EVERY control it can enforce — the aggressive/fallback ceiling.
 let universe: BTreeSet<r14n::ControlKey> =
-    ["attestation", "signal_notice", "indicator_mount", "aph_mandate"]
+    ["attestation", "signal_notice", "indicator_mount", "aph_mandate_principal_signed"]
         .into_iter().map(|s| r14n::ControlKey(s.into())).collect();
 
 let query = r14n::RegulatoryQuery {
@@ -218,18 +218,27 @@ verified — a self-declared `legal_review.status = "approved"` never clears it 
 
 When an AI agent — a "twin" — records or attends on a person's behalf, the question isn't only
 *may this be recorded here* but *is this agent authorized to act for this human at all*. RLPS
-already carries that as a first-class control: **`aph_mandate`** ("a valid standing mandate
-authorizes a delegate/twin to act on the user's behalf"), required on the delegate/twin rails
-(`twin_attend`, `telepresence`).
+carries that as first-class controls on the delegate/twin rails (`twin_attend`, `telepresence`),
+and it carries **two** of them, because [APH](https://github.com/squillo/aph) — Agent-Per-Human
+notarization, Squillo's protocol extending Google's **A2A** and **AP2** — distinguishes two trust
+models that are not interchangeable:
 
-That control is the plug-in point for **APH — Agent-Per-Human notarization** (Squillo's protocol
-extending Google's **A2A** agent-to-agent protocol and the **AP2** agent-payments protocol): the
-APH mandate is the machine-verifiable proof that a specific agent may act for a specific human, and
-RLPS consumes a **verified** mandate as a satisfied control. So the same fail-closed resolver that
-decides *which recording controls apply* also gates *whether a delegated agent is permitted to act
-in the first place* — a missing or unverified mandate simply leaves `aph_mandate` unmet, and the
-action does not proceed. RLPS **interoperates with** APH (it treats the mandate as a control); it
-does not define the mandate itself. Still NOT legal advice.
+- **`aph_mandate_principal_signed`** — the human's own key signed this act. Consent,
+  cryptographically.
+- **`aph_mandate_notary_attested`** — a notary *asserts* the human authorized it. Provenance,
+  not consent; the human's key never touched the envelope.
+
+One key satisfiable by either would record that *something* authorized the act while concealing
+whether a human ever signed anything — so a pack that gates consent requires the principal-signed
+key and refuses the downgrade. Squillo's `aggressive` baseline requires it on every rail. Neither
+key supplies any *other* participant's consent: a mandate authorizes an agent to act for **its
+own** principal, which is what `attestation` / `announcement` / `signal_notice` are for.
+
+RLPS **interoperates with** APH — it defines what satisfies a control and cites APH for how to
+verify one; it does not define, restate, or implement the protocol, and the reference resolver
+deliberately links no APH code (prescription and verification are different jobs). The contract,
+including revocation semantics and what an enforcement gate must record, is in
+[`docs/aph-integration.md`](docs/aph-integration.md). Still NOT legal advice.
 
 ## Status
 

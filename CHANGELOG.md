@@ -41,6 +41,37 @@ History banner in the spec for normative changes), rather than forking a version
   identifiers, and local paths were removed from all published files; the internal maintainer
   handoff brief was withdrawn from the tree. No normative behavior changed.
 
+### Changed (revision 2026-08-24 — `aph_mandate` splits in two; the APH contract is written down)
+
+- **`aph_mandate` is DEPRECATED and superseded by two controls**:
+  `aph_mandate_principal_signed` (the human's own key signed the act — consent,
+  cryptographically) and `aph_mandate_notary_attested` (a notary asserts it — provenance, not
+  consent). APH distinguishes these trust models and its security considerations §2.6 forbids
+  collapsing them into one badge; **in RLPS a control key is that badge**, so one key satisfiable
+  by either would record that *something* authorized an act while concealing whether a human ever
+  signed anything — and a control key is long-lived audit evidence. The deprecated key is
+  retained, not removed, because shipped receipts reference it; it MUST NOT be used in new packs.
+  Per `GOVERNANCE.md` §Change process this is a deprecation, so `r14n merge` flags the delta for
+  legal re-review on any pack that carries the old key.
+- **Squillo's `aggressive` baseline and the fictional `example/region` pack now require
+  `aph_mandate_principal_signed`** on every rail that previously carried `aph_mandate` — the
+  aggressive posture takes the strong mode deliberately, and it can only ever over-restrict.
+- **`docs/aph-integration.md`** — the contract: which mode satisfies which control, evaluation
+  at decision time with a live revocation-status check (a revoked mandate and an unreachable
+  status surface are both refusals, matching RLPS fail-closed from the other side), the APH error
+  codes an enforcement gate must preserve rather than flatten to a boolean, body-digest binding,
+  and separate protocol/crate version pinning. It **cites** APH rather than restating them, so
+  the two documents cannot silently drift.
+- **The reference resolver deliberately links no APH code.** RLPS prescribes which controls are
+  required; it never adjudicates whether one is satisfied — that is the consuming enforcement
+  gate's job. Recorded as a considered divergence from APH's integration guidance.
+- **`docs/aph-dependency-report.md`** — a dated, standing answer to whether r14n depends on the
+  APH wire format (today: no — documentation-only), so APH's pre-production exception has a
+  visible expiry trigger instead of an assumption.
+- Conformance vectors are **deliberately unchanged**: they use `aph_mandate` as an opaque
+  set-algebra token, and renaming it would bump the suite version for no semantic gain
+  (`conformance/VERSIONING.md`).
+
 ### Added (revision 2026-08-23g — the agent pack: one knowledge source, both ecosystems)
 
 - **`skills/spec/SKILL.md`** — RLPS as a loadable skill in the open Agent Skills format: the
