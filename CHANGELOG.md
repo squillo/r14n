@@ -41,6 +41,24 @@ History banner in the spec for normative changes), rather than forking a version
   identifiers, and local paths were removed from all published files; the internal maintainer
   handoff brief was withdrawn from the tree. No normative behavior changed.
 
+### Changed (revision 2026-08-24b — the APH exchange closes; one RFC filed upstream)
+
+- **`docs/aph-dependency-report.md` cites APH's corrected trigger.** APH sharpened its
+  pre-production exception in response to our report (`5932f2a`): the test is now whether a wire
+  change would *break* a consumer or merely *cost them a documentation edit*, with an enumerated
+  list of wire-asserting artifacts. Our report quoted the superseded phrase; it now cites the
+  corrected one and checks r14n against that list. Status unchanged — **documentation-only, no
+  wire dependency**, recorded on both sides.
+- **Filed [squillo/aph#2](https://github.com/squillo/aph/issues/2)** — APH's §6.3.3.4 names three
+  status outcomes, but *two* of them pass and only one is named: an envelope with no status claim
+  and an envelope whose status was resolved and affirmatively clear both verify, and an audit
+  record cannot tell them apart. The RFC asks only that the passing dispositions be named and
+  that a recorded live result carry its instant and the list consulted; it explicitly does **not**
+  ask for the evidence-record design, which stays deferred. Rationale for filing now rather than
+  when an enforcement gate exists: `aph-integration.md` already had to invent enforcement-side
+  vocabulary locally, which is the drift the naming prevents.
+- Recorded that this project's prose is CC-BY-4.0, so APH may cite it with attribution.
+
 ### Changed (revision 2026-08-24 — `aph_mandate` splits in two; the APH contract is written down)
 
 - **`aph_mandate` is DEPRECATED and superseded by two controls**:
