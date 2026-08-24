@@ -27,7 +27,11 @@ jobs:
   sanitization:
     runs-on: ubuntu-latest
     steps:
+      # fetch-depth: 0 — the commit-message scan below walks history, and the
+      # default shallow checkout would give it one commit to look at.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: no internal references in tracked files
         run: |
           set +e
@@ -49,6 +53,30 @@ jobs:
           # Group 3 — AI-authorship / internal-tooling markers
           scan 'Claude|Anthropic|Co-Authored-By|Generated with|claude\.ai|noreply@anthropic\.com|\.claude/|MEMORY\.md' 'authorship/tooling markers'
           exit $fail
+
+      # COMMIT MESSAGES, not just file contents. `git grep` reads tracked FILES
+      # and never looks at commit messages, so an AI-authorship trailer could —
+      # and did, until 2026-08-24 — pass every check above while GitHub read it
+      # as a co-author and listed a bot on the repository's contributor graph.
+      # The trailer is metadata, so it leaves no trace in any file; only this
+      # scan can see it. Runs over the full history on push and over the PR's
+      # own commits on pull_request.
+      - name: no authorship trailers in commit messages
+        run: |
+          set +e
+          range="$(git rev-list --max-parents=0 HEAD | tail -1)..HEAD"
+          if [ -n "${{ github.event.pull_request.base.sha }}" ]; then
+            range="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+          fi
+          bad=0
+          for sha in $(git rev-list --no-merges "$range"); do
+            if git log -1 --format='%B' "$sha" \
+                 | grep -qiE '^\s*co-authored-by:|noreply@anthropic\.com|generated with'; then
+              echo "::error::commit $sha carries an authorship trailer — strip it (git commit --amend, or filter-repo for older history)"
+              bad=1
+            fi
+          done
+          exit $bad
 
   resolver:
     runs-on: ubuntu-latest
