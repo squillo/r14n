@@ -52,6 +52,7 @@
   .btn { display: inline-block; padding: .6rem 1.1rem; border-radius: .55rem; border: 1px solid var(--line); font-weight: 600; font-size: .95rem; }
   .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
   .btn:hover { text-decoration: none; filter: brightness(1.06); }
+  .hero-art { display: block; width: 100%; height: auto; margin: 2.2rem 0 0; border: 1px solid var(--line); border-radius: .7rem; }
 
   section { padding: 2.4rem 0; border-top: 1px solid var(--line); }
   h2 { font-size: 1.35rem; margin-bottom: 1rem; }
@@ -107,6 +108,10 @@
       <a class="btn" href="https://github.com/squillo/r14n/blob/main/spec/RLPS-v0.1.md">Read the spec</a>
       <a class="btn" href="https://crates.io/crates/r14n">cargo add r14n</a>
     </div>
+    <!-- width/height are the intrinsic pixels: they give the browser the aspect
+         ratio up front, so the page does not reflow when the image lands. -->
+    <img class="hero-art" src="/assets/r14n-banner.webp" width="1600" height="872"
+         alt="A globe ringed by shields labelled Data Privacy, Regional Compliance, and Global Regulations, over a circuit-board field — the regulatory-localization idea in one picture.">
   </div>
 
   <section>

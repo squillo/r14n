@@ -1,5 +1,7 @@
 # r14n — Regulatory Localization
 
+![Regulatory Localization — a globe ringed by shields labelled Data Privacy, Regional Compliance, and Global Regulations, over a circuit-board field. Subtitle: Global Data Privacy & Compliance.](assets/r14n-banner.jpg)
+
 [![gates](https://github.com/squillo/r14n/actions/workflows/gates.yml/badge.svg)](https://github.com/squillo/r14n/actions/workflows/gates.yml)
 [![crates.io](https://img.shields.io/crates/v/r14n)](https://crates.io/crates/r14n)
 [![License](https://img.shields.io/badge/license-Apache--2.0_%2F_CC--BY--4.0-blue)](LICENSE)

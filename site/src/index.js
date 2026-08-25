@@ -5,6 +5,10 @@
 import INDEX_HTML from "./index.html";
 import CONTEXT_JSONLD from "../../ns/context.jsonld";
 import RLPS_TTL from "../../ns/rlps.ttl";
+// Imported from /assets rather than copied here, for the same reason the
+// vocabulary is: one file serves both the README and this page, so they cannot
+// show different images.
+import BANNER_WEBP from "../../assets/r14n-banner.webp";
 
 // ETags: first 32 hex chars of each artifact's sha256, pinned at deploy time.
 const ETAG_JSONLD = '"f61fd666dc4b97d128122187215a4719"';
@@ -53,6 +57,17 @@ export default {
     }
     if (pathname === "/ns/rlps.ttl") {
       return artifact(request, RLPS_TTL, CT_TTL, ETAG_TTL, false);
+    }
+    if (pathname === "/assets/r14n-banner.webp") {
+      // Immutable by URL: the filename changes when the image does, so this can
+      // be cached hard.
+      return new Response(request.method === "HEAD" ? null : BANNER_WEBP, {
+        status: 200,
+        headers: {
+          "content-type": "image/webp",
+          "cache-control": "public, max-age=31536000, immutable",
+        },
+      });
     }
     if (pathname === "/") {
       return new Response(request.method === "HEAD" ? null : INDEX_HTML, {

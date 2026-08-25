@@ -7,6 +7,6 @@
   // imported directly from /ns — never copied — so the served artifacts are byte-identical to
   // the repo's source of record by construction.
   "rules": [
-    { "type": "Data", "globs": ["**/*.ttl", "**/*.jsonld", "**/*.html"], "fallthrough": false }
+    { "type": "Data", "globs": ["**/*.ttl", "**/*.jsonld", "**/*.html", "**/*.webp"], "fallthrough": false }
   ]
 }
