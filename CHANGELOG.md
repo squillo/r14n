@@ -41,20 +41,21 @@ History banner in the spec for normative changes), rather than forking a version
   identifiers, and local paths were removed from all published files; the internal maintainer
   handoff brief was withdrawn from the tree. No normative behavior changed.
 
-### Changed (revision 2026-09-03 — commit messages carry no authorship trailers)
+### Changed (revision 2026-09-03 — co-authorship names Squillo, and only Squillo)
 
-- **Every authorship trailer is gone from this repository's history**, naming anyone. A commit
-  message describes what changed and why; the sign-off (DCO) names the human who certifies it,
-  and that is the whole of a message's metadata.
-- **A stale `v0.1.0-draft` tag was the reason a removed trailer kept surfacing.** The tag still
+- **Machine-assisted commits carry
+  `Co-Authored-By: Squillo Code <320728527+squillo-code@users.noreply.github.com>`.** Squillo's
+  own identity belongs on its own work; what never appears is an outside tool or vendor, in a
+  trailer or in message prose. The sign-off (DCO) is separate and names the human who certifies
+  the contribution.
+- **A stale `v0.1.0-draft` tag was why a removed vendor trailer kept surfacing.** The tag still
   pointed at a pre-rewrite commit, which kept that entire orphaned lineage — and its trailers —
-  reachable on the forge long after the branch was corrected. Rewriting a branch does not move a
-  tag; anything that pins an old commit resurrects everything behind it. The tag now points into
-  the current history.
-- **CI refuses trailers rather than policing who they name.** The commit-message scan rejects any
-  co-authorship or generated-by trailer, and any tool or vendor named in the prose, over full
-  history on push. The file scan bans the trailer names outright again. `CONTRIBUTING.md` and
-  `AGENTS.md` state the rule.
+  reachable on the forge long after the branch itself was corrected. Rewriting a branch does not
+  move a tag; anything still pinning an old commit resurrects everything behind it. The tag now
+  points into current history, and verification runs over every ref rather than the branch tip.
+- **CI enforces the rule over full history.** The commit-message scan rejects a co-author line
+  naming anyone other than Squillo Code, any other attribution-trailer form, and any outside
+  vendor named anywhere in a message. `CONTRIBUTING.md` and `AGENTS.md` state it.
 
 ### Changed (revision 2026-08-24b — the APH exchange closes; one RFC filed upstream)
 

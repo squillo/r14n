@@ -62,11 +62,12 @@ There is **no rustfmt gate** — the tree follows a documented hand-rolled house
 7. **Sanitization CI.** Every push greps tracked files for internal markers — internal
    design-doc ids, private component names, session ids, personal emails, local paths, and
    outside-vendor names. Do not introduce them, in files or in commit messages.
-8. **No authorship trailers, ever.** A commit message describes what changed and why — nothing
-   else. No co-authorship or generated-by trailer naming anyone or anything, and no tool or
-   vendor named in the prose. The sign-off (DCO) is the sole exception and is required. A trailer
-   is how a forge decides who appears on the project's public contributor list; one added out of
-   habit attaches a third party to this project's provenance. CI checks every commit message.
+8. **Co-authorship names Squillo, never an outside vendor.** Machine-assisted commits carry
+   `Co-Authored-By: Squillo Code <320728527+squillo-code@users.noreply.github.com>` — and no
+   outside tool or vendor name anywhere, in the trailer or the prose. The sign-off (DCO) is
+   separate and required. A trailer is how a forge decides who appears on this project's public
+   contributor list, so a vendor credited there becomes a contributor to a standards project.
+   CI checks every commit message over full history.
 9. **DCO on every commit** (`git commit -s`), and the `resolver` crate stays dependency-lean:
    `serde` + `serde_json` + `toml` + `std`, nothing else.
 10. **Additive by default.** The Control Catalog grows; renames and removals are deprecations,

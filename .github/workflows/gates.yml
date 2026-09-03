@@ -50,25 +50,33 @@ jobs:
           scan 'PRD-[0-9]|N_BOOK|SQUILLO_BOOK|nlang_x|HANDOFF|DEFERRED-PLAN' 'internal doc schemes'
           # Group 2 — internal component names, identities, session ids, dev paths
           scan 'squillo_[a-z]|wf_[0-9a-f]{6,}|scottwyatt86|scott@squillo\.com|squillo\.io|/Users/|~/@squillo' 'internal names/paths/identities'
-          # Group 3 — vendor / tooling markers, including the trailer names
-          # themselves. Nothing in this tree advertises a tool or credits a
-          # co-author, so the plain strings are banned outright.
-          scan 'Claude|Anthropic|Co-Authored-By|Generated with|claude\.ai|noreply@anthropic\.com|\.claude/|MEMORY\.md' 'vendor/tooling markers'
+          # Group 3 — outside-vendor / internal-tooling markers. The trailer NAME
+          # is not banned here: this project attributes machine-assisted work to
+          # its own identity (see the commit-message step below), and the docs
+          # have to be able to state that rule. What is banned is any outside
+          # vendor's name or address.
+          scan 'Claude|Anthropic|Generated with|claude\.ai|noreply@anthropic\.com|\.claude/|MEMORY\.md' 'vendor/tooling markers'
           exit $fail
 
       # COMMIT MESSAGES, not just file contents. `git grep` reads tracked FILES
-      # and never looks at commit messages, so an authorship trailer could — and
-      # did, until 2026-09-03 — pass every check above while GitHub parsed it as
-      # co-authorship and put the named party on this repository's public
-      # contributor graph. The trailer is metadata: it leaves no trace in any
+      # and never looks at commit messages, so a vendor trailer could — and did,
+      # until 2026-09-03 — pass every check above while the forge parsed it as
+      # co-authorship and put an outside party on this repository's public
+      # contributor list. The trailer is metadata: it leaves no trace in any
       # file, so only this scan can see it.
       #
-      # THE RULE IS ABSOLUTE: a commit message carries no authorship trailer of
-      # any kind, for anyone. `Signed-off-by` is the one exception and is
-      # required — DCO, naming the human who certifies the contribution.
-      # Runs over the full history on push and over the PR's own commits on
-      # pull_request.
-      - name: commit messages carry no authorship trailers
+      # THE RULE: co-authorship names Squillo's own identity and nobody else.
+      # Machine-assisted work is attributed to
+      # `Squillo Code <320728527+squillo-code@users.noreply.github.com>`, which
+      # is the organization that is accountable for the change. An outside
+      # vendor is never named — not in a trailer, not in the prose.
+      # `Signed-off-by` is separate and required: DCO, naming the human who
+      # certifies the contribution.
+      #
+      # A tag or any other ref that still points at a pre-rewrite commit keeps
+      # that whole lineage reachable, so this runs over FULL history on push
+      # (fetch-depth: 0 above), not just the tip.
+      - name: commit-message attribution is Squillo's own
         run: |
           set +e
           range="$(git rev-list --max-parents=0 HEAD | tail -1)..HEAD"
@@ -78,19 +86,26 @@ jobs:
           bad=0
           for sha in $(git rev-list --no-merges "$range"); do
             msg="$(git log -1 --format='%B' "$sha")"
-            # Any co-authorship / generated-by trailer, whoever it names. Note
-            # this is a plain (non-inverted) match on purpose: an inverted grep
-            # on empty input does NOT reliably exit non-zero across grep
-            # implementations, which is how an earlier version of this gate came
-            # to flag every commit that had no trailer at all.
-            if printf '%s' "$msg" \
-                 | grep -qiE '^[[:space:]]*(co-authored-by|generated-with|generated-by|assisted-by|authored-by)[[:space:]]*:'; then
-              echo "::error::commit $sha carries an authorship trailer — commit messages carry none; only Signed-off-by (DCO) is allowed"
+            # Co-author lines naming anyone other than Squillo Code. Captured
+            # into a variable first, deliberately: an inverted grep on EMPTY
+            # input does not reliably exit non-zero across implementations, so
+            # piping straight into `grep -qv` flags every commit that carries no
+            # trailer at all. That bug shipped once; the guard prevents it.
+            coauthors="$(printf '%s' "$msg" | grep -iE '^[[:space:]]*co-authored-by:')"
+            if [ -n "$coauthors" ] \
+               && printf '%s\n' "$coauthors" | grep -qvE 'squillo-code@users\.noreply\.github\.com'; then
+              echo "::error::commit $sha credits someone other than Squillo Code — use 'Co-Authored-By: Squillo Code <320728527+squillo-code@users.noreply.github.com>'"
               bad=1
             fi
-            # Vendor names anywhere in the message, trailer or prose.
+            # Any other attribution trailer form, whoever it names.
+            if printf '%s' "$msg" \
+                 | grep -qiE '^[[:space:]]*(generated-with|generated-by|assisted-by|authored-by)[[:space:]]*:'; then
+              echo "::error::commit $sha carries a non-standard attribution trailer — only Co-Authored-By (Squillo Code) and Signed-off-by are allowed"
+              bad=1
+            fi
+            # Outside-vendor names anywhere in the message, trailer or prose.
             if printf '%s' "$msg" | grep -qiE 'anthropic|claude|copilot|chatgpt|generated with'; then
-              echo "::error::commit $sha names an outside tool or vendor — commit messages describe the change, nothing else"
+              echo "::error::commit $sha names an outside tool or vendor — attribute to Squillo Code instead"
               bad=1
             fi
           done
