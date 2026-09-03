@@ -25,3 +25,8 @@ site/.wrangler/
 /dist
 __pycache__/
 *.py[cod]
+
+# N Lang build output outside .n/ (plugin_cache.json embeds local absolute
+# paths to sibling private repos — regenerable, never source).
+r14n Spec/*/build/
+baselines/*/build/

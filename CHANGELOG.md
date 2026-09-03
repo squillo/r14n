@@ -41,6 +41,23 @@ History banner in the spec for normative changes), rather than forking a version
   identifiers, and local paths were removed from all published files; the internal maintainer
   handoff brief was withdrawn from the tree. No normative behavior changed.
 
+### Changed (revision 2026-09-02 — attribution is Squillo's own, and history says so)
+
+- **The 20 machine-assisted commits now carry
+  `Co-Authored-By: Squillo Code <320728527+squillo-code@users.noreply.github.com>`.** Those
+  commits had briefly carried an outside vendor's trailer, which GitHub read as co-authorship
+  and surfaced on this repository's public contributor graph; the trailers were stripped on
+  2026-08-24, but stripping was the wrong repair — the standing rule is that machine-assisted
+  work is attributed to the organization, not erased and not credited outward. History has been
+  rewritten to carry the correct attribution.
+- **CI enforces attribution rather than banning it.** The commit-message scan now refuses a
+  co-author line naming anyone other than Squillo Code, and refuses vendor markers anywhere in
+  a message; it no longer refuses co-authorship as such. The file scan correspondingly stopped
+  banning the bare string `Co-Authored-By`, which is a trailer name and not an attribution —
+  documentation has to be able to state the rule. Vendor names stay banned in files.
+- `CONTRIBUTING.md` states the rule beside DCO (sign-off names the certifying human;
+  co-authorship names the organization), and `AGENTS.md` carries it as an invariant.
+
 ### Changed (revision 2026-08-24b — the APH exchange closes; one RFC filed upstream)
 
 - **`docs/aph-dependency-report.md` cites APH's corrected trigger.** APH sharpened its
@@ -96,7 +113,7 @@ History banner in the spec for normative changes), rather than forking a version
   seven pieces, pack shape, the resolution algorithm and the fail-closed rule, the
   advisory-only taint, the CLI, conformance levels with the governed claim wording, and the
   hard gates. **`AGENTS.md`** is the agents.md-convention entry point (Codex and others) —
-  orientation, the exact commands CI runs, and nine invariants — and it points *into* the
+  orientation, the exact commands CI runs, and its invariants — and it points *into* the
   skill rather than duplicating it, so there is one source to keep true.
 - **`.claude-plugin/`** (plugin + marketplace manifests) and **`commands/`** — `/validate`
   (lint a pack and diagnose against the spec), `/resolve` (resolve a query and explain the

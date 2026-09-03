@@ -32,6 +32,21 @@ Every commit must be signed off under the [DCO 1.1](https://developercertificate
 the change (or have the right to submit it) under the project's license (below). We use DCO rather
 than a CLA — no copyright assignment; you keep your copyright.
 
+### Co-authorship and machine-assisted work
+
+Sign-off names the human who certifies the contribution, and that never changes. Where a commit
+was machine-assisted, the co-author trailer is the **organization's own identity**:
+
+```
+Co-Authored-By: Squillo Code <320728527+squillo-code@users.noreply.github.com>
+```
+
+Not an outside vendor's name or address — in the trailer or in the prose. Two reasons, and the
+second is the load-bearing one: a trailer is how GitHub decides who appears on this repository's
+public contributor graph, so crediting a vendor there silently adds them as a contributor to a
+standards project; and accountability for a change belongs to the party that can answer for it.
+CI checks every commit message.
+
 ## License in = license out
 
 By contributing you agree your contribution is licensed under the same terms as the part of the

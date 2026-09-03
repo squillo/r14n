@@ -61,10 +61,15 @@ There is **no rustfmt gate** — the tree follows a documented hand-rolled house
    Level N; Level N+1 in progress". Never a bare "RLPS conformant" (`TRADEMARKS.md`).
 7. **Sanitization CI.** Every push greps tracked files for internal markers — internal
    design-doc ids, private component names, session ids, personal emails, local paths, and
-   AI-authorship trailers. Do not introduce them, including in commit messages.
-8. **DCO on every commit** (`git commit -s`), and the `resolver` crate stays dependency-lean:
+   outside-vendor names. Do not introduce them, in files or in commit messages.
+8. **Attribution is Squillo's own, always.** Machine-assisted commits carry
+   `Co-Authored-By: Squillo Code <320728527+squillo-code@users.noreply.github.com>` — never an
+   outside AI vendor's name or address, in the trailer or in prose. The organization is what is
+   accountable for a change, and a vendor credited in a trailer becomes a contributor on this
+   repository's public graph. CI enforces this over every commit message.
+9. **DCO on every commit** (`git commit -s`), and the `resolver` crate stays dependency-lean:
    `serde` + `serde_json` + `toml` + `std`, nothing else.
-9. **Additive by default.** The Control Catalog grows; renames and removals are deprecations,
+10. **Additive by default.** The Control Catalog grows; renames and removals are deprecations,
    because a control key is long-lived audit evidence. New terms enter `docs/namespace.md`
    before first shipped use.
 
