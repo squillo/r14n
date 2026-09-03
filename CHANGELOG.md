@@ -41,22 +41,20 @@ History banner in the spec for normative changes), rather than forking a version
   identifiers, and local paths were removed from all published files; the internal maintainer
   handoff brief was withdrawn from the tree. No normative behavior changed.
 
-### Changed (revision 2026-09-02 — attribution is Squillo's own, and history says so)
+### Changed (revision 2026-09-03 — commit messages carry no authorship trailers)
 
-- **The 20 machine-assisted commits now carry
-  `Co-Authored-By: Squillo Code <320728527+squillo-code@users.noreply.github.com>`.** Those
-  commits had briefly carried an outside vendor's trailer, which GitHub read as co-authorship
-  and surfaced on this repository's public contributor graph; the trailers were stripped on
-  2026-08-24, but stripping was the wrong repair — the standing rule is that machine-assisted
-  work is attributed to the organization, not erased and not credited outward. History has been
-  rewritten to carry the correct attribution.
-- **CI enforces attribution rather than banning it.** The commit-message scan now refuses a
-  co-author line naming anyone other than Squillo Code, and refuses vendor markers anywhere in
-  a message; it no longer refuses co-authorship as such. The file scan correspondingly stopped
-  banning the bare string `Co-Authored-By`, which is a trailer name and not an attribution —
-  documentation has to be able to state the rule. Vendor names stay banned in files.
-- `CONTRIBUTING.md` states the rule beside DCO (sign-off names the certifying human;
-  co-authorship names the organization), and `AGENTS.md` carries it as an invariant.
+- **Every authorship trailer is gone from this repository's history**, naming anyone. A commit
+  message describes what changed and why; the sign-off (DCO) names the human who certifies it,
+  and that is the whole of a message's metadata.
+- **A stale `v0.1.0-draft` tag was the reason a removed trailer kept surfacing.** The tag still
+  pointed at a pre-rewrite commit, which kept that entire orphaned lineage — and its trailers —
+  reachable on the forge long after the branch was corrected. Rewriting a branch does not move a
+  tag; anything that pins an old commit resurrects everything behind it. The tag now points into
+  the current history.
+- **CI refuses trailers rather than policing who they name.** The commit-message scan rejects any
+  co-authorship or generated-by trailer, and any tool or vendor named in the prose, over full
+  history on push. The file scan bans the trailer names outright again. `CONTRIBUTING.md` and
+  `AGENTS.md` state the rule.
 
 ### Changed (revision 2026-08-24b — the APH exchange closes; one RFC filed upstream)
 
