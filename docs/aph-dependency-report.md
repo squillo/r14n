@@ -75,16 +75,22 @@ APH's maintainer may treat this repository as a documentation-only consumer.
 attestation mode as policy rather than discover it after the fact, and APH already specifies
 exactly that (§8.3.1 step 1a, refusing with `APH_E012`).
 
-**One request, raised 2026-08-24 as [squillo/aph#2](https://github.com/squillo/aph/issues/2):
-recording that a status check happened.** APH's maintainer
-identified this gap first and deliberately declined to file it, on the reasoning that an RFC
-written before anyone has hit the problem is speculation with a number on it. That reasoning is
-right about the *evidence-record design* and, we think, wrong about one narrow piece — because
-the drift it warns of has already started here: `aph-integration.md` had to tell gates what to
-record, and inventing that vocabulary locally in the first downstream repository is precisely the
-failure mode. The RFC therefore asks for the minimum that prevents divergence (naming the status
-dispositions APH's §6.3.3.4 already enumerates) and explicitly does **not** ask for the evidence
-schema, which stays deferred until a real gate exists.
+**One request, raised 2026-08-24 as [squillo/aph#2](https://github.com/squillo/aph/issues/2) —
+GRANTED AND CLOSED 2026-09-19.** The ask was the minimum that prevents divergence: name the two
+*passing* status dispositions, since `APH_E008` and `APH_E015` already name the rejections while
+"no claim offered" and "affirmatively live at T" both pass and are indistinguishable downstream.
+It deliberately did **not** ask for the evidence-record design.
+
+APH accepted it as **RFC 0009 — Named status dispositions** (Accepted 2026-08-31, first entry of
+the v0.3 delta §1), adopting the problem statement nearly verbatim. The rule: `StatusAbsent` and
+`StatusLive` are a CLOSED set; a verifier recording evidence MUST use those terms, and for
+`StatusLive` MUST carry the instant and an identifier for the status list credential consulted;
+emission stays optional. The evidence-record *shape* remains undefined, which is correct — no
+gate exists yet to constrain it.
+
+[`aph-integration.md`](aph-integration.md) now **cites** those terms instead of describing the
+gap, which retires the local vocabulary this repository had been forced to invent. That local
+invention was the argument for filing, and RFC 0009 quotes it as such.
 
 **On citation.** APH asked whether it may cite this project's sentence — *"a key whose strength
 varies invisibly by payload cannot be audited"* — in its security considerations. It may, and no
@@ -106,3 +112,11 @@ crate version and the protocol `aphVersion` separately.
   artifacts. Status unchanged: **(a)**, exception in force, recorded on both sides. Filed
   [#2](https://github.com/squillo/aph/issues/2) — the one normative request, scoped to naming the
   passing status dispositions and explicitly not to designing the evidence record.
+- **2026-09-19** — [#2](https://github.com/squillo/aph/issues/2) **granted and closed**: APH
+  accepted it as RFC 0009, naming `StatusAbsent` / `StatusLive` as a closed set with the instant
+  and status-list id required for `StatusLive`. `aph-integration.md` now cites those terms and no
+  longer carries locally-invented evidence vocabulary. Status **unchanged: (a)** — citing a
+  normative term is not asserting a wire fact, so the pre-production exception still holds.
+  Learned in the same exchange and recorded for accuracy: APH has **ruled** an enforcement gate
+  (an APH mandate verifier in the Squillo OS interpreter lane), so "no gate is being built" is no
+  longer the true sentence — "a gate is ruled and in flight, and exists nowhere yet" is.

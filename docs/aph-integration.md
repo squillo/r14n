@@ -118,10 +118,24 @@ APH-backed control, it MUST carry:
 3. **The envelope's `bodySha256`.** An APH envelope commits to specific message bytes. A record
    that names an envelope without carrying its body digest holds a *reference*, not a *binding*,
    and the tamper-evidence does not transfer.
-4. **The protocol version accepted** — the envelope's `aphVersion` field, currently `"0.1"`.
+4. **The protocol version accepted** — the envelope's `aphVersion` field.
+5. **The status disposition, in APH's own terms** — `StatusAbsent` or `StatusLive`, the closed
+   set named in APH **RFC 0009** (Accepted 2026-08-31; v0.3 delta §1). For `StatusLive` the
+   record MUST additionally carry the instant the status was established and an identifier for
+   the status list credential consulted. Emission stays optional in APH; a gate that records
+   anything records it in these terms. **Do not mint local names for this** — that is precisely
+   the drift the RFC closed.
+
+**Where item 5 came from.** This repository raised that gap as
+[squillo/aph#2](https://github.com/squillo/aph/issues/2) — precisely because items 1–4 above were
+*local* vocabulary invented here to define the two control keys, which is the divergence a second
+gate would have compounded. APH accepted it as RFC 0009 and **closed the issue on 2026-09-19**;
+the terms are now normative there, so this file cites them rather than describing a gap. The
+shape of the evidence record itself is still deliberately undefined by APH, and still waits for a
+real gate.
 
 **Status in this repository:** RLPS decision receipts (spec §8) record *what was required*, not
-*what was satisfied* — satisfaction happens downstream in the gate. So the four items above are
+*what was satisfied* — satisfaction happens downstream in the gate. So the items above are
 normative guidance for consuming gates, and are not fields the reference resolver emits today.
 When an enforcement-side receipt profile is specified, it lands as an RFC against this
 repository, not as a quiet addition.

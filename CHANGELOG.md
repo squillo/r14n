@@ -41,6 +41,22 @@ History banner in the spec for normative changes), rather than forking a version
   identifiers, and local paths were removed from all published files; the internal maintainer
   handoff brief was withdrawn from the tree. No normative behavior changed.
 
+### Changed (revision 2026-09-19 — aph#2 granted: this repo now cites APH's terms instead of its own)
+
+- **APH accepted [squillo/aph#2](https://github.com/squillo/aph/issues/2) as RFC 0009 and closed
+  it.** `StatusAbsent` and `StatusLive` are now a normative closed set there, with `StatusLive`
+  required to carry the instant and the status-list identifier. `docs/aph-integration.md` cites
+  those terms and **retires the local evidence vocabulary** this repository had been forced to
+  invent to define its two APH-backed control keys — which was the whole argument for filing, and
+  which RFC 0009 quotes as such.
+- `docs/aph-dependency-report.md` records the grant. **Status unchanged: (a)**, documentation-only
+  — citing a normative term is not asserting a wire fact, so APH's pre-production exception still
+  holds and the notify-before-crossing commitment stands.
+- **Correction of record:** this project previously reported no evidence of an enforcement gate
+  being built. APH has since *ruled* one (an APH mandate verifier in the Squillo OS interpreter
+  lane). The honest sentence is now "prescribed today; a gate is ruled and in flight, and exists
+  nowhere yet" — not "no gate is coming."
+
 ### Changed (revision 2026-09-03 — co-authorship names Squillo, and only Squillo)
 
 - **Machine-assisted commits carry
