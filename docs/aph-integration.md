@@ -126,6 +126,12 @@ APH-backed control, it MUST carry:
    anything records it in these terms. **Do not mint local names for this** — that is precisely
    the drift the RFC closed.
 
+**A gate now exists, and it emits exactly this.** As of 2026-09-19 an `AphMandateVerifierService`
+in the Squillo OS interpreter lane links `aph-core`, fails closed on an unestablishable status,
+and records RFC 0009 evidence — `StatusAbsent` / `StatusLive` with the instant and the
+status-list id. So the list above is no longer only guidance: it describes something running.
+A second gate should read that one before inventing anything.
+
 **Where item 5 came from.** This repository raised that gap as
 [squillo/aph#2](https://github.com/squillo/aph/issues/2) — precisely because items 1–4 above were
 *local* vocabulary invented here to define the two control keys, which is the divergence a second

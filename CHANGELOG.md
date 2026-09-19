@@ -52,10 +52,15 @@ History banner in the spec for normative changes), rather than forking a version
 - `docs/aph-dependency-report.md` records the grant. **Status unchanged: (a)**, documentation-only
   — citing a normative term is not asserting a wire fact, so APH's pre-production exception still
   holds and the notify-before-crossing commitment stands.
-- **Correction of record:** this project previously reported no evidence of an enforcement gate
-  being built. APH has since *ruled* one (an APH mandate verifier in the Squillo OS interpreter
-  lane). The honest sentence is now "prescribed today; a gate is ruled and in flight, and exists
-  nowhere yet" — not "no gate is coming."
+- **Correction of record, twice in one day — THE ENFORCEMENT GATE NOW EXISTS.** This project
+  reported no evidence of a gate being built; one was then *ruled*; it has since **landed** and
+  was verified here in the tree rather than taken on relay. `AphMandateVerifierService` links
+  `aph-core`, fails closed on an unestablishable status, and emits RFC 0009 evidence
+  (`StatusAbsent` / `StatusLive` carrying the instant and the status-list id). The satisfaction
+  layer of `docs/aph-integration.md`'s three-layer model is real for the first time.
+- **r14n's own status is unchanged: (a), documentation-only.** The gate lives in another
+  repository. r14n still links no APH code and asserts no wire fact, so nothing here crosses
+  APH's trigger — a separate consumer reaching (b) is APH's to record, not ours to claim.
 
 ### Changed (revision 2026-09-03 — co-authorship names Squillo, and only Squillo)
 

@@ -117,6 +117,15 @@ crate version and the protocol `aphVersion` separately.
   and status-list id required for `StatusLive`. `aph-integration.md` now cites those terms and no
   longer carries locally-invented evidence vocabulary. Status **unchanged: (a)** — citing a
   normative term is not asserting a wire fact, so the pre-production exception still holds.
-  Learned in the same exchange and recorded for accuracy: APH has **ruled** an enforcement gate
-  (an APH mandate verifier in the Squillo OS interpreter lane), so "no gate is being built" is no
-  longer the true sentence — "a gate is ruled and in flight, and exists nowhere yet" is.
+  Learned in the same exchange and recorded for accuracy: an enforcement gate was **ruled**, so
+  "no gate is being built" was no longer the true sentence.
+- **2026-09-19b — THE GATE LANDED, and this report's status is still (a).** Verified in the tree,
+  not on relay: `AphMandateVerifierService` exists in the Squillo OS interpreter lane, links
+  `aph-core` behind an `aph` feature, fails closed on an unestablishable status, and records RFC
+  0009 evidence (`StatusAbsent` / `StatusLive` with the instant and status-list id). **The
+  satisfaction layer of this document's three-layer model is now real.**
+  **What it does NOT change:** that gate is in another repository. r14n still links no APH code,
+  mints/parses/verifies nothing, and asserts no wire fact — so r14n remains a documentation-only
+  consumer at **(a)** and APH's pre-production exception is untouched *by us*. The crossing this
+  report promises to announce would be r14n shipping wire-asserting artifacts, and that has not
+  happened. A separate consumer reaching (b) is APH's business to record, not ours to claim.
