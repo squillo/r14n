@@ -41,6 +41,13 @@ History banner in the spec for normative changes), rather than forking a version
   identifiers, and local paths were removed from all published files; the internal maintainer
   handoff brief was withdrawn from the tree. No normative behavior changed.
 
+### Added (revision 2026-09-22 — the w3id permanent identifier is live)
+
+- **`https://w3id.org/rlps` resolves.** The alias PR merged 2026-08-24 and was verified serving
+  byte-identical content through to `r14n.squillo.com/ns`. `docs/namespace.md` had still called it
+  "requested"; it now records the alias as live and notes *why* it is the form to cite — a w3id
+  identifier survives this project changing hosts, which is the entire reason to mint one.
+
 ### Changed (revision 2026-09-19 — aph#2 granted: this repo now cites APH's terms instead of its own)
 
 - **APH accepted [squillo/aph#2](https://github.com/squillo/aph/issues/2) as RFC 0009 and closed

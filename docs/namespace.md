@@ -2,8 +2,11 @@
 
 **Namespace URI:** `https://r14n.squillo.com/ns#` (constant [`RLPS_NS`] in the resolver's
 `receipt` module). Minted under squillo.com control and **live** (content-negotiated JSON-LD /
-Turtle at `/ns`); a `w3id.org/rlps` permanent-identifier alias is requested in
-[perma-id/w3id.org#6593](https://github.com/perma-id/w3id.org/pull/6593) (2026-08-23). The URI
+Turtle at `/ns`). The **`w3id.org/rlps` permanent-identifier alias is LIVE** — merged
+2026-08-24 via [perma-id/w3id.org#6593](https://github.com/perma-id/w3id.org/pull/6593) and
+verified serving byte-identical content through the redirect
+(`w3id.org/rlps` → `r14n.squillo.com/ns`). Cite either; the w3id form is the durable one,
+because it survives this project ever moving hosts. The URI
 is an identifier first — receipts are valid whether or not it dereferences.
 
 > **⚠ NOT LEGAL ADVICE.** Terms name *controls and receipt structures*, not legal conclusions.
