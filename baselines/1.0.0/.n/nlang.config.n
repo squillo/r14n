@@ -8,7 +8,7 @@
   "license": "SEE LICENSE IN LICENSE",
   "tags": [],
   "framework": "n",
-  "src_dir": "../",
+  "src_dir": "./",
   "dep_dir": "./.n/deps",
   "build_dir": "./.n/build",
   "out_dir": "../../snapp",
