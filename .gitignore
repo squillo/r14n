@@ -30,3 +30,7 @@ __pycache__/
 # paths to sibling private repos — regenerable, never source).
 r14n Spec/*/build/
 baselines/*/build/
+
+# Squillo intel analysis cache — regenerable per-crate index state written by
+# `squillo intel index`, never source.
+.squillo/
