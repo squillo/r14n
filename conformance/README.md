@@ -61,8 +61,16 @@ report (not silently drop) the vectors it skips. The reference resolver's runner
 (`/resolver/tests/conformance.rs`) pins its supported set and asserts exact run counts, so a
 newly-added vector fails the build until the runner acknowledges it.
 
-Reference-resolver status (2026-07-07): implements all Level-1 capabilities; of Level 2:
+Reference-resolver status (2026-10-09): implements all Level-1 capabilities; of Level 2:
 `fail_closed_unknown_subject`, `posture_override`, `data_minimization_guard`, `temporal_envelope`
 (not yet: `rfc4647_negotiation`, `delta_merge`, `most_restrictive_merge`, `deontic_conflict`,
-`gpc_escalation`, `per_domain_posture` — normative per spec §4, vectors authored ahead of
-implementation); of Level 3: all except `trust_root_revocation` (needs registry integration).
+`gpc_escalation`, `per_domain_posture`, `ieee7012_escalation`, `ambiguous_attribution` —
+normative per spec §4, vectors authored ahead of implementation); of Level 3: all except
+`trust_root_revocation` (needs registry integration).
+
+**`ambiguous_attribution` is called out deliberately.** Spec §4.1 makes ambiguous jurisdiction
+attribution a fail-closed `verdict = block` condition, so its absence here is the one gap a
+reader is most likely to assume closed. The reference resolver does NOT enforce it: a
+`RegulatoryQuery` carries a single `jurisdiction` string and no attribution source, so it cannot
+express "no jurisdictions supplied" or "source unknown" — the §4.1 inputs. A consuming gate that
+needs §4.1 must implement it itself and MUST NOT infer it from this resolver's behaviour.
