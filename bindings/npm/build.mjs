@@ -42,6 +42,11 @@ writeFileSync(
         "RLPS reference resolver for JS/TS — WebAssembly bindings generated from the Rust core. Fail-closed regulatory-control resolution with legal-review provenance. NOT LEGAL ADVICE.",
       homepage: "https://r14n.squillo.com",
       keywords: ["compliance", "regulatory", "policy-as-code", "wasm", "rlps", "r14n"],
+      // npm normalizes a bare https repository URL to the `git+….git` form at
+      // publish time and warns that it did. Cargo.toml has to keep the bare
+      // form — that is crates.io's convention — so the npm-canonical form is
+      // applied here instead of at the Rust source.
+      repository: { type: "git", url: "git+https://github.com/squillo/r14n.git" },
       // wasm-pack lists only the artifacts it generated; the docs and license
       // we add below have to be declared or npm would drop them from the tarball.
       files: [...generated.files, "README.md", "LICENSE"],
