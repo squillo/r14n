@@ -38,7 +38,7 @@ A Policy Pack is a typed N Lang document declaring the required compliance contr
 4. **Defaults**: `strictness` and `legal_review_status` are inherited from `R14N.n` when omitted.
 5. **Fold Position**: base declaration vs tighten-only overlay is decided by ledger position, not syntax.
 
-**Strictness semantics** (mirrors the resolver twin in Squillo OS):
+**Strictness semantics** (shared with the Squillo OS consumer, which reads the same model over a different transport):
 - `aggressive` — the caller's FULL declared control universe is required regardless of the subject table (fail-closed install default; the resolver degrades to exactly this when no pack matches).
 - `as_configured` — the per-`subject` table is honored exactly.
 - `minimal` — only the `legally_required` floor is enforced; the subject table is documentary. USE WITH CARE.
