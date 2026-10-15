@@ -151,13 +151,41 @@ jobs:
       - name: tools test suite
         run: cargo test --locked
         working-directory: tools
+      # Driven by what is on disk, never by a hand-maintained list. The previous version
+      # named three pack files explicitly, so a pack added without editing this step was
+      # shipped unvalidated — the same shape as a source file no index declares. Both
+      # directions are checked: every pack reaches its domain's catalog, and no pack
+      # exists whose domain has no catalog to validate it against.
       - name: lint the shipped packs
+        working-directory: ${{ github.workspace }}
         run: |
-          cargo run --quiet --manifest-path tools/Cargo.toml -- validate \
-            packs/aggressive/recording_consent.r14n.toml \
-            packs/minimal/recording_consent.r14n.toml \
-            packs/example/region/recording_consent.r14n.toml \
-            --catalog catalog/recording_consent.catalog.toml
+          set -uo pipefail
+          fail=0
+          for cat in catalog/*.catalog.toml; do
+            domain="$(basename "$cat" .catalog.toml)"
+            # NUL-delimited into xargs: no reliance on word-splitting, which differs
+            # between shells and would pass every path as one argument in some of them.
+            # `--catalog` is accepted before the pack list, so xargs can append paths.
+            count=$(find packs -type f -name "${domain}.r14n.toml" | wc -l | tr -d ' ')
+            if [ "$count" -eq 0 ]; then
+              echo "::notice::catalog $domain has no packs yet — nothing to validate"
+              continue
+            fi
+            echo "── $domain: $count pack(s)"
+            find packs -type f -name "${domain}.r14n.toml" -print0 \
+              | sort -z \
+              | xargs -0 -r cargo run --quiet --manifest-path tools/Cargo.toml -- \
+                  validate --catalog "$cat" || fail=1
+          done
+          # A pack whose domain has no catalog can never be validated at all.
+          for p in $(find packs -type f -name '*.r14n.toml' | sort); do
+            d="$(basename "$p" .r14n.toml)"
+            if [ ! -f "catalog/${d}.catalog.toml" ]; then
+              echo "::error::$p has no catalog/${d}.catalog.toml — it ships unvalidated"
+              fail=1
+            fi
+          done
+          exit $fail
 
   # Schema-vs-producers validation runs inside the `tools` job above
   # (tools/tests/schema_conformance.rs) — no separate job / no Python needed.
