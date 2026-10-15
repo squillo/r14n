@@ -2,7 +2,7 @@
 // NOT LEGAL ADVICE. strictness=minimal: only `legally_required` enforced. The floor
 // keeps session_scoped so even minimal posture never permits ambient/unbounded tag polling.
 
-mod policies {
+mod packs {
   nfc_minimal: <PolicyPack> {
     id: "nfc"
     domain: "nfc"

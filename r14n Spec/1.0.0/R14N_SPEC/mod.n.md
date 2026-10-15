@@ -26,7 +26,7 @@ All keywords are re-exported at the root level to maintain backwards compatibili
 
 ```nlang
 mod * {
-  pub use R14N {}
-  pub use R14N_SPEC_KEYWORDS {}
+  pub @use R14N {}
+  pub @use R14N_SPEC_KEYWORDS {}
 }
 ```

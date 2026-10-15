@@ -3,7 +3,7 @@
 // deliberately retains confirmation_token so even minimal posture never allows
 // unconfirmed home-actuation (the token gate is independent of strictness).
 
-mod policies {
+mod packs {
   smart_home_minimal: <PolicyPack> {
     id: "smart_home"
     domain: "smart_home"

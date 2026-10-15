@@ -179,11 +179,18 @@ policies "HEALTH_AGGRESSIVE" {
 ```
 
 **Core-Book Form (the wire — v1 today):**
+
+> The holding module is `packs`, never `policies`. A consumer that imports `$::*` pulls the
+> `policies` block into local scope, so `mod policies` would make a module and a type share one
+> canonical address — **COMP-447**, since modules and types occupy the same namespace (the N
+> Language Book, Modules, "Name Collisions Across Positions"). This example read `mod policies` until 2026-10-15; anyone who copied it got a
+> type-resolution error with no source location.
+
 ```nlang,ignore
 @deps {
   r14n { use: ["$::*"], from: "registry:@com::squillo/r14n@1.0.0", integrity: "sha256-<hash>" }
 }
-mod policies {
+mod packs {
   health_aggressive: <r14n::PolicyPack> {
     id: "health"
     domain: "health"

@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "diagnostics": [
+    {
+      "code": "COMP-447",
+      "message": "the name `policies` is defined multiple times at the same module level: module `$::policies` and type `$::policies` share one canonical address prefix (modules and types occupy the same type-system namespace)",
+      "span": {
+        "file_path": "",
+        "start_line": 0,
+        "start_column": 0,
+        "end_line": 0,
+        "end_column": 0
+      }
+    }
+  ]
+}

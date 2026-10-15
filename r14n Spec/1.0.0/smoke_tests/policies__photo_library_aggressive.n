@@ -1,7 +1,7 @@
 // r14n smoke test — photo_library / aggressive (core-book instance form).
 // NOT LEGAL ADVICE — Squillo's own fail-closed Photos baseline.
 
-mod policies {
+mod packs {
   photo_library_aggressive: <PolicyPack> {
     id: "photo_library"
     domain: "photo_library"

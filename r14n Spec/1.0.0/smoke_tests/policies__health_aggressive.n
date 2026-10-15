@@ -3,7 +3,7 @@
 // PolicyPack is globally visible (pub mod * blocks "PolicyPack") — no @deps needed
 // in-Snapp. NOT LEGAL ADVICE — Squillo's own fail-closed HealthKit baseline.
 
-mod policies {
+mod packs {
   health_aggressive: <PolicyPack> {
     id: "health"
     domain: "health"

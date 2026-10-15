@@ -14,4 +14,11 @@ r14n Snapp (mirrors the Taxa / Raconteur / Nimble gold-standard root index).
 
 ```nlang
 mod R14N_SPEC {};
+mod smoke_tests {};
 ```
+
+`smoke_tests` is declared LAST and deliberately: the type definitions it instantiates must load
+before the instances that exercise them (schema-before-instance, the same order
+`smoke_tests/mod.n.md` documents). It was absent until 2026-10-15, which is why the emitted
+bundle carried type definitions and zero pack instances — the packs on disk were compiled by
+nothing.

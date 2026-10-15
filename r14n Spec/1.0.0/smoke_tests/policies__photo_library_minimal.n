@@ -3,7 +3,7 @@
 // keeps limited_selection so even minimal posture prefers scoped PHPicker access
 // over full-library authorization.
 
-mod policies {
+mod packs {
   photo_library_minimal: <PolicyPack> {
     id: "photo_library"
     domain: "photo_library"

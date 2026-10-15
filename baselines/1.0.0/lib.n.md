@@ -15,9 +15,9 @@ packs are counsel-gated and held out.
 ```nlang
 @deps {
   r14n {
-    use: ["$::*"]
+    use { $::* }
     from: "../../snapp/r14n@0.1.0-alpha.1.json"
-    integrity: "sha256-3f8569052d784f8855f1e8e89b93d3caeca8f0674887700fc757a105ae11105f"
+    integrity: "sha256-d51ec114946115f37fd238b719251b6986a5bdb07ae0da519fe943d90e75d631"
   }
 }
 

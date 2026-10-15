@@ -3,7 +3,7 @@
 // stays Privileged: state-changing control requires a confirmation token (the
 // consuming OS gate enforces; this pack only prescribes the required control key).
 
-mod policies {
+mod packs {
   smart_home_aggressive: <PolicyPack> {
     id: "smart_home"
     domain: "smart_home"
