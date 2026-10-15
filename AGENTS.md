@@ -20,6 +20,10 @@ duplicate it.
 - `bindings/` — generated JS/TS (`bindings/wasm` → `@squillo/r14n`) and Python
   (`bindings/python` → `r14n`) packages, plus `bindings/npm/build.mjs`.
 - `site/` — the r14n.squillo.com Worker (splash + the `/ns` vocabulary host).
+- `r14n Spec/`, `baselines/`, `snapp/` — the **N Lang Snapp tree**: the typed spec sources
+  (`policies` keyword + `PolicyPack`/`Subject` blocks), a baseline-pack consumer Snapp that
+  `@deps` them under an integrity pin, and the emitted ABI bundles. Sources are Apache-2.0;
+  **N Lang itself is proprietary**, so none of it builds on public CI — see below.
 - `GOVERNANCE.md`, `CONTRIBUTING.md`, `TRADEMARKS.md`, `SECURITY.md` — the rules.
 
 ## Build and test (exactly what CI runs)
@@ -28,14 +32,45 @@ duplicate it.
 cargo test --locked --manifest-path resolver/Cargo.toml
 cargo test --locked --manifest-path tools/Cargo.toml
 cargo clippy --manifest-path resolver/Cargo.toml --all-targets -- -D warnings
+# Pack lint — CI globs every catalog and validates its domain's packs, in both
+# directions (every pack reaches a catalog; no pack exists without one). One domain:
 cargo run --quiet --manifest-path tools/Cargo.toml -- validate \
-  packs/aggressive/recording_consent.r14n.toml \
-  packs/minimal/recording_consent.r14n.toml \
-  packs/example/region/recording_consent.r14n.toml \
-  --catalog catalog/recording_consent.catalog.toml
+  --catalog catalog/recording_consent.catalog.toml \
+  packs/aggressive/recording_consent.r14n.toml packs/minimal/recording_consent.r14n.toml
+python3 .github/scripts/snapp_drift_gate.py
 node bindings/npm/build.mjs && node --test bindings/npm/smoke.test.mjs
 maturin build --release --manifest-path bindings/python/Cargo.toml --out dist/wheels
 ```
+
+### The Snapp tree — local only, and never unguarded
+
+N Lang is proprietary, so **no public CI job compiles the Snapp tree**. CI instead proves
+that the committed sources and the committed artifacts AGREE (`snapp_drift_gate.py`, and
+`resolver/tests/snapp_toml_parity.rs` for the one domain shipped both ways). Re-emitting is
+a local step, and it is on you to run it in the same change as the source edit.
+
+```console
+# check -> build -> export, for BOTH Snapps, framework first.
+nlang check  -r "r14n Spec/1.0.0"
+nlang export -r "r14n Spec/1.0.0" -f json     # writes snapp/r14n@<ver>.json
+# The export above changes the framework bundle's bytes, which INVALIDATES the
+# integrity pin in baselines/1.0.0/lib.n.md. Refresh it in the same change:
+#   shasum -a 256 "snapp/r14n@0.1.0-alpha.1.json"   -> paste as sha256-<hex>
+nlang check  -r baselines/1.0.0
+nlang export -r baselines/1.0.0 -f json
+```
+
+Three rules, each one something that has already gone wrong here:
+
+1. **Never run `nlang` unguarded.** An unmonitored build can consume unbounded memory.
+   Run it under a memory/time watchdog.
+2. **Isolate the cache every invocation** — `NLANG_CACHE_DIR=$(mktemp -d) nlang …`. The
+   global ABI cache is name-keyed, and once an entry exists a later export under that name
+   can silently collapse to the `@snapp` header **at `rc=0`**.
+3. **Gate on artifact CONTENT, never on `rc`.** A green build is not evidence the bundle is
+   readable; only a green export is, and only if you look at what it wrote. `nlang build
+   --emit-snapp` also drops a `.n.json` sidecar carrying **no `@snapp` root** — gitignored,
+   because a consumer that globbed it would load a bundle with no identity.
 
 There is **no rustfmt gate** — the tree follows a documented hand-rolled house style
 (fully-qualified paths, two-space indent). Match the surrounding code; do not reformat it.
@@ -73,6 +108,14 @@ There is **no rustfmt gate** — the tree follows a documented hand-rolled house
 10. **Additive by default.** The Control Catalog grows; renames and removals are deprecations,
    because a control key is long-lived audit evidence. New terms enter `docs/namespace.md`
    before first shipped use.
+11. **Nothing ships that nothing checks.** A file this repository publishes must be reachable
+   by something that validates it, and adding one must not require editing a list somewhere
+   else — a hand-maintained list is how a pack ships unvalidated and a Snapp source sits
+   compiled by nothing. Concretely: a new pack needs a catalog for its domain (CI globs both
+   directions); a new Snapp source needs a `mod` declaration in its index, because discovery
+   is index-only with **no filesystem-walk fallback**; a re-emitted bundle needs every
+   dependent's integrity pin refreshed in the same change. This repository has shipped each
+   of those three broken, and each was silent.
 
 ## Change process
 
