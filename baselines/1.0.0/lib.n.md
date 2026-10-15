@@ -31,4 +31,48 @@ policies "HEALTH_AGGRESSIVE" {
   }
   legally_required = ["consent_prompt", "usage_description", "on_device_only", "read_scope_limit", "audit_log"]
 }
+
+// ── recording_consent ────────────────────────────────────────────────────────
+//
+// The two packs below mirror the PUBLISHED baselines at
+// /packs/{aggressive,minimal}/recording_consent.r14n.toml, control for control. They
+// are here as the convergence proof: recording_consent is the only domain this
+// repository ships as normative TOML, so it is the only one where the typed source and
+// the published artifact can be diffed rather than merely asserted to agree.
+//
+// Keep them in step. If one changes without the other, the two disagree about what
+// Squillo's own baseline is, which is the drift this whole exercise exists to end.
+//
+// NOT LEGAL ADVICE, and `aggressive` != `compliant`.
+
+policies "RECORDING_CONSENT_AGGRESSIVE" {
+  domain     = "recording_consent"
+  strictness = "aggressive"
+  summary    = "Fail-closed baseline — the full per-rail control universe, every jurisdiction."
+  subjects {
+    local_piggyback { controls = ["attestation", "aph_mandate_principal_signed"] }
+    telepresence    { controls = ["signal_notice", "indicator_mount", "aph_mandate_principal_signed"] }
+    twin_attend     { controls = ["announcement", "aph_mandate_principal_signed"] }
+    import          { controls = ["attestation", "aph_mandate_principal_signed"] }
+  }
+  legally_required = ["attestation", "signal_notice", "indicator_mount", "announcement", "aph_mandate_principal_signed"]
+}
+
+// The floor is ONE control and must never become none: a `minimal` pack with a missing
+// or empty floor does not resolve to "nothing required", it fails closed to the
+// caller's entire universe and discards this pack whole.
+policies "RECORDING_CONSENT_MINIMAL" {
+  domain              = "recording_consent"
+  strictness          = "minimal"
+  summary             = "Least-restrictive floor — only legally-required controls are enforced."
+  legal_review_status = "requires_signoff"
+  legal_review_counsel = "TBD"
+  subjects {
+    local_piggyback { controls = ["attestation"] }
+    telepresence    { controls = ["signal_notice"] }
+    twin_attend     { controls = ["announcement"] }
+    import          { controls = ["attestation"] }
+  }
+  legally_required = ["attestation"]
+}
 ```
