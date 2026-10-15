@@ -6,9 +6,11 @@ mod packs {
   nfc_aggressive: <PolicyPack> {
     id: "nfc"
     domain: "nfc"
-    strictness: "aggressive"
-    summary: "Fail-closed baseline — full Core NFC control universe; tag writes hard-denied, every scan session-scoped."
-    legal_review_status: "not_required"
+    meta: {
+      strictness: "aggressive"
+      summary: "Fail-closed baseline — full Core NFC control universe; tag writes hard-denied, every scan session-scoped."
+      legal_review: { status: "not_required" }
+    }
     subjects: [
       { key: "read",           controls: ["consent_prompt", "usage_description", "session_scoped", "read_only"] },
       { key: "write",          controls: ["consent_prompt", "usage_description", "session_scoped", "no_write"] },
