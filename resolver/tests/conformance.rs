@@ -221,7 +221,13 @@ fn conformance_level_1_minimal_viable_runs_all_vectors() {
 #[test]
 fn conformance_level_2_configured_supported_subset() {
   let (ran, skipped) = run_suite("level-2.json");
-  ::std::assert_eq!(ran, 8, "level-2 supported-vector count drifted");
+  // 9 since 2026-10-15: + fallback_cannot_subtract_prohibited_controls. The suite covered
+  // the data-minimization guard only on GOVERNED packs (both prior vectors expect
+  // fell_back = false), so nothing pinned what the guard does when no pack governs — it
+  // cannot run at all, because the fallback has no pack to read `[prohibited]` from. Two
+  // vectors now share a universe and a prohibited key and disagree about the outcome; the
+  // only difference between them is whether a pack governed.
+  ::std::assert_eq!(ran, 9, "level-2 supported-vector count drifted");
   ::std::assert_eq!(
     skipped.len(),
     8,
