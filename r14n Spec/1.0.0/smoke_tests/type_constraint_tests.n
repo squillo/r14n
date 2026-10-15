@@ -1,0 +1,143 @@
+// Node-validation suite for the r14n pack types, asserted where they are DECLARED.
+//
+// Why this file exists, and why it is here rather than beside a consumer: the consuming
+// OS's pack Snapps import these types across `@deps`, and two of its long-standing
+// negative assertions stopped failing when they did — a non-date in a `atom = date` prop
+// and an integer in an `atom = str` prop both compiled. That could mean the constraint
+// was never enforced, or that it is enforced locally and lost across the dep boundary.
+// Those are very different facts, and only one of them is anybody's bug.
+//
+// So the same assertions run HERE, against the local declarations. Whatever this file
+// reports is the local baseline; the difference between it and the consumer's result is
+// the dep boundary's contribution, measured rather than assumed.
+//
+// Every negative arm flips a VALUE, never a declaration. Each type carries a positive arm
+// too: an unresolvable `<Type>` makes a positive-only suite pass unconditionally, so the
+// pairing is what proves the type resolved at all.
+//
+// NOT LEGAL ADVICE — these are shape assertions, not statements about any jurisdiction.
+
+#[cfg(test)]
+mod type_constraint_tests {
+
+  // ── Positive arms — these prove the types resolve ────────────────────────────
+
+  #[test]
+  legal_review_resolves {
+    review: <LegalReview> {
+      status: "approved"
+      counsel: "Example counsel"
+      reviewed: "2026-07-19"
+    }
+  }
+
+  #[test]
+  subject_resolves {
+    subject: <Subject> {
+      key: "telepresence"
+      controls: ["signal_notice"]
+    }
+  }
+
+  #[test]
+  pack_meta_resolves {
+    meta: <PackMeta> {
+      strictness: "minimal"
+      description: "A shape fixture, not a posture anyone resolves against."
+      legal_review: { status: "not_required" }
+    }
+  }
+
+  // ── Closed sets — the vocabularies a typo would silently widen ───────────────
+
+  #[test(should_fail = true)]
+  legal_review_status_off_closed_set {
+    review: <LegalReview> {
+      status: "rubber_stamped"
+    }
+  }
+
+  #[test(should_fail = true)]
+  pack_meta_strictness_off_closed_set {
+    meta: <PackMeta> {
+      strictness: "permissive"
+      legal_review: { status: "not_required" }
+    }
+  }
+
+  // ── Required-prop presence ──────────────────────────────────────────────────
+
+  #[test(should_fail = true)]
+  pack_meta_missing_legal_review {
+    meta: <PackMeta> {
+      strictness: "aggressive"
+    }
+  }
+
+  #[test(should_fail = true)]
+  subject_missing_key {
+    subject: <Subject> {
+      controls: ["signal_notice"]
+    }
+  }
+
+  // ── Atom kind — the two the consumer could no longer catch ──────────────────
+  //
+  // If these PASS here and fail at the consumer, atom-kind enforcement is lost across
+  // `@deps` and that is a toolchain report with a clean repro. If they fail here too,
+  // atom kind is simply not enforced anywhere and the consumer's suite was asserting
+  // something the compiler never promised — in which case those assertions were green
+  // for a reason unrelated to their subject, which is worth knowing on its own.
+
+  #[test(should_fail = true)]
+  reviewed_is_not_a_date {
+    review: <LegalReview> {
+      status: "approved"
+      reviewed: "July 2026"
+    }
+  }
+
+  #[test(should_fail = true)]
+  subject_key_is_not_a_string {
+    subject: <Subject> {
+      key: 1
+      controls: []
+    }
+  }
+
+  // ── Control membership — previously unassertable, now the point ─────────────
+  //
+  // A populated `atom = list` + `items { atom = str }` prop could not be asserted in the
+  // consuming OS while eight same-named block declarations collided at one scope: the
+  // collision broke list-ITEM resolution specifically, and empty lists were the only
+  // shape that validated. One shared declaration is what makes this assertable, so it is
+  // the first thing worth asserting.
+
+  #[test]
+  populated_control_list_resolves {
+    subject: <Subject> {
+      key: "telepresence"
+      controls: ["signal_notice", "indicator_mount", "aph_mandate_principal_signed"]
+    }
+  }
+
+  // ⚠ INVERTED TRIPWIRE — this asserts the CURRENT, WRONG behaviour on purpose.
+  //
+  // `controls` is `atom = list` + `items { atom = str }`, so a non-string item should be
+  // refused. It is not: the node below compiles, here, with the type declared locally.
+  // Scalar atom kind IS enforced (see the two arms above), so this is specific to list
+  // ITEMS rather than a general absence of atom checking.
+  //
+  // Written as a positive test so the suite is GREEN while the gap exists and turns RED
+  // the day the compiler starts refusing it — at which point delete this and restore the
+  // `should_fail = true` arm it replaced. A failing test that everyone learns to ignore
+  // reports nothing; a passing one that will fail on a fix reports exactly once, to
+  // whoever is holding the fix.
+  #[test]
+  list_item_atom_kind_is_unenforced_today {
+    subject: <Subject> {
+      key: "telepresence"
+      controls: ["signal_notice", 7]
+    }
+  }
+}

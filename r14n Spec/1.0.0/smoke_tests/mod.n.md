@@ -47,6 +47,11 @@ mod policies__photo_library_aggressive {};
 mod policies__photo_library_minimal {};
 mod policies__smart_home_aggressive {};
 mod policies__smart_home_minimal {};
+
+// Declared LAST: the node-validation suite asserts against the types the packs above
+// instantiate, so it loads after them (schema-before-instance, instances before the
+// assertions about them).
+mod type_constraint_tests {};
 ```
 
 ---
