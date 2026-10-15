@@ -17,7 +17,7 @@ packs are counsel-gated and held out.
   r14n {
     use { $::* }
     from: "../../snapp/r14n@0.1.0-alpha.1.json"
-    integrity: "sha256-d8554e4f88bd9bec3136cb38532c1fc663f2225fb92d168eed7ede633cec4f50"
+    integrity: "sha256-cc4de86f40c7c7f42047630a91f9e3f267673bc72ee2382b300ce7a8a1709bf2"
   }
 }
 
