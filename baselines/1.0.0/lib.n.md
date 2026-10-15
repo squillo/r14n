@@ -26,8 +26,15 @@ policies "HEALTH_AGGRESSIVE" {
   strictness = "aggressive"
   summary    = "Fail-closed baseline — the full HealthKit control universe."
   subjects {
-    read  { controls = ["consent_prompt", "usage_description", "on_device_only", "read_scope_limit"] }
-    write { controls = ["consent_prompt", "usage_description", "on_device_only", "audit_log"] }
+    read       { controls = ["consent_prompt", "usage_description", "on_device_only", "read_scope_limit"] }
+    write      { controls = ["consent_prompt", "usage_description", "on_device_only", "audit_log"] }
+    // `background` was missing here while the smoke-test copy of this same pack carried it —
+    // two sources of truth for one baseline, already disagreeing. Under `aggressive` the
+    // omission changed nothing (that posture requires the caller's whole universe), which is
+    // why it survived; under `as_configured` a background-delivery query would have found no
+    // row and fallen through to the unknown-subject path. Restored to match, and the parity
+    // test below the Snapps now fails if the two copies diverge again.
+    background { controls = ["consent_prompt", "usage_description", "on_device_only", "audit_log"] }
   }
   legally_required = ["consent_prompt", "usage_description", "on_device_only", "read_scope_limit", "audit_log"]
 }

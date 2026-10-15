@@ -59,6 +59,34 @@ fn sorted_strings(v: ::std::option::Option<&::serde_json::Value>) -> ::std::vec:
   out
 }
 
+/// N Lang emits a list either as a JSON array or as a `~N`-indexed object, depending on the
+/// authoring form. Both mean the same ordered list, so comparisons normalize through here
+/// rather than asserting on an encoding neither side chose deliberately.
+fn denumber_values(v: &::serde_json::Value) -> ::std::vec::Vec<::serde_json::Value> {
+  if let ::std::option::Option::Some(arr) = v.as_array() {
+    return arr.clone();
+  }
+  if let ::std::option::Option::Some(map) = v.as_object() {
+    let mut keyed: ::std::vec::Vec<(usize, ::serde_json::Value)> = map
+      .iter()
+      .filter_map(|(k, val)| k.strip_prefix('~')?.parse::<usize>().ok().map(|i| (i, val.clone())))
+      .collect();
+    keyed.sort_by_key(|(i, _)| *i);
+    return keyed.into_iter().map(|(_, val)| val).collect();
+  }
+  ::std::vec::Vec::new()
+}
+
+/// `denumber_values` narrowed to a sorted list of strings.
+fn denumber(v: &::serde_json::Value) -> ::std::vec::Vec<::std::string::String> {
+  let mut out: ::std::vec::Vec<::std::string::String> = denumber_values(v)
+    .iter()
+    .filter_map(|x| x.as_str().map(::std::string::String::from))
+    .collect();
+  out.sort();
+  out
+}
+
 fn sorted_toml_strings(v: ::std::option::Option<&::toml::Value>) -> ::std::vec::Vec<::std::string::String> {
   let mut out: ::std::vec::Vec<::std::string::String> = v
     .and_then(|x| x.as_array())
@@ -137,6 +165,62 @@ fn aggressive_recording_consent_agrees_across_both_representations() {
 #[test]
 fn minimal_recording_consent_agrees_across_both_representations() {
   assert_parity("RECORDING_CONSENT_MINIMAL", "minimal");
+}
+
+/// Why: `health_aggressive` is authored TWICE inside this repository — as a core-book
+/// instance in the framework Snapp's smoke tests, and in the keyword form in baselines.
+/// They had already drifted when this test was written: the baselines copy was missing the
+/// `background` subject entirely. Under `aggressive` that changed no resolution, because
+/// the posture requires the caller's whole universe regardless, which is exactly why it
+/// survived unnoticed — a second source of truth whose disagreement is invisible at the
+/// posture it is normally read at.
+///
+/// This compares the two emitted forms on the content that would differ under any other
+/// posture. The serializations differ by construction (a row list with `~N` indices versus
+/// a keyed map), so the shapes are normalized and the CONTROLS are compared.
+#[test]
+fn the_two_in_repo_copies_of_health_aggressive_agree() {
+  let fw_raw = ::std::fs::read_to_string(repo_root().join("snapp").join("r14n@0.1.0-alpha.1.json"))
+    .expect("framework bundle");
+  let fw: ::serde_json::Value = ::serde_json::from_str(&fw_raw).expect("framework bundle JSON");
+  let a = &fw["packs"]["health_aggressive"];
+  let packs = snapp_packs();
+  let b = &packs["HEALTH_AGGRESSIVE"];
+  ::std::assert!(!a.is_null() && !b.is_null(), "both copies must be present to compare");
+
+  ::std::assert_eq!(a["domain"].as_str(), b["domain"].as_str(), "domain disagrees");
+  ::std::assert_eq!(a["strictness"].as_str(), b["strictness"].as_str(), "strictness disagrees");
+  ::std::assert_eq!(
+    denumber(&a["legally_required"]),
+    denumber(&b["legally_required"]),
+    "the floor disagrees between the smoke-test copy and the baselines copy"
+  );
+
+  // Instance form: `subjects` is a list of `{key, controls}` rows. Keyword form: a map.
+  let mut a_subjects: ::std::vec::Vec<(::std::string::String, ::std::vec::Vec<::std::string::String>)> =
+    ::std::vec::Vec::new();
+  for row in denumber_values(&a["subjects"]) {
+    let key = row["key"].as_str().unwrap_or_default();
+    a_subjects.push((::std::string::String::from(key), denumber(&row["controls"])));
+  }
+  a_subjects.sort();
+
+  let mut b_subjects: ::std::vec::Vec<(::std::string::String, ::std::vec::Vec<::std::string::String>)> =
+    b["subjects"]
+      .as_object()
+      .map(|m| {
+        m.iter()
+          .map(|(k, v)| (k.clone(), denumber(&v["controls"])))
+          .collect()
+      })
+      .unwrap_or_default();
+  b_subjects.sort();
+
+  ::std::assert_eq!(
+    a_subjects, b_subjects,
+    "the two in-repo copies of health_aggressive disagree about their subject table — one \
+     was edited without the other"
+  );
 }
 
 /// Why: parity between two representations is worth nothing if the floor itself is empty
