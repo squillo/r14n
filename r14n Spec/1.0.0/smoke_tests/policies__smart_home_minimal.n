@@ -9,7 +9,7 @@ mod packs {
     domain: "smart_home"
     meta: {
       strictness: "minimal"
-      summary: "Least-restrictive floor — consent + usage description; unconfirmed home-actuation never allowed."
+      description: "Least-restrictive floor — consent + usage description; unconfirmed home-actuation never allowed."
       legal_review: { status: "requires_signoff", counsel: "TBD" }
     }
     subjects: [

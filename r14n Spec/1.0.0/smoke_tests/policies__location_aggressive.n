@@ -9,7 +9,7 @@ mod packs {
     domain: "location"
     meta: {
       strictness: "aggressive"
-      summary: "Fail-closed baseline — full location control universe; background delivery denied, precise accuracy opt-in only."
+      description: "Fail-closed baseline — full location control universe; background delivery denied, precise accuracy opt-in only."
       legal_review: { status: "not_required" }
     }
     subjects: [

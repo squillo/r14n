@@ -113,15 +113,42 @@ pub mod * blocks "PackMeta" {
       default  = "aggressive"
       priority = 1
     }
-    summary? {
+    description? {
       atom        = str
-      description = "Human-readable pack description (the published pack's `[meta] description`)"
+      description = "Human-readable pack description. Named `description` to match the published pack's `[meta] description`: this field was called `summary` here until 2026-10-15, which meant the typed source and the artifact a reviewer reads used different names for the same sentence."
       priority    = 2
     }
     legal_review {
       type        = <LegalReview>
       description = "Who reviewed this pack and how far that review went"
       priority    = 3
+    }
+    // ── The temporal envelope. OPTIONAL, and absent means UNBOUNDED, not expired. ──
+    //
+    // These are load-bearing: a resolver that is given a decision date and finds it
+    // outside this window fails closed, because no in-effect pack governs. A typed pack
+    // could not express the window at all until 2026-10-15, so a pack authored here could
+    // not be time-bounded even though the published schema and the resolver both support
+    // it — and an author who needed that had to leave the typed path.
+    effective_from? {
+      atom        = date
+      description = "ISO-8601 (YYYY-MM-DD) date this pack's text takes effect. A decision date before this means no in-effect pack governs."
+      priority    = 4
+    }
+    effective_until? {
+      atom        = date
+      description = "ISO-8601 (YYYY-MM-DD) date this pack's text stops being in effect. A decision date after this means no in-effect pack governs."
+      priority    = 5
+    }
+    last_reviewed_against_guidance? {
+      atom        = date
+      description = "Interpretation-currency date — when this pack was last read against case law and regulator guidance, which is NOT the same as the statute's effective date. REQUIRED by the published schema once `legal_review.status` is `approved`: an approval nobody can age is indistinguishable from one that never expires."
+      priority    = 6
+    }
+    inherits? {
+      atom        = str
+      description = "Parent profile this pack delta-inherits from, as a `/`-delimited profile tag. Declaring it does not make a resolver honour it — progressive-truncation negotiation and delta-merge are specified but unimplemented in the reference resolver, so treat this as authored-ahead."
+      priority    = 7
     }
   }
 }

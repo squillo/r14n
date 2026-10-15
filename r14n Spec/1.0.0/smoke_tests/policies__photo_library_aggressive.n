@@ -7,7 +7,7 @@ mod packs {
     domain: "photo_library"
     meta: {
       strictness: "aggressive"
-      summary: "Fail-closed baseline — full Photos control universe; limited selection + EXIF-location withholding required."
+      description: "Fail-closed baseline — full Photos control universe; limited selection + EXIF-location withholding required."
       legal_review: { status: "not_required" }
     }
     subjects: [

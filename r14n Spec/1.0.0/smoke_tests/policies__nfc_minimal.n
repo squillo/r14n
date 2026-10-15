@@ -8,7 +8,7 @@ mod packs {
     domain: "nfc"
     meta: {
       strictness: "minimal"
-      summary: "Least-restrictive floor — consent + usage description; every scan session-scoped, never ambient polling."
+      description: "Least-restrictive floor — consent + usage description; every scan session-scoped, never ambient polling."
       legal_review: { status: "requires_signoff", counsel: "TBD" }
     }
     subjects: [
