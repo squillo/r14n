@@ -14,6 +14,14 @@
 **/.n/deps/
 **/.n/dist/
 
+# `nlang build --emit-snapp` drops a build-door sidecar (`<name>@<ver>.n.json`) and a `.nbin`
+# beside the export bundle. Only the `nlang export -f json` bundle is committed: a second
+# `@`-bearing JSON in one dist is AmbiguousDistArtifact, and the sidecar carries NO `@snapp`
+# root, so a consumer that globbed it would deserialize a bundle with no identity. Both
+# regenerate from source. (Squillo engineering canon: a Snapp is only as present as its export.)
+/snapp/*.n.json
+/snapp/*.nbin
+
 # wrangler local state for the site Worker (deploy artifacts, never source)
 site/.wrangler/
 

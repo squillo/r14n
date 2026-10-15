@@ -2,7 +2,7 @@
 // NOT LEGAL ADVICE. strictness=minimal: only `legally_required` enforced. The floor
 // keeps when_in_use_only so even minimal posture never grants always-authorization.
 
-mod policies {
+mod packs {
   location_minimal: <PolicyPack> {
     id: "location"
     domain: "location"

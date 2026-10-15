@@ -68,10 +68,5 @@
   "skip_linting": false,
   "lint_allow": [],
   "lint_deny": [],
-  "lint_warn": [],
-  "permissions": {
-    "fs_read": true,
-    "fs_write": true,
-    "network": false
-  }
+  "lint_warn": []
 }

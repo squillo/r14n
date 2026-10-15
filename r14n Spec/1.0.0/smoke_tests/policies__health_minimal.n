@@ -3,7 +3,7 @@
 // subject table is documentary. Even the floor keeps explicit consent + a usage
 // description present (health data is sensitive-category everywhere).
 
-mod policies {
+mod packs {
   health_minimal: <PolicyPack> {
     id: "health"
     domain: "health"

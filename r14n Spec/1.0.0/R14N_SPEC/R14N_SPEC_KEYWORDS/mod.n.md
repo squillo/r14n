@@ -33,7 +33,7 @@ mod R14N_SPEC_KEYWORD_POLICIES_1_0_0 {};
 
 ```nlang
 mod * {
-  pub use R14N_SPEC_KEYWORD_POLICIES_1_0_0 {}
+  pub @use R14N_SPEC_KEYWORD_POLICIES_1_0_0 {}
 }
 ```
 

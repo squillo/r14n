@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "diagnostics": [
+    {
+      "code": "DEP-010",
+      "message": "Dependency '$.r14n' failed integrity verification.\nExpected: sha256-3f8569052d784f8855f1e8e89b93d3caeca8f0674887700fc757a105ae11105f\nActual:   sha256-d51ec114946115f37fd238b719251b6986a5bdb07ae0da519fe943d90e75d631",
+      "span": {
+        "file_path": "",
+        "start_line": 0,
+        "start_column": 0,
+        "end_line": 0,
+        "end_column": 0
+      }
+    }
+  ]
+}

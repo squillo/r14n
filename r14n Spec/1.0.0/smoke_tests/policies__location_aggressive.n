@@ -3,7 +3,7 @@
 // `geocode` (address<->coordinate) exposes no device position; current_location/
 // background do and carry the full control set.
 
-mod policies {
+mod packs {
   location_aggressive: <PolicyPack> {
     id: "location"
     domain: "location"
