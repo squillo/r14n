@@ -111,6 +111,22 @@ jobs:
           done
           exit $bad
 
+  # The N Lang Snapp tree was authored and then built by NOTHING — no job here referenced it.
+  # By the time anyone compiled it again, four pieces of language drift had accumulated, ten
+  # authored packs had never once loaded, and the committed bundle claimed a version its own
+  # filename contradicted. All of it silent. This job is why that cannot repeat.
+  #
+  # It deliberately does NOT invoke `nlang`: the compiler is proprietary and these are public
+  # runners. Every defect above was an AGREEMENT failure between committed files, which needs
+  # only hashlib and json. What it cannot prove is that the bundle is what current sources would
+  # emit — that is a local step, documented in the script's own header.
+  snapp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Snapp sources and committed artifacts agree
+        run: python3 .github/scripts/snapp_drift_gate.py
+
   resolver:
     runs-on: ubuntu-latest
     defaults:
