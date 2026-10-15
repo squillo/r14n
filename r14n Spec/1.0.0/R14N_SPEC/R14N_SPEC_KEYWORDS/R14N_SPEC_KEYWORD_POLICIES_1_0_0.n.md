@@ -109,6 +109,12 @@ pub mod * blocks "PolicyPack" {
       description = "Controls required under minimal strictness / when no subject row matches"
       priority    = 8
     }
+    prohibited? {
+      atom        = list
+      items       { atom = str }
+      description = "Controls this profile FORBIDS — the data-minimization guard input: no posture may ADD a control listed here, and a resolver subtracts it from every resolved set. MUST NOT intersect legally_required (a pack that both requires and forbids a control is not satisfiable). OPTIONAL: an absent list forbids nothing, which is why it is not the same as an empty one in review."
+      priority    = 9
+    }
   }
 }
 

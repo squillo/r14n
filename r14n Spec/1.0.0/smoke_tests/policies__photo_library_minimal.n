@@ -2,6 +2,12 @@
 // NOT LEGAL ADVICE. strictness=minimal: only `legally_required` enforced. The floor
 // keeps limited_selection so even minimal posture prefers scoped PHPicker access
 // over full-library authorization.
+//
+// This pack is also the one exercise of `prohibited` in the suite: the summary's
+// preference for scoped access is stated as DATA, not prose, so a resolver subtracts
+// full_library_access from every resolved set instead of a reviewer hoping nobody adds
+// it. It does not intersect the floor — a pack that both requires and forbids a control
+// is not satisfiable, and that is the one rule `prohibited` carries.
 
 mod packs {
   photo_library_minimal: <PolicyPack> {
@@ -17,5 +23,6 @@ mod packs {
       { key: "metadata", controls: ["consent_prompt", "usage_description", "no_location_egress"] }
     ]
     legally_required: ["consent_prompt", "usage_description", "limited_selection"]
+    prohibited: ["full_library_access"]
   }
 }
