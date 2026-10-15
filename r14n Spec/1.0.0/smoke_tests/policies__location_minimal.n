@@ -8,7 +8,7 @@ mod packs {
     domain: "location"
     meta: {
       strictness: "minimal"
-      summary: "Least-restrictive floor — consent + usage description; always-authorization never granted."
+      description: "Least-restrictive floor — consent + usage description; always-authorization never granted."
       legal_review: { status: "requires_signoff", counsel: "TBD" }
     }
     subjects: [

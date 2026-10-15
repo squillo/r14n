@@ -15,7 +15,7 @@ mod packs {
     domain: "photo_library"
     meta: {
       strictness: "minimal"
-      summary: "Least-restrictive floor — consent + usage description; scoped picker access preferred over full-library."
+      description: "Least-restrictive floor — consent + usage description; scoped picker access preferred over full-library."
       legal_review: { status: "requires_signoff", counsel: "TBD" }
     }
     subjects: [

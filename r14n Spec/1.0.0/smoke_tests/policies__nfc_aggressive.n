@@ -8,7 +8,7 @@ mod packs {
     domain: "nfc"
     meta: {
       strictness: "aggressive"
-      summary: "Fail-closed baseline — full Core NFC control universe; tag writes hard-denied, every scan session-scoped."
+      description: "Fail-closed baseline — full Core NFC control universe; tag writes hard-denied, every scan session-scoped."
       legal_review: { status: "not_required" }
     }
     subjects: [

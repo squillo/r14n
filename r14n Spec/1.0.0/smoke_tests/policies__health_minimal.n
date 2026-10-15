@@ -9,7 +9,7 @@ mod packs {
     domain: "health"
     meta: {
       strictness: "minimal"
-      summary: "Least-restrictive floor — explicit consent + usage description always required for health data."
+      description: "Least-restrictive floor — explicit consent + usage description always required for health data."
       legal_review: { status: "requires_signoff", counsel: "TBD" }
     }
     subjects: [

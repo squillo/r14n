@@ -9,7 +9,7 @@ mod packs {
     domain: "smart_home"
     meta: {
       strictness: "aggressive"
-      summary: "Fail-closed baseline — full HomeKit control universe; state-changing control requires a confirmation token."
+      description: "Fail-closed baseline — full HomeKit control universe; state-changing control requires a confirmation token."
       legal_review: { status: "not_required" }
     }
     subjects: [

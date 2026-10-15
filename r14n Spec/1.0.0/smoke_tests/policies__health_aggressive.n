@@ -9,7 +9,7 @@ mod packs {
     domain: "health"
     meta: {
       strictness: "aggressive"
-      summary: "Fail-closed baseline — the full HealthKit control universe, every read/write facet."
+      description: "Fail-closed baseline — the full HealthKit control universe, every read/write facet."
       legal_review: { status: "not_required" }
     }
     subjects: [
