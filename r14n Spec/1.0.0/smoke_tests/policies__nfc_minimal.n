@@ -6,10 +6,11 @@ mod packs {
   nfc_minimal: <PolicyPack> {
     id: "nfc"
     domain: "nfc"
-    strictness: "minimal"
-    summary: "Least-restrictive floor — consent + usage description; every scan session-scoped, never ambient polling."
-    legal_review_status: "requires_signoff"
-    legal_review_counsel: "TBD"
+    meta: {
+      strictness: "minimal"
+      summary: "Least-restrictive floor — consent + usage description; every scan session-scoped, never ambient polling."
+      legal_review: { status: "requires_signoff", counsel: "TBD" }
+    }
     subjects: [
       { key: "read",           controls: ["consent_prompt", "usage_description"] },
       { key: "write",          controls: ["consent_prompt", "usage_description", "session_scoped"] },

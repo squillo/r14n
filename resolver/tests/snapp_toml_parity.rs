@@ -108,11 +108,25 @@ fn assert_parity(pack_key: &str, profile: &str) {
   );
   let t = toml_pack(profile);
 
-  // Posture — the dial that decides WHICH table governs.
+  // Posture — the dial that decides WHICH table governs. Both sides nest it under `meta`
+  // since 2026-10-15: the typed source was flattened (`strictness`, `legal_review_status`)
+  // and the published TOML was not, so every comparison here needed a projection rule in
+  // its head. Nesting the typed side removed the rule rather than encoding it.
   ::std::assert_eq!(
-    s["strictness"].as_str(),
+    s["meta"]["strictness"].as_str(),
     t["meta"]["strictness"].as_str(),
     "{pack_key}: strictness disagrees with packs/{profile}/recording_consent.r14n.toml"
+  );
+
+  // Review provenance — comparable for the first time now that the typed side nests it the
+  // same way. A pack whose published form says counsel approved it while the typed source
+  // says `draft` is the disagreement with the most consequence, because a consuming gate
+  // decides whether the pack governs AT ALL from this field.
+  ::std::assert_eq!(
+    s["meta"]["legal_review"]["status"].as_str(),
+    t["meta"]["legal_review"]["status"].as_str(),
+    "{pack_key}: legal_review.status disagrees with packs/{profile}/ — one side claims a \
+     different level of counsel review than the other"
   );
 
   // The floor. Shapes differ by serialization — a bare list in the Snapp, a `controls`
@@ -189,7 +203,11 @@ fn the_two_in_repo_copies_of_health_aggressive_agree() {
   ::std::assert!(!a.is_null() && !b.is_null(), "both copies must be present to compare");
 
   ::std::assert_eq!(a["domain"].as_str(), b["domain"].as_str(), "domain disagrees");
-  ::std::assert_eq!(a["strictness"].as_str(), b["strictness"].as_str(), "strictness disagrees");
+  ::std::assert_eq!(
+    a["meta"]["strictness"].as_str(),
+    b["meta"]["strictness"].as_str(),
+    "strictness disagrees"
+  );
   ::std::assert_eq!(
     denumber(&a["legally_required"]),
     denumber(&b["legally_required"]),

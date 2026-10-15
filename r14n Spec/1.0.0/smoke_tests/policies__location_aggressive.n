@@ -7,9 +7,11 @@ mod packs {
   location_aggressive: <PolicyPack> {
     id: "location"
     domain: "location"
-    strictness: "aggressive"
-    summary: "Fail-closed baseline — full location control universe; background delivery denied, precise accuracy opt-in only."
-    legal_review_status: "not_required"
+    meta: {
+      strictness: "aggressive"
+      summary: "Fail-closed baseline — full location control universe; background delivery denied, precise accuracy opt-in only."
+      legal_review: { status: "not_required" }
+    }
     subjects: [
       { key: "geocode",          controls: ["usage_description"] },
       { key: "current_location", controls: ["consent_prompt", "usage_description", "when_in_use_only", "precise_opt_in"] },

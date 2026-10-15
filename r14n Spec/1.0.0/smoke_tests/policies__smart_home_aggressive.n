@@ -7,9 +7,11 @@ mod packs {
   smart_home_aggressive: <PolicyPack> {
     id: "smart_home"
     domain: "smart_home"
-    strictness: "aggressive"
-    summary: "Fail-closed baseline — full HomeKit control universe; state-changing control requires a confirmation token."
-    legal_review_status: "not_required"
+    meta: {
+      strictness: "aggressive"
+      summary: "Fail-closed baseline — full HomeKit control universe; state-changing control requires a confirmation token."
+      legal_review: { status: "not_required" }
+    }
     subjects: [
       { key: "enumerate",  controls: ["consent_prompt", "usage_description", "local_network_only"] },
       { key: "read_state", controls: ["consent_prompt", "usage_description", "local_network_only"] },

@@ -63,10 +63,11 @@ pub mod * blocks "PolicyPack" {
   description = "{PolicyPack} Object Block — one (profile × domain) control-prescription"
 
   props {
-    id {
-      atom     = str
-      format   = "^[a-z][a-z0-9_]{0,63}$"
-      priority = 1
+    id? {
+      atom        = str
+      format      = "^[a-z][a-z0-9_]{0,63}$"
+      description = "OPTIONAL pack id. The domain below already names what a pack governs, and on disk the profile and domain are the path — so an id is only useful when several packs share one emitted bundle and a reader needs a stable handle that is not the bundle key."
+      priority    = 1
     }
     domain {
       atom        = str
@@ -74,27 +75,10 @@ pub mod * blocks "PolicyPack" {
       description = "Capability family this pack governs (e.g. health, smart_home, nfc)"
       priority    = 2
     }
-    strictness {
-      atom     = str
-      values   = ["aggressive", "as_configured", "minimal"]
-      default  = "aggressive"
-      priority = 3
-    }
-    summary? {
-      atom        = str
-      description = "Human-readable pack description"
-      priority    = 4
-    }
-    legal_review_status {
-      atom     = str
-      values   = ["draft", "requires_signoff", "not_required"]
-      default  = "not_required"
-      priority = 5
-    }
-    legal_review_counsel? {
-      atom        = str
-      description = "Reviewing counsel of record (\"TBD\" until assigned); REQUIRED before a real-jurisdiction pack ships"
-      priority    = 6
+    meta {
+      type        = <PackMeta>
+      description = "Posture + review provenance. NESTED rather than flattened so the typed source mirrors the published pack's `[meta]` / `[meta.legal_review]` tables: a flat `legal_review_status` cannot round-trip to `[meta.legal_review] status` without a projection rule, and a projection rule is a place for the two to disagree."
+      priority    = 3
     }
     subjects {
       atom        = list
@@ -114,6 +98,60 @@ pub mod * blocks "PolicyPack" {
       items       { atom = str }
       description = "Controls this profile FORBIDS — the data-minimization guard input: no posture may ADD a control listed here, and a resolver subtracts it from every resolved set. MUST NOT intersect legally_required (a pack that both requires and forbids a control is not satisfiable). OPTIONAL: an absent list forbids nothing, which is why it is not the same as an empty one in review."
       priority    = 9
+    }
+  }
+}
+
+pub mod * blocks "PackMeta" {
+  atom        = list
+  description = "{PackMeta} Object Block — the pack's posture and its review provenance"
+
+  props {
+    strictness {
+      atom     = str
+      values   = ["aggressive", "as_configured", "minimal"]
+      default  = "aggressive"
+      priority = 1
+    }
+    summary? {
+      atom        = str
+      description = "Human-readable pack description (the published pack's `[meta] description`)"
+      priority    = 2
+    }
+    legal_review {
+      type        = <LegalReview>
+      description = "Who reviewed this pack and how far that review went"
+      priority    = 3
+    }
+  }
+}
+
+pub mod * blocks "LegalReview" {
+  atom        = list
+  description = "{LegalReview} Object Block — counsel-review provenance for one pack"
+
+  props {
+    status {
+      atom     = str
+      // `approved` was ABSENT from this closed set until 2026-10-15, while the published
+      // pack schema carried all four. A typed pack therefore could not say the one thing a
+      // counsel gate exists to recognise — a consuming gate governs only when the status is
+      // `approved` or `not_required`, so a pack authored here could never reach the cleared
+      // state at all. The typed path must be able to express everything the published schema
+      // allows, or authors quietly drop back to hand-written artifacts to say it.
+      values   = ["draft", "requires_signoff", "approved", "not_required"]
+      default  = "not_required"
+      priority = 1
+    }
+    counsel? {
+      atom        = str
+      description = "Reviewing counsel of record (\"TBD\" until assigned); REQUIRED before a real-jurisdiction pack ships"
+      priority    = 2
+    }
+    reviewed? {
+      atom        = date
+      description = "ISO-8601 (YYYY-MM-DD) date the pack was last reviewed. A quoted YYYY-MM-DD literal is shape-typed `date`, not `str`. An `approved` real-jurisdiction pack must state this: an approval with no date cannot be aged, and a review nobody can age is indistinguishable from a review that never expires."
+      priority    = 3
     }
   }
 }

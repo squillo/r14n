@@ -17,14 +17,17 @@ packs are counsel-gated and held out.
   r14n {
     use { $::* }
     from: "../../snapp/r14n@0.1.0-alpha.1.json"
-    integrity: "sha256-38b50faca609b73945041b2b060ae8372e1aaba74250f19c1a8fa45a87159358"
+    integrity: "sha256-19fa4491446477f78040be32d62e221e70f03ce9b1cb6b7349526b3558f80176"
   }
 }
 
 policies "HEALTH_AGGRESSIVE" {
   domain     = "health"
-  strictness = "aggressive"
-  summary    = "Fail-closed baseline — the full HealthKit control universe."
+  meta {
+    strictness = "aggressive"
+    summary    = "Fail-closed baseline — the full HealthKit control universe."
+    legal_review { status = "not_required" }
+  }
   subjects {
     read       { controls = ["consent_prompt", "usage_description", "on_device_only", "read_scope_limit"] }
     write      { controls = ["consent_prompt", "usage_description", "on_device_only", "audit_log"] }
@@ -54,8 +57,11 @@ policies "HEALTH_AGGRESSIVE" {
 
 policies "RECORDING_CONSENT_AGGRESSIVE" {
   domain     = "recording_consent"
-  strictness = "aggressive"
-  summary    = "Fail-closed baseline — the full per-rail control universe, every jurisdiction."
+  meta {
+    strictness = "aggressive"
+    summary    = "Fail-closed baseline — the full per-rail control universe, every jurisdiction."
+    legal_review { status = "not_required" }
+  }
   subjects {
     local_piggyback { controls = ["attestation", "aph_mandate_principal_signed"] }
     telepresence    { controls = ["signal_notice", "indicator_mount", "aph_mandate_principal_signed"] }
@@ -70,10 +76,11 @@ policies "RECORDING_CONSENT_AGGRESSIVE" {
 // caller's entire universe and discards this pack whole.
 policies "RECORDING_CONSENT_MINIMAL" {
   domain              = "recording_consent"
-  strictness          = "minimal"
-  summary             = "Least-restrictive floor — only legally-required controls are enforced."
-  legal_review_status = "requires_signoff"
-  legal_review_counsel = "TBD"
+  meta {
+    strictness = "minimal"
+    summary    = "Least-restrictive floor — only legally-required controls are enforced."
+    legal_review { status = "requires_signoff" counsel = "TBD" }
+  }
   subjects {
     local_piggyback { controls = ["attestation"] }
     telepresence    { controls = ["signal_notice"] }
