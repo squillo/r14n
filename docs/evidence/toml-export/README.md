@@ -76,13 +76,28 @@ There are two ways to close that, and they land in different places:
   straight serialization is already correct and the exporter needs to know nothing about
   packs.
 
-The second is the DRY answer and it is **this repository's** change to make, not the
-toolchain's. Its cost is not small: re-emitting both bundles, refreshing the integrity pin in
-the same change (invariant 11), and a matching re-emit in the downstream consumer repository,
-whose adapter currently absorbs exactly this mismatch in a projection step that would then
-become dead code. It is tracked here rather than done silently, because doing it mid-flight
-in two repositories is how a pack ships half-migrated.
+**The first is now decided against, by the lane that would have built it** (2026-10-16): the
+exporter's scope stays "serialize the value tree, plus an author-written passthrough
+preamble", and the projection half is not commissioned.
+
+⚠ **So read what that leaves.** An exporter at that scope cannot, by itself, produce a
+publishable pack from this tree — its output fails `schema/pack.schema.json` on all three
+counts above. A projection step therefore stays on the CONSUMER side permanently, and
+"the published TOML is generated" remains a two-step claim, not a one-step one. That is a
+real limitation of the current plan and it should not be discovered later by someone who
+read "TOML export shipped" and expected a pack.
+
+The second closes it properly, and it is **this repository's** change to make, not the
+toolchain's. Its cost is bounded but not trivial: re-emit both bundles, refresh the integrity
+pin in the same change (invariant 11), and a matching re-emit in the downstream consumer
+repository, whose projection step would then become dead code. The consumer's 26 packs now
+share this type across `@deps` rather than re-declaring it, which is what makes the rename
+mechanical there — the field name arrives from here, so the edit is the fence spellings and
+the pins, not 26 re-authorings. It is tracked rather than done silently because doing it
+mid-flight in two repositories is how a pack ships half-migrated.
 
 `tools/tests/toml_export_acceptance.rs` asserts these three deltas **as they are today**. If
-the rename above happens, that test goes red on purpose — it is the signal that the exporter
-no longer needs a projection, and the signal is worth more than the test passing.
+the rename happens, that test goes red on purpose — it is the signal that the exporter no
+longer needs a projection, and the signal is worth more than the test passing. The toolchain
+lane is explicitly waiting on that tripwire: it will not build for the rename until the test
+turns or someone says so.
