@@ -37,7 +37,6 @@ cargo clippy --manifest-path resolver/Cargo.toml --all-targets -- -D warnings
 cargo run --quiet --manifest-path tools/Cargo.toml -- validate \
   --catalog catalog/recording_consent.catalog.toml \
   packs/aggressive/recording_consent.r14n.toml packs/minimal/recording_consent.r14n.toml
-python3 .github/scripts/snapp_drift_gate.py
 node bindings/npm/build.mjs && node --test bindings/npm/smoke.test.mjs
 maturin build --release --manifest-path bindings/python/Cargo.toml --out dist/wheels
 ```
@@ -45,7 +44,7 @@ maturin build --release --manifest-path bindings/python/Cargo.toml --out dist/wh
 ### The Snapp tree — local only, and never unguarded
 
 N Lang is proprietary, so **no public CI job compiles the Snapp tree**. CI instead proves
-that the committed sources and the committed artifacts AGREE (`snapp_drift_gate.py`, and
+that the committed sources and the committed artifacts AGREE (`tools/tests/snapp_drift_gate.rs`, and
 `resolver/tests/snapp_toml_parity.rs` for the one domain shipped both ways). Re-emitting is
 a local step, and it is on you to run it in the same change as the source edit.
 
