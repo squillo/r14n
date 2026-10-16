@@ -1,0 +1,21 @@
+[meta]
+strictness = "aggressive"
+description = "Fail-closed baseline — the full per-rail control universe, every jurisdiction."
+
+[meta.legal_review]
+status = "not_required"
+
+[subject.local_piggyback]
+controls = ["attestation", "aph_mandate_principal_signed"]
+
+[subject.telepresence]
+controls = ["signal_notice", "indicator_mount", "aph_mandate_principal_signed"]
+
+[subject.twin_attend]
+controls = ["announcement", "aph_mandate_principal_signed"]
+
+[subject.import]
+controls = ["attestation", "aph_mandate_principal_signed"]
+
+[legally_required]
+controls = ["attestation", "signal_notice", "indicator_mount", "announcement", "aph_mandate_principal_signed"]

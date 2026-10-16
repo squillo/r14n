@@ -1,0 +1,22 @@
+[meta]
+strictness = "minimal"
+description = "Least-restrictive floor — only legally-required controls are enforced."
+
+[meta.legal_review]
+status = "requires_signoff"
+counsel = "TBD"
+
+[legally_required]
+controls = ["attestation"]
+
+[subject.local_piggyback]
+controls = ["attestation"]
+
+[subject.telepresence]
+controls = ["signal_notice"]
+
+[subject.twin_attend]
+controls = ["announcement"]
+
+[subject.import]
+controls = ["attestation"]
