@@ -47,19 +47,22 @@ N Lang is proprietary, so **no public CI job compiles the Snapp tree**. CI inste
 that the committed sources and the committed artifacts AGREE (`tools/tests/snapp_drift_gate.rs`, and
 `resolver/tests/snapp_toml_parity.rs` for the one domain shipped both ways). Re-emitting is
 a local step, and it is on you to run it in the same change as the source edit.
-
 ```console
+# Reproducible dates first — see rule 4. Without this, every export below rewrites
+# `@snapp.date` and so invalidates the integrity pin even when nothing changed.
+export SOURCE_DATE_EPOCH="$(git log -1 --format=%ct -- 'r14n Spec/1.0.0' baselines/1.0.0)"
+
 # check -> build -> export, for BOTH Snapps, framework first.
 nlang check  -r "r14n Spec/1.0.0"
 nlang export -r "r14n Spec/1.0.0" -f json     # writes snapp/r14n@<ver>.json
-# The export above changes the framework bundle's bytes, which INVALIDATES the
-# integrity pin in baselines/1.0.0/lib.n.md. Refresh it in the same change:
+# The export above changes the framework bundle's bytes WHEN ITS CONTENT CHANGED, which
+# INVALIDATES the integrity pin in baselines/1.0.0/lib.n.md. Refresh it in the same change:
 #   shasum -a 256 "snapp/r14n@0.1.0-alpha.1.json"   -> paste as sha256-<hex>
 nlang check  -r baselines/1.0.0
 nlang export -r baselines/1.0.0 -f json
 ```
 
-Three rules, each one something that has already gone wrong here:
+Four rules, each one something that has already gone wrong here:
 
 1. **Never run `nlang` unguarded.** An unmonitored build can consume unbounded memory.
    Run it under a memory/time watchdog.
@@ -70,6 +73,30 @@ Three rules, each one something that has already gone wrong here:
    readable; only a green export is, and only if you look at what it wrote. `nlang build
    --emit-snapp` also drops a `.n.json` sidecar carrying **no `@snapp` root** — gitignored,
    because a consumer that globbed it would load a bundle with no identity.
+4. **Set `SOURCE_DATE_EPOCH`, or every re-export churns the pin.** Both bundles embed
+   `@snapp.date`, and `@snapp.integrity` is a content address over the whole artifact — `date`
+   included. That is correct for a content address, but it means re-exporting with IDENTICAL
+   sources changes the bytes, which invalidates every downstream `integrity` pin for a reason
+   that has nothing to do with content. "The pin went stale" then cannot distinguish *the
+   dependency changed* from *somebody re-ran export*.
+
+   The toolchain derives `date` from `SOURCE_DATE_EPOCH` when it is set, which makes the
+   emitted artifact byte-reproducible. Measured on `nlang 0.1.0-dev (c87e92fd6)`: two exports
+   at the same epoch produce identical bytes; without it, a no-op re-export differs in exactly
+   `date` and `integrity` with all pack and type content unchanged.
+
+   The convention here is the commit time of the Snapp sources, so the date means *when this
+   content was last authored* rather than *when someone happened to run a build*:
+
+   ```console
+   export SOURCE_DATE_EPOCH="$(git log -1 --format=%ct -- 'r14n Spec/1.0.0' baselines/1.0.0)"
+   ```
+
+   ⚠ One wrinkle, stated rather than hidden: that value moves when you COMMIT the source
+   change, so an emit-then-commit-then-emit sequence will move the date once without any
+   content change. Re-emit before committing, and record the epoch in the commit message when
+   it matters — the property this buys is that a NO-OP re-export is free, not that the date is
+   derivable from nothing.
 
 There is **no rustfmt gate** — the tree follows a documented hand-rolled house style
 (fully-qualified paths, two-space indent). Match the surrounding code; do not reformat it.
