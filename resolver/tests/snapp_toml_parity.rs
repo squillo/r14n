@@ -207,7 +207,6 @@ fn the_two_in_repo_copies_of_health_aggressive_agree() {
   let b = &packs["HEALTH_AGGRESSIVE"];
   ::std::assert!(!a.is_null() && !b.is_null(), "both copies must be present to compare");
 
-  ::std::assert_eq!(a["domain"].as_str(), b["domain"].as_str(), "domain disagrees");
   ::std::assert_eq!(
     a["meta"]["strictness"].as_str(),
     b["meta"]["strictness"].as_str(),

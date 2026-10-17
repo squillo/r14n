@@ -32,7 +32,7 @@ This document covers the reserved predicate keyword `policies`. A `PolicyPack` i
 A Policy Pack is a typed N Lang document declaring the required compliance controls for one `(profile × domain)`, resolved against a `subject` facet. The consuming resolver (`RegulatoryPolicyPort`, the Squillo OS regulatory-policy engine) folds the pack's ledger into an effective decision and BLOCKs a capability whose declared controls do not satisfy the pack — fail-closed.
 
 **How Policy Packs Work:**
-1. **Domain + Profile**: `domain` names a capability family (`health`, `smart_home`, `photo_library`, `location`, `nfc`, `recording_consent`, …). `strictness` is the dial (`aggressive` / `as_configured` / `minimal`).
+1. **Domain + Profile**: the domain (`health`, `smart_home`, `recording_consent`, …) is NOT a field of the pack. RLPS §2.2 puts it in the PATH — on disk a pack is `<domain>.r14n.toml` under its profile directory, and in an emitted bundle the pack's declaration name is its key. Carrying it in the body too made the emitted node fail the published schema, which forbids unknown top-level keys, for data every reader already had. `strictness` is the dial (`aggressive` / `as_configured` / `minimal`).
 2. **Subject Table**: `subject` is the per-facet required-control table. The keyword form emits it as a KEYED MAP (`subject { read { controls = [...] } }`), which is exactly the published pack schema's `subject` object-of-`control_list` — singular and map-shaped on purpose, so the emitted bytes need no projection to validate. `key` is the facet (`read`, `write`, `control`, …); `controls` is the required opaque control keys for that facet.
 3. **Legally-Required Floor**: `legally_required` is the control list enforced under `minimal` strictness / when no subject row matches.
 4. **Defaults**: `strictness` and `legal_review_status` are inherited from `R14N.n` when omitted.
@@ -66,14 +66,8 @@ pub mod * blocks "PolicyPack" {
     id? {
       atom        = str
       format      = "^[a-z][a-z0-9_]{0,63}$"
-      description = "OPTIONAL pack id. The domain below already names what a pack governs, and on disk the profile and domain are the path — so an id is only useful when several packs share one emitted bundle and a reader needs a stable handle that is not the bundle key."
+      description = "OPTIONAL pack id. On disk the profile and domain ARE the path, and in an emitted bundle the pack's declaration name is its key — so an id is only useful when a reader needs a stable handle that is neither."
       priority    = 1
-    }
-    domain {
-      atom        = str
-      format      = "^[a-z][a-z0-9_]{0,63}$"
-      description = "Capability family this pack governs (e.g. health, smart_home, nfc)"
-      priority    = 2
     }
     meta {
       type        = <PackMeta>
@@ -219,7 +213,6 @@ pub mod * blocks "ControlList" {
 | Field | Type | Default (from R14N.n) | Description |
 |---|---|---|---|
 | `id` | `string` | — | REQUIRED: pack id; lowercase `^[a-z][a-z0-9_]{0,63}$` |
-| `domain` | `string` | — | REQUIRED: capability family |
 | `strictness` | `string` | `"aggressive"` | Closed set: `aggressive`, `as_configured`, `minimal` |
 | `summary` | `string?` | — | OPTIONAL: human-readable description |
 | `legal_review_status` | `string` | `"not_required"` | Closed set: `draft`, `requires_signoff`, `not_required` |

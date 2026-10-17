@@ -5,7 +5,6 @@
 mod packs {
   location_minimal: <PolicyPack> {
     id: "location"
-    domain: "location"
     meta: {
       strictness: "minimal"
       description: "Least-restrictive floor — consent + usage description; always-authorization never granted."

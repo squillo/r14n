@@ -6,7 +6,6 @@
 mod packs {
   health_aggressive: <PolicyPack> {
     id: "health"
-    domain: "health"
     meta: {
       strictness: "aggressive"
       description: "Fail-closed baseline — the full HealthKit control universe, every read/write facet."

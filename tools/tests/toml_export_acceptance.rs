@@ -107,23 +107,23 @@ fn stripping_comments_changes_no_value_in_any_published_pack() {
   }
 }
 
-/// Why: the emitted keyword-form node now IS a published pack, and this proves it against
-/// the published schema rather than against a hand-list of field names.
+/// Why: the emitted keyword-form node IS a published pack now — validated against
+/// `schema/pack.schema.json` itself rather than against a hand-list of field names, and with
+/// NOTHING removed first.
 ///
-/// This test replaced an inverted tripwire that asserted the opposite. Until 2026-10-16 the
-/// framework type spelled the subject table `subjects` and emitted `legally_required` as a
-/// bare list, so a STRAIGHT serialization of the emitted tree was not a valid pack and some
-/// consumer had to rename and wrap on the way out. The tripwire existed to go red the moment
-/// someone fixed the type — which is what happened, and this is the replacement.
+/// This test has been narrowed twice, and both narrowings were the point. It began as an
+/// inverted tripwire asserting that a straight serialization was NOT a valid pack (the type
+/// spelled the subject table `subjects` and emitted a bare `legally_required`). When those
+/// were renamed on 2026-10-16 it became a validation that first had to strip `domain`, the
+/// one key the published schema forbids at top level. `domain` was then removed from the type
+/// entirely on 2026-10-17, so there is nothing left to strip: RLPS §2.2 puts the domain in
+/// the PATH (`<domain>.r14n.toml` under its profile directory), the bundle keys each pack by
+/// its declaration name, and carrying it in the body too was duplicate data that cost the
+/// emitted node its validity.
 ///
-/// `domain` is the one key the published schema does not allow at top level, and it stays in
-/// the typed source deliberately: a bundle holds MANY packs, and `domain` is what names the
-/// file each one splits into. Deriving it from the bundle key instead would be a projection
-/// again, and one built on a convention the two repositories do not share (here the keys read
-/// `RECORDING_CONSENT_AGGRESSIVE`, downstream they read `CONTACT_IMPORT`). So the writer drops
-/// ONE key, which is a deletion a serializer can do without knowing what an RLPS pack is —
-/// not a shape projection. Whether `domain` should simply become an optional schema property
-/// is a governance question (additive, but it changes a published schema), not a lane one.
+/// Stripping a key named `domain` inside a general serializer would also have been a by-name
+/// string rule, which is the thing this estate forbids — so the field going away removed a
+/// defect rather than relocating one.
 #[test]
 fn every_emitted_keyword_pack_validates_against_the_published_schema() {
   let bundle: ::serde_json::Value =
@@ -138,27 +138,20 @@ fn every_emitted_keyword_pack_validates_against_the_published_schema() {
   let packs = bundle["policies"].as_object().expect("bundle has no `policies` object");
   ::std::assert!(!packs.is_empty(), "no emitted packs — the glob or the export is wrong");
 
-  let mut checked = 0usize;
-  for (name, node) in packs {
-    let mut pack = node.clone();
-    let removed = pack
-      .as_object_mut()
-      .expect("a pack node is an object")
-      .remove("domain");
+  for (name, pack) in packs {
     ::std::assert!(
-      removed.is_some(),
-      "{name} carries no `domain`, so nothing can name the file it splits into"
+      pack.get("domain").is_none(),
+      "{name} carries a top-level `domain` again. The published schema sets \
+       `additionalProperties: false`, so this ONE key makes the emitted node invalid — and \
+       dropping it in a writer would be a by-name rule. The domain belongs in the path."
     );
-
     let errors: ::std::vec::Vec<::std::string::String> =
-      validator.iter_errors(&pack).map(|e| ::std::format!("{} at {}", e, e.instance_path)).collect();
+      validator.iter_errors(pack).map(|e| ::std::format!("{} at {}", e, e.instance_path)).collect();
     ::std::assert!(
       errors.is_empty(),
-      "{name} does not validate against the published pack schema: {errors:?}"
+      "{name} does not validate against the published pack schema AS EMITTED: {errors:?}"
     );
-    checked += 1;
   }
-  ::std::assert!(checked > 0, "validated nothing");
 }
 
 /// Why: the whole point of the rename is that NO consumer has to rename or wrap on the way

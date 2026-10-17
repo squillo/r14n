@@ -6,7 +6,6 @@
 mod packs {
   smart_home_aggressive: <PolicyPack> {
     id: "smart_home"
-    domain: "smart_home"
     meta: {
       strictness: "aggressive"
       description: "Fail-closed baseline — full HomeKit control universe; state-changing control requires a confirmation token."
