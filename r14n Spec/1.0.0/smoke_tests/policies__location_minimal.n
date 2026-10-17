@@ -11,11 +11,11 @@ mod packs {
       description: "Least-restrictive floor — consent + usage description; always-authorization never granted."
       legal_review: { status: "requires_signoff", counsel: "TBD" }
     }
-    subjects: [
+    subject: [
       { key: "geocode",          controls: ["usage_description"] },
       { key: "current_location", controls: ["consent_prompt", "usage_description", "when_in_use_only"] },
       { key: "background",       controls: ["consent_prompt", "usage_description"] }
     ]
-    legally_required: ["consent_prompt", "usage_description", "when_in_use_only"]
+    legally_required: { controls: ["consent_prompt", "usage_description", "when_in_use_only"] }
   }
 }

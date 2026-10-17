@@ -11,11 +11,11 @@ mod packs {
       description: "Fail-closed baseline — full Core NFC control universe; tag writes hard-denied, every scan session-scoped."
       legal_review: { status: "not_required" }
     }
-    subjects: [
+    subject: [
       { key: "read",           controls: ["consent_prompt", "usage_description", "session_scoped", "read_only"] },
       { key: "write",          controls: ["consent_prompt", "usage_description", "session_scoped", "no_write"] },
       { key: "background_tag", controls: ["consent_prompt", "usage_description", "session_scoped"] }
     ]
-    legally_required: ["consent_prompt", "usage_description", "read_only", "session_scoped", "no_write"]
+    legally_required: { controls: ["consent_prompt", "usage_description", "read_only", "session_scoped", "no_write"] }
   }
 }

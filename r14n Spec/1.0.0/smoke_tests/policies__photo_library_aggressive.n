@@ -10,11 +10,11 @@ mod packs {
       description: "Fail-closed baseline — full Photos control universe; limited selection + EXIF-location withholding required."
       legal_review: { status: "not_required" }
     }
-    subjects: [
+    subject: [
       { key: "read",     controls: ["consent_prompt", "usage_description", "limited_selection", "on_device_only"] },
       { key: "write",    controls: ["consent_prompt", "usage_description", "on_device_only"] },
       { key: "metadata", controls: ["consent_prompt", "usage_description", "no_location_egress", "on_device_only"] }
     ]
-    legally_required: ["consent_prompt", "usage_description", "limited_selection", "on_device_only", "no_location_egress"]
+    legally_required: { controls: ["consent_prompt", "usage_description", "limited_selection", "on_device_only", "no_location_egress"] }
   }
 }

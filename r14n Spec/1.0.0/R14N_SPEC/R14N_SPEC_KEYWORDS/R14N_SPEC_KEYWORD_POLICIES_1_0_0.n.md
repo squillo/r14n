@@ -33,7 +33,7 @@ A Policy Pack is a typed N Lang document declaring the required compliance contr
 
 **How Policy Packs Work:**
 1. **Domain + Profile**: `domain` names a capability family (`health`, `smart_home`, `photo_library`, `location`, `nfc`, `recording_consent`, …). `strictness` is the dial (`aggressive` / `as_configured` / `minimal`).
-2. **Subject Table**: `subjects` is a LIST of `Subject` rows, each a `{ key, controls }` pair. `key` is the facet (`read`, `write`, `control`, …); `controls` is the required opaque control keys for that facet.
+2. **Subject Table**: `subject` is the per-facet required-control table. The keyword form emits it as a KEYED MAP (`subject { read { controls = [...] } }`), which is exactly the published pack schema's `subject` object-of-`control_list` — singular and map-shaped on purpose, so the emitted bytes need no projection to validate. `key` is the facet (`read`, `write`, `control`, …); `controls` is the required opaque control keys for that facet.
 3. **Legally-Required Floor**: `legally_required` is the control list enforced under `minimal` strictness / when no subject row matches.
 4. **Defaults**: `strictness` and `legal_review_status` are inherited from `R14N.n` when omitted.
 5. **Fold Position**: base declaration vs tighten-only overlay is decided by ledger position, not syntax.
@@ -80,22 +80,20 @@ pub mod * blocks "PolicyPack" {
       description = "Posture + review provenance. NESTED rather than flattened so the typed source mirrors the published pack's `[meta]` / `[meta.legal_review]` tables: a flat `legal_review_status` cannot round-trip to `[meta.legal_review] status` without a projection rule, and a projection rule is a place for the two to disagree."
       priority    = 3
     }
-    subjects {
+    subject {
       atom        = list
       items       { type = <Subject> }
       min_items   = 1
-      description = "Per-subject required-control table (list of {key, controls} rows)"
+      description = "Per-subject required-control table. SINGULAR to match the published pack schema, whose `subject` is an object of `control_list` — which is exactly what the keyword form already emits. It was `subjects` until 2026-10-16, and that one letter was the whole reason a consumer had to project the emitted bundle before anything could validate it."
       priority    = 7
     }
     legally_required {
-      atom        = list
-      items       { atom = str }
-      description = "Controls required under minimal strictness / when no subject row matches"
+      type        = <ControlList>
+      description = "Controls required under minimal strictness / when no subject row matches. WRAPPED in a ControlList rather than a bare list so the emitted bytes match the published pack's `[legally_required] controls = [...]` table and validate against schema/pack.schema.json, whose `legally_required` is a `$ref` to `control_list`. A bare list emitted a bare array, and the gap between the two is what a consumer had to project around."
       priority    = 8
     }
     prohibited? {
-      atom        = list
-      items       { atom = str }
+      type        = <ControlList>
       description = "Controls this profile FORBIDS — the data-minimization guard input: no posture may ADD a control listed here, and a resolver subtracts it from every resolved set. MUST NOT intersect legally_required (a pack that both requires and forbids a control is not satisfiable). OPTIONAL: an absent list forbids nothing, which is why it is not the same as an empty one in review."
       priority    = 9
     }
@@ -198,6 +196,19 @@ pub mod * blocks "Subject" {
       items       { atom = str }
       min_items   = 1
       description = "Required opaque control keys for this subject (the gate owns polarity)"
+    }
+  }
+}
+
+pub mod * blocks "ControlList" {
+  atom        = list
+  description = "{ControlList} Object Block — a named list of control keys, as a TABLE"
+
+  props {
+    controls {
+      atom        = list
+      items       { atom = str }
+      description = "Opaque control keys. EMPTY IS MEANINGFUL and is not the same as absent: an empty list under `prohibited` forbids nothing explicitly, where an absent `prohibited` was never reviewed. The resolver's reader carries a serde default for exactly this reason."
     }
   }
 }

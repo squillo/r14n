@@ -12,6 +12,37 @@ History banner in the spec for normative changes), rather than forking a version
 
 ## [0.1.0-draft]
 
+### Changed (revision 2026-10-16 — the typed pack shape IS the published pack shape)
+
+- **The framework Snapp's `PolicyPack` was renamed to match the published schema**, so a
+  straight serialization of the emitted node is already a valid pack. `subjects` → `subject`
+  (the published `subject` is an object of `control_list`, which is what the keyword form was
+  already emitting — only the name was wrong), and `legally_required` / `prohibited` became a
+  new `ControlList` block carrying `controls`, matching `[legally_required] controls = [...]`.
+
+  This is why it was done HERE and not in a serializer: the field name is a name this
+  repository mints, while the subject keys (`telepresence`, …) are author-declared and were
+  already preserved — a name we mint is ours to correct, an author's key is not. The
+  projection a consumer was performing existed only because the producer shipped a spelling
+  and no reader, so the fix belonged at the mint rather than at every consumer. The TOML
+  exporter's projection half is consequently **not** needed and was not commissioned.
+
+  `tools/tests/toml_export_acceptance.rs` now validates **every emitted pack against
+  `schema/pack.schema.json` itself**, replacing an inverted tripwire that asserted the old
+  mismatch and went red on purpose when this landed. `resolver/tests/snapp_toml_parity.rs`
+  lost its "the shapes differ by serialization" normalization note, because the difference is
+  gone — the only normalization left is sort order, which neither side chose.
+
+  `domain` is the one top-level key the published schema does not allow and it stays in the
+  typed source deliberately: a bundle holds many packs and `domain` names the file each one
+  splits into. A writer drops one key, which needs no knowledge of what a pack is. Making
+  `domain` an optional schema property would be additive but changes a PUBLISHED schema, so it
+  is left as a governance question.
+
+  Both bundles were re-emitted and the integrity pin on the framework bundle refreshed in this
+  same change. Verified `nlang check` + `test` (11/11) + `export` for both Snapps under the
+  memory/time guard with an isolated cache, gating on emitted CONTENT rather than exit code.
+
 ### Added (revision 2026-10-16 — cross-jurisdiction merge, spec §4.2)
 
 - **The reference resolver implements the most-restrictive merge and the deontic-conflict

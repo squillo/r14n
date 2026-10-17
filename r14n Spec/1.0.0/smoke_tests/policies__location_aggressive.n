@@ -12,11 +12,11 @@ mod packs {
       description: "Fail-closed baseline — full location control universe; background delivery denied, precise accuracy opt-in only."
       legal_review: { status: "not_required" }
     }
-    subjects: [
+    subject: [
       { key: "geocode",          controls: ["usage_description"] },
       { key: "current_location", controls: ["consent_prompt", "usage_description", "when_in_use_only", "precise_opt_in"] },
       { key: "background",       controls: ["consent_prompt", "usage_description", "no_background", "audit_log"] }
     ]
-    legally_required: ["consent_prompt", "usage_description", "when_in_use_only", "precise_opt_in", "no_background", "audit_log"]
+    legally_required: { controls: ["consent_prompt", "usage_description", "when_in_use_only", "precise_opt_in", "no_background", "audit_log"] }
   }
 }

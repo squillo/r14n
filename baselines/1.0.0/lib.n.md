@@ -17,7 +17,7 @@ packs are counsel-gated and held out.
   r14n {
     use { $::* }
     from: "../../snapp/r14n@0.1.0-alpha.1.json"
-    integrity: "sha256-cc4de86f40c7c7f42047630a91f9e3f267673bc72ee2382b300ce7a8a1709bf2"
+    integrity: "sha256-4ef8e3b5223d10de7a170f045860dded96991decd227e2173b4d74bef240ea5e"
   }
 }
 
@@ -28,7 +28,7 @@ policies "HEALTH_AGGRESSIVE" {
     description    = "Fail-closed baseline — the full HealthKit control universe."
     legal_review { status = "not_required" }
   }
-  subjects {
+  subject {
     read       { controls = ["consent_prompt", "usage_description", "on_device_only", "read_scope_limit"] }
     write      { controls = ["consent_prompt", "usage_description", "on_device_only", "audit_log"] }
     // `background` was missing here while the smoke-test copy of this same pack carried it —
@@ -39,7 +39,7 @@ policies "HEALTH_AGGRESSIVE" {
     // test below the Snapps now fails if the two copies diverge again.
     background { controls = ["consent_prompt", "usage_description", "on_device_only", "audit_log"] }
   }
-  legally_required = ["consent_prompt", "usage_description", "on_device_only", "read_scope_limit", "audit_log"]
+  legally_required { controls = ["consent_prompt", "usage_description", "on_device_only", "read_scope_limit", "audit_log"] }
 }
 
 // ── recording_consent ────────────────────────────────────────────────────────
@@ -62,13 +62,13 @@ policies "RECORDING_CONSENT_AGGRESSIVE" {
     description    = "Fail-closed baseline — the full per-rail control universe, every jurisdiction."
     legal_review { status = "not_required" }
   }
-  subjects {
+  subject {
     local_piggyback { controls = ["attestation", "aph_mandate_principal_signed"] }
     telepresence    { controls = ["signal_notice", "indicator_mount", "aph_mandate_principal_signed"] }
     twin_attend     { controls = ["announcement", "aph_mandate_principal_signed"] }
     import          { controls = ["attestation", "aph_mandate_principal_signed"] }
   }
-  legally_required = ["attestation", "signal_notice", "indicator_mount", "announcement", "aph_mandate_principal_signed"]
+  legally_required { controls = ["attestation", "signal_notice", "indicator_mount", "announcement", "aph_mandate_principal_signed"] }
 }
 
 // The floor is ONE control and must never become none: a `minimal` pack with a missing
@@ -81,12 +81,12 @@ policies "RECORDING_CONSENT_MINIMAL" {
     description    = "Least-restrictive floor — only legally-required controls are enforced."
     legal_review { status = "requires_signoff" counsel = "TBD" }
   }
-  subjects {
+  subject {
     local_piggyback { controls = ["attestation"] }
     telepresence    { controls = ["signal_notice"] }
     twin_attend     { controls = ["announcement"] }
     import          { controls = ["attestation"] }
   }
-  legally_required = ["attestation"]
+  legally_required { controls = ["attestation"] }
 }
 ```

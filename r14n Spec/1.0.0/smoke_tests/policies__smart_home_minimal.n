@@ -12,11 +12,11 @@ mod packs {
       description: "Least-restrictive floor — consent + usage description; unconfirmed home-actuation never allowed."
       legal_review: { status: "requires_signoff", counsel: "TBD" }
     }
-    subjects: [
+    subject: [
       { key: "enumerate",  controls: ["consent_prompt", "usage_description"] },
       { key: "read_state", controls: ["consent_prompt", "usage_description"] },
       { key: "control",    controls: ["consent_prompt", "usage_description", "confirmation_token"] }
     ]
-    legally_required: ["consent_prompt", "usage_description", "confirmation_token"]
+    legally_required: { controls: ["consent_prompt", "usage_description", "confirmation_token"] }
   }
 }

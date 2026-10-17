@@ -107,72 +107,83 @@ fn stripping_comments_changes_no_value_in_any_published_pack() {
   }
 }
 
-/// Why: this is an INVERTED tripwire — it asserts a defect, so that fixing the defect turns
-/// it red on purpose.
+/// Why: the emitted keyword-form node now IS a published pack, and this proves it against
+/// the published schema rather than against a hand-list of field names.
 ///
-/// The emitted bundle spells the subject table `subjects` (plural) and emits
-/// `legally_required` as a bare list; the published pack spells them `[subject.<key>]` and
-/// `[legally_required] controls = [...]`, and carries no top-level `domain` at all. So a
-/// STRAIGHT serialization of the emitted tree is not a valid pack — it fails
-/// `schema/pack.schema.json` on all three counts.
+/// This test replaced an inverted tripwire that asserted the opposite. Until 2026-10-16 the
+/// framework type spelled the subject table `subjects` and emitted `legally_required` as a
+/// bare list, so a STRAIGHT serialization of the emitted tree was not a valid pack and some
+/// consumer had to rename and wrap on the way out. The tripwire existed to go red the moment
+/// someone fixed the type — which is what happened, and this is the replacement.
 ///
-/// That gap is what decides how much an exporter must know about RLPS: closing it in the
-/// exporter means a general-purpose tool carrying pack-specific knowledge, while closing it
-/// by renaming the N Lang fields means no tool has to know anything. When someone takes the
-/// rename, this test fails and names the reason — which is the signal that the exporter's
-/// scope just shrank, and it is worth more than the test continuing to pass.
+/// `domain` is the one key the published schema does not allow at top level, and it stays in
+/// the typed source deliberately: a bundle holds MANY packs, and `domain` is what names the
+/// file each one splits into. Deriving it from the bundle key instead would be a projection
+/// again, and one built on a convention the two repositories do not share (here the keys read
+/// `RECORDING_CONSENT_AGGRESSIVE`, downstream they read `CONTACT_IMPORT`). So the writer drops
+/// ONE key, which is a deletion a serializer can do without knowing what an RLPS pack is —
+/// not a shape projection. Whether `domain` should simply become an optional schema property
+/// is a governance question (additive, but it changes a published schema), not a lane one.
 #[test]
-fn the_emitted_bundle_still_needs_a_projection_to_become_a_published_pack() {
+fn every_emitted_keyword_pack_validates_against_the_published_schema() {
   let bundle: ::serde_json::Value =
     ::serde_json::from_str(&read("snapp/r14n_baselines@1.0.0.json"))
       .expect("baselines bundle is not valid JSON");
-  let pack = &bundle["policies"]["RECORDING_CONSENT_AGGRESSIVE"];
-  ::std::assert!(
-    pack.is_object(),
-    "RECORDING_CONSENT_AGGRESSIVE is absent from the emitted bundle — re-export rather than \
-     relaxing this test"
-  );
+  let schema: ::serde_json::Value =
+    ::serde_json::from_str(&read("schema/pack.schema.json")).expect("pack schema");
+  let validator = ::jsonschema::draft202012::options()
+    .build(&schema)
+    .expect("schema/pack.schema.json is not a valid Draft 2020-12 schema");
 
-  ::std::assert!(
-    pack.get("subjects").is_some() && pack.get("subject").is_none(),
-    "the emitted bundle now spells the subject table `subject`, matching the published pack. \
-     A straight serialization may no longer need a rename — re-read \
-     docs/evidence/toml-export/README.md and narrow the exporter's scope."
-  );
-  ::std::assert!(
-    pack["legally_required"].is_array(),
-    "`legally_required` is no longer a bare list in the emitted bundle. If it now carries a \
-     `controls` field it matches the published pack, and the export projection shrank."
-  );
-  ::std::assert!(
-    pack.get("domain").is_some(),
-    "the emitted bundle no longer carries a top-level `domain`. The published schema forbids \
-     it, so an exporter no longer has to drop it."
-  );
+  let packs = bundle["policies"].as_object().expect("bundle has no `policies` object");
+  ::std::assert!(!packs.is_empty(), "no emitted packs — the glob or the export is wrong");
 
-  // The half that must NOT drift: whatever the spelling, the control sets are the published
-  // ones. A rename that also changed a value would otherwise read as a scope win.
-  let published: ::toml::Value =
-    ::toml::from_str(&read("packs/aggressive/recording_consent.r14n.toml"))
-      .expect("published aggressive pack is not valid TOML");
-  let mut emitted: ::std::vec::Vec<::std::string::String> = pack["legally_required"]
-    .as_array()
-    .expect("`legally_required` is not an array")
-    .iter()
-    .filter_map(|v| v.as_str().map(::std::string::String::from))
-    .collect();
-  let mut from_toml: ::std::vec::Vec<::std::string::String> = published["legally_required"]
-    ["controls"]
-    .as_array()
-    .expect("published `[legally_required] controls` is not an array")
-    .iter()
-    .filter_map(|v| v.as_str().map(::std::string::String::from))
-    .collect();
-  emitted.sort();
-  from_toml.sort();
-  ::std::assert_eq!(
-    emitted, from_toml,
-    "the floor differs between the emitted bundle and the published pack — that is a \
-     disagreement about what is always required, not a serialization difference"
-  );
+  let mut checked = 0usize;
+  for (name, node) in packs {
+    let mut pack = node.clone();
+    let removed = pack
+      .as_object_mut()
+      .expect("a pack node is an object")
+      .remove("domain");
+    ::std::assert!(
+      removed.is_some(),
+      "{name} carries no `domain`, so nothing can name the file it splits into"
+    );
+
+    let errors: ::std::vec::Vec<::std::string::String> =
+      validator.iter_errors(&pack).map(|e| ::std::format!("{} at {}", e, e.instance_path)).collect();
+    ::std::assert!(
+      errors.is_empty(),
+      "{name} does not validate against the published pack schema: {errors:?}"
+    );
+    checked += 1;
+  }
+  ::std::assert!(checked > 0, "validated nothing");
+}
+
+/// Why: the whole point of the rename is that NO consumer has to rename or wrap on the way
+/// out, and the way that regresses is someone reintroducing the plural or unwrapping the
+/// floor in the typed source. Asserted on the emitted bytes, which is the only place the
+/// claim is observable — the type declaration could say anything.
+#[test]
+fn the_emitted_shape_needs_no_rename_and_no_wrapping() {
+  let bundle: ::serde_json::Value =
+    ::serde_json::from_str(&read("snapp/r14n_baselines@1.0.0.json"))
+      .expect("baselines bundle is not valid JSON");
+  for (name, pack) in bundle["policies"].as_object().expect("policies") {
+    ::std::assert!(
+      pack.get("subjects").is_none(),
+      "{name} emitted the PLURAL `subjects` again — the published schema spells it `subject`, \
+       and a consumer would have to rename it back"
+    );
+    ::std::assert!(
+      pack["subject"].is_object(),
+      "{name}: `subject` must be a keyed map of control lists, as the schema specifies"
+    );
+    ::std::assert!(
+      pack["legally_required"]["controls"].is_array(),
+      "{name}: `legally_required` lost its `controls` wrapper — the published pack spells it \
+       `[legally_required] controls = [...]`"
+    );
+  }
 }
