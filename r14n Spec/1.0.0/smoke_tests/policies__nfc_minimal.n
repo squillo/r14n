@@ -11,11 +11,11 @@ mod packs {
       description: "Least-restrictive floor — consent + usage description; every scan session-scoped, never ambient polling."
       legal_review: { status: "requires_signoff", counsel: "TBD" }
     }
-    subjects: [
+    subject: [
       { key: "read",           controls: ["consent_prompt", "usage_description"] },
       { key: "write",          controls: ["consent_prompt", "usage_description", "session_scoped"] },
       { key: "background_tag", controls: ["consent_prompt", "usage_description"] }
     ]
-    legally_required: ["consent_prompt", "usage_description", "session_scoped"]
+    legally_required: { controls: ["consent_prompt", "usage_description", "session_scoped"] }
   }
 }

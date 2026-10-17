@@ -15,7 +15,7 @@ load order, and **undeclared sibling files never load**.
 nothing. The Snapp's emitted bundle reported `included_files: 3` and contained zero pack
 instances, so every `<PolicyPack>` instance here — the only exercise the type definition has —
 was dead weight. A type whose instances never compile is a type whose constraints are untested:
-the `values` closed sets, the `format` patterns, and `min_items` on `subjects` all go unchecked.
+the `values` closed sets, the `format` patterns, and `min_items` on `subject` all go unchecked.
 That is the gap this index closes, and it is why a pack added to this directory must also be
 declared below.
 

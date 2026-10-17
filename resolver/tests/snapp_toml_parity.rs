@@ -129,17 +129,22 @@ fn assert_parity(pack_key: &str, profile: &str) {
      different level of counsel review than the other"
   );
 
-  // The floor. Shapes differ by serialization — a bare list in the Snapp, a `controls`
-  // table in TOML — so the CONTENT is compared, not the encoding.
+  // The floor. Both sides now spell it the SAME WAY — `legally_required { controls = [...] }`
+  // in the typed source and `[legally_required] controls = [...]` in TOML — since the
+  // framework type was renamed on 2026-10-16. This comparison used to carry a note that the
+  // shapes "differ by serialization, so the CONTENT is compared, not the encoding". That note
+  // is gone because the difference is gone: the only normalization left is sort order, which
+  // neither side chose.
   ::std::assert_eq!(
-    sorted_strings(s.get("legally_required")),
+    sorted_strings(s.get("legally_required").and_then(|v| v.get("controls"))),
     sorted_toml_strings(t.get("legally_required").and_then(|v| v.get("controls"))),
     "{pack_key}: the legally_required floor disagrees with packs/{profile}/"
   );
 
   // The per-subject table, compared WHOLE: a subject present on one side only is a
   // failure naming that subject, not a silent pass on the subjects that do match.
-  let s_subjects = s["subjects"].as_object().cloned().unwrap_or_default();
+  // Both sides read `subject` — singular — for the same reason as the floor above.
+  let s_subjects = s["subject"].as_object().cloned().unwrap_or_default();
   let t_subjects = t
     .get("subject")
     .and_then(|v| v.as_table())
@@ -217,14 +222,14 @@ fn the_two_in_repo_copies_of_health_aggressive_agree() {
   // Instance form: `subjects` is a list of `{key, controls}` rows. Keyword form: a map.
   let mut a_subjects: ::std::vec::Vec<(::std::string::String, ::std::vec::Vec<::std::string::String>)> =
     ::std::vec::Vec::new();
-  for row in denumber_values(&a["subjects"]) {
+  for row in denumber_values(&a["subject"]) {
     let key = row["key"].as_str().unwrap_or_default();
     a_subjects.push((::std::string::String::from(key), denumber(&row["controls"])));
   }
   a_subjects.sort();
 
   let mut b_subjects: ::std::vec::Vec<(::std::string::String, ::std::vec::Vec<::std::string::String>)> =
-    b["subjects"]
+    b["subject"]
       .as_object()
       .map(|m| {
         m.iter()
@@ -248,7 +253,7 @@ fn the_two_in_repo_copies_of_health_aggressive_agree() {
 #[test]
 fn the_typed_minimal_floor_is_not_empty() {
   let packs = snapp_packs();
-  let floor = sorted_strings(packs["RECORDING_CONSENT_MINIMAL"].get("legally_required"));
+  let floor = sorted_strings(packs["RECORDING_CONSENT_MINIMAL"].get("legally_required").and_then(|v| v.get("controls")));
   ::std::assert!(
     !floor.is_empty(),
     "a minimal pack with an empty floor does not require nothing — it fails closed to the \

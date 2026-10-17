@@ -18,12 +18,12 @@ mod packs {
       description: "Least-restrictive floor — consent + usage description; scoped picker access preferred over full-library."
       legal_review: { status: "requires_signoff", counsel: "TBD" }
     }
-    subjects: [
+    subject: [
       { key: "read",     controls: ["consent_prompt", "usage_description", "limited_selection"] },
       { key: "write",    controls: ["consent_prompt", "usage_description"] },
       { key: "metadata", controls: ["consent_prompt", "usage_description", "no_location_egress"] }
     ]
-    legally_required: ["consent_prompt", "usage_description", "limited_selection"]
+    legally_required: { controls: ["consent_prompt", "usage_description", "limited_selection"] }
     prohibited: ["full_library_access"]
   }
 }

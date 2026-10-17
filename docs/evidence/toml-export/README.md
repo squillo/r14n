@@ -66,38 +66,33 @@ pack: it writes `[subjects.local_piggyback]` and a bare `legally_required` array
 which validates against `schema/pack.schema.json`, and it writes a `domain` key the schema
 does not allow at top level.
 
-There are two ways to close that, and they land in different places:
+**That gap is CLOSED as of 2026-10-16, and it was closed here rather than in the exporter.**
 
-- **The exporter projects.** It renames and wraps on the way out. The projection is
-  pack-specific knowledge living in a general-purpose tool — the exporter would have to know
-  what an RLPS pack is.
-- **The type is renamed instead.** `subjects` → `subject`, and `legally_required` gains a
-  `controls` field, in `r14n Spec/1.0.0/…/R14N_SPEC_KEYWORD_POLICIES_1_0_0.n.md`. Then a
-  straight serialization is already correct and the exporter needs to know nothing about
-  packs.
+Two options existed. The exporter could project — renaming and wrapping on the way out, which
+puts pack-specific knowledge in a general-purpose tool. Or this repository could rename its own
+type so a straight serialization is already correct. The second was taken.
 
-**The first is now decided against, by the lane that would have built it** (2026-10-16): the
-exporter's scope stays "serialize the value tree, plus an author-written passthrough
-preamble", and the projection half is not commissioned.
+`subjects` → `subject`, and `legally_required` / `prohibited` became a `ControlList` block
+carrying `controls`, in `r14n Spec/1.0.0/…/R14N_SPEC_KEYWORD_POLICIES_1_0_0.n.md`. The
+emitted keyword-form node is now **byte-shaped like a published pack**, and
+`tools/tests/toml_export_acceptance.rs` proves it by validating every emitted pack against
+`schema/pack.schema.json` itself rather than against a hand-list of field names.
 
-⚠ **So read what that leaves.** An exporter at that scope cannot, by itself, produce a
-publishable pack from this tree — its output fails `schema/pack.schema.json` on all three
-counts above. A projection step therefore stays on the CONSUMER side permanently, and
-"the published TOML is generated" remains a two-step claim, not a one-step one. That is a
-real limitation of the current plan and it should not be discovered later by someone who
-read "TOML export shipped" and expected a pack.
+The reasoning, since the two options looked interchangeable: the field name is a name THIS
+repository mints, while the subject keys (`telepresence`, `local_piggyback`) are author-declared
+and were already preserved. A name we mint is ours to correct; an author's key is not. And the
+projection a consumer was performing existed only because the producer had shipped a spelling
+and no reader — so the fix belonged at the mint, not at every consumer.
 
-The second closes it properly, and it is **this repository's** change to make, not the
-toolchain's. Its cost is bounded but not trivial: re-emit both bundles, refresh the integrity
-pin in the same change (invariant 11), and a matching re-emit in the downstream consumer
-repository, whose projection step would then become dead code. The consumer's 26 packs now
-share this type across `@deps` rather than re-declaring it, which is what makes the rename
-mechanical there — the field name arrives from here, so the edit is the fence spellings and
-the pins, not 26 re-authorings. It is tracked rather than done silently because doing it
-mid-flight in two repositories is how a pack ships half-migrated.
+**One key still differs, and it is deliberate.** `domain` stays in the typed source: a bundle
+holds many packs and `domain` is what names the file each splits into, so deriving it from the
+bundle key would be a projection again — built on a convention the two repositories do not even
+share (keys read `RECORDING_CONSENT_AGGRESSIVE` here and `CONTACT_IMPORT` downstream). A writer
+drops ONE key, which is a deletion needing no knowledge of what an RLPS pack is. Whether
+`domain` should become an optional schema property instead is additive but changes a PUBLISHED
+schema, so it is a governance question (RFC or Erratum), not a lane one.
 
-`tools/tests/toml_export_acceptance.rs` asserts these three deltas **as they are today**. If
-the rename happens, that test goes red on purpose — it is the signal that the exporter no
-longer needs a projection, and the signal is worth more than the test passing. The toolchain
-lane is explicitly waiting on that tripwire: it will not build for the rename until the test
-turns or someone says so.
+⚠ **The downstream consumer has not re-vendored yet.** Its copy of the framework bundle still
+carries the pre-rename bytes and the matching pin, so it is internally consistent and nothing
+is broken there — but it does not yet have the benefit, and its projection step is still live
+code. Re-vendoring is a change in that repository.
