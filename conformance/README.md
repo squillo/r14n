@@ -61,12 +61,17 @@ report (not silently drop) the vectors it skips. The reference resolver's runner
 (`/resolver/tests/conformance.rs`) pins its supported set and asserts exact run counts, so a
 newly-added vector fails the build until the runner acknowledges it.
 
-Reference-resolver status (2026-10-09): implements all Level-1 capabilities; of Level 2:
-`fail_closed_unknown_subject`, `posture_override`, `data_minimization_guard`, `temporal_envelope`
-(not yet: `rfc4647_negotiation`, `delta_merge`, `most_restrictive_merge`, `deontic_conflict`,
-`gpc_escalation`, `per_domain_posture`, `ieee7012_escalation`, `ambiguous_attribution` —
-normative per spec §4, vectors authored ahead of implementation); of Level 3: all except
-`trust_root_revocation` (needs registry integration).
+Reference-resolver status (2026-10-16): implements all Level-1 capabilities; of Level 2:
+`fail_closed_unknown_subject`, `posture_override`, `data_minimization_guard`,
+`temporal_envelope`, `most_restrictive_merge`, `deontic_conflict`
+(not yet: `rfc4647_negotiation`, `delta_merge`, `gpc_escalation`, `per_domain_posture`,
+`ieee7012_escalation`, `ambiguous_attribution` — normative per spec §4, vectors authored
+ahead of implementation); of Level 3: all except `trust_root_revocation` (needs registry
+integration).
+
+Per `TRADEMARKS.md` this is still **"implements Level 2; Level 2 in progress"** and NOT a
+Level-2 conformance claim: six Level-2 capabilities remain, and the governed wording turns
+only when every vector for a level passes.
 
 **`ambiguous_attribution` is called out deliberately.** Spec §4.1 makes ambiguous jurisdiction
 attribution a fail-closed `verdict = block` condition, so its absence here is the one gap a

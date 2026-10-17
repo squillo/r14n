@@ -361,6 +361,8 @@ mod tests {
         .into_iter()
         .map(|s| crate::ControlKey(::std::string::String::from(s)))
         .collect(),
+      prohibited: ::std::collections::BTreeSet::new(),
+      conflicts: ::std::vec::Vec::new(),
       provenance: crate::PolicyProvenance {
         profile: crate::RegulatoryProfile(::std::string::String::from("aggressive")),
         strictness: crate::Strictness::AsConfigured,
