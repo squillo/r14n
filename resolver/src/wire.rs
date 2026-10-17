@@ -51,6 +51,14 @@ struct WireQuery {
   #[serde(default)]
   per_domain_posture_overrides:
     ::std::collections::BTreeMap<::std::string::String, ::std::string::String>,
+  /// Spec §4 step 5 — a `Sec-GPC: 1` signal. Escalates the subject to
+  /// `aggressive` regardless of configured posture. Default false.
+  #[serde(default)]
+  gpc_signal: bool,
+  /// Spec §4 step 5 — an IEEE-7012 `NoRecording` term. Same effect, different
+  /// source. Default false.
+  #[serde(default)]
+  ieee7012_no_recording: bool,
 }
 
 impl WireQuery {
@@ -71,6 +79,8 @@ impl WireQuery {
         .into_iter()
         .map(|(d, s)| (d, crate::Strictness::parse(&s)))
         .collect(),
+      gpc_signal: self.gpc_signal,
+      ieee7012_no_recording: self.ieee7012_no_recording,
     }
   }
 }

@@ -12,6 +12,37 @@ History banner in the spec for normative changes), rather than forking a version
 
 ## [0.1.0-draft]
 
+### Added (revision 2026-10-17 — GPC and IEEE-7012 escalation, spec §4 step 5)
+
+- **`gpc_escalation` and `ieee7012_escalation` are implemented.** A query may carry
+  `gpc_signal` (a `Sec-GPC: 1` signal) or `ieee7012_no_recording` (an IEEE-7012 `NoRecording`
+  term); either escalates the subject to `aggressive` regardless of configured posture.
+  Level-2 vectors run 15 of 17 — only `rfc4647_negotiation` and `delta_merge` remain
+  authored-ahead.
+
+  **Escalate-only, by construction.** `aggressive` is the maximum posture — the caller's whole
+  declared universe — so forcing it can only ever require MORE. There is deliberately no
+  inverse: no signal here can relax a posture, because a relaxation arriving as a request
+  header is precisely what a fail-closed standard must not honour.
+
+  **It sits ABOVE the posture ladder, not inside it.** "Regardless of configured posture" means
+  it beats the pack's declared posture, the global dial AND a per-domain override. Both
+  conformance vectors supply no override at all, so a resolver that folded escalation into the
+  ladder would pass them and still lose to the most specific rung — pinned by a test that
+  supplies one.
+
+  **It does not override a prohibition.** Spec §3 says no posture may ADD a prohibited
+  control, "including Aggressive", so an escalated decision is the universe MINUS the
+  prohibition. A resolver that short-circuited to `query.universe` on a signal would hand back
+  a control the pack forbids — the under-forbidding direction, and the worse one.
+
+  **It is not a fallback.** A pack governed the decision; escalation changed which table was
+  read. `fell_back` stays false, or every gate filtering for unreviewed decisions would flag an
+  escalated one and the signal that means "no pack governed" would lose its meaning. The
+  provenance `source` carries an `<escalated:…>` marker naming the signals — both when both
+  fired — because `strictness = aggressive` against a pack declaring `minimal` otherwise looks
+  to an auditor like the pack and the receipt disagree.
+
 ### Changed (revision 2026-10-17 — the consumer declares the version it folds)
 
 - **`baselines/1.0.0` now pins its dependency by `name@version`**, not just by hash:

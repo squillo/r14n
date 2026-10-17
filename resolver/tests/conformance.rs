@@ -29,6 +29,8 @@ const SUPPORTED: &[&str] = &[
   "deontic_conflict",
   "ambiguous_attribution",
   "per_domain_posture",
+  "gpc_escalation",
+  "ieee7012_escalation",
 ];
 
 fn vectors_file(name: &str) -> ::serde_json::Value {
@@ -182,6 +184,13 @@ fn run_suite(name: &str) -> (usize, ::std::vec::Vec<::std::string::String>) {
             .collect()
         })
         .unwrap_or_default(),
+      // Spec §4 step 5 — escalation signals. Absent reads false, which is the
+      // only safe default: a missing signal must not be read as "escalate".
+      gpc_signal: q.get("gpc_signal").and_then(|v| v.as_bool()).unwrap_or(false),
+      ieee7012_no_recording: q
+        .get("ieee7012_no_recording")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false),
     };
     let override_ = q["posture_override"].as_str().map(::r14n::Strictness::parse);
     let adapter = ::r14n::TomlRegulatoryPolicyAdapter::new(tmp.path().to_path_buf(), override_);
@@ -288,10 +297,14 @@ fn conformance_level_2_configured_supported_subset() {
   // amount of correctly resolving the wrong jurisdiction repairs a wrong answer to that.
   // 13 since 2026-10-17: + per_domain_posture_override_is_most_specific (spec §3). The first
   // vector where TWO postures are supplied at once and the answer depends on which wins.
-  ::std::assert_eq!(ran, 13, "level-2 supported-vector count drifted");
+  // 15 since 2026-10-17: + gpc_signal_escalates_subject_to_aggressive and
+  // ieee7012_no_recording_escalates_subject_to_aggressive (spec §4 step 5). Both pack
+  // fixtures declare `minimal` and the expectation is the WHOLE universe, so a resolver that
+  // ignored the signal would return the floor and look perfectly well-formed.
+  ::std::assert_eq!(ran, 15, "level-2 supported-vector count drifted");
   ::std::assert_eq!(
     skipped.len(),
-    4,
+    2,
     "level-2 skip count drifted (capability implemented? update SUPPORTED + counts): {skipped:?}"
   );
 }

@@ -64,13 +64,13 @@ newly-added vector fails the build until the runner acknowledges it.
 Reference-resolver status (2026-10-17): implements all Level-1 capabilities; of Level 2:
 `fail_closed_unknown_subject`, `posture_override`, `data_minimization_guard`,
 `temporal_envelope`, `most_restrictive_merge`, `deontic_conflict`, `ambiguous_attribution`,
-`per_domain_posture`
-(not yet: `rfc4647_negotiation`, `delta_merge`, `gpc_escalation`, `ieee7012_escalation` —
-normative per spec §4, vectors authored ahead of implementation);
-of Level 3: all except `trust_root_revocation` (needs registry integration).
+`per_domain_posture`, `gpc_escalation`, `ieee7012_escalation`
+(not yet: `rfc4647_negotiation`, `delta_merge` — normative per spec §4, vectors authored
+ahead of implementation); of Level 3: all except `trust_root_revocation` (needs registry
+integration).
 
 Per `TRADEMARKS.md` this is still **"implements Level 2; Level 2 in progress"** and NOT a
-Level-2 conformance claim: four Level-2 capabilities remain, and the governed wording turns
+Level-2 conformance claim: two Level-2 capabilities remain, and the governed wording turns
 only when every vector for a level passes.
 
 **`ambiguous_attribution` is implemented as of 2026-10-17**, and it was called out here for
