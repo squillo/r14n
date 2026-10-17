@@ -25,6 +25,8 @@ const SUPPORTED: &[&str] = &[
   "trust_root_taint",
   "receipt_27560",
   "receipt_kantara",
+  "most_restrictive_merge",
+  "deontic_conflict",
 ];
 
 fn vectors_file(name: &str) -> ::serde_json::Value {
@@ -38,6 +40,23 @@ fn vectors_file(name: &str) -> ::serde_json::Value {
     .unwrap_or_else(|e| ::std::panic!("parse {}: {e}", path.display()))
 }
 
+
+/// An OPTIONAL array field: absent or `null` reads as empty.
+///
+/// Deliberately separate from `str_vec`, which panics on a non-array and must
+/// keep doing so — every field it reads is required, and a vector that omitted
+/// one would otherwise assert nothing. Widening `str_vec` to tolerate absence
+/// would make that strictness disappear for ALL of them to serve one optional
+/// field. `jurisdictions` is the only field a vector may legitimately omit.
+fn str_vec_opt(v: ::std::option::Option<&::serde_json::Value>) -> ::std::vec::Vec<::std::string::String> {
+  match v {
+    ::std::option::Option::Some(::serde_json::Value::Array(items)) => items
+      .iter()
+      .map(|s| ::std::string::String::from(s.as_str().expect("string element")))
+      .collect(),
+    _ => ::std::vec::Vec::new(),
+  }
+}
 fn str_vec(v: &::serde_json::Value) -> ::std::vec::Vec<::std::string::String> {
   v.as_array()
     .expect("array")
@@ -143,7 +162,16 @@ fn run_suite(name: &str) -> (usize, ::std::vec::Vec<::std::string::String>) {
     };
     let override_ = q["posture_override"].as_str().map(::r14n::Strictness::parse);
     let adapter = ::r14n::TomlRegulatoryPolicyAdapter::new(tmp.path().to_path_buf(), override_);
-    let decision = ::r14n::RegulatoryPolicyPort::required_controls(&adapter, &query);
+    // Spec §4.2: a vector carrying `jurisdictions` is a CROSS-JURISDICTION query.
+    // Routed through the merge door unconditionally — it resolves a single
+    // jurisdiction unchanged when the list is empty, so every pre-existing vector
+    // takes the identical path it did before this capability landed.
+    let jurisdictions = str_vec_opt(q.get("jurisdictions"));
+    let decision = ::r14n::RegulatoryPolicyPort::resolve_across_jurisdictions(
+      &adapter,
+      &query,
+      &jurisdictions,
+    );
 
     // Decision expectations — CLOSED SET (council-audit M6): every key in
     // `expect` must be one this runner knows how to assert, else a typo'd or
@@ -227,10 +255,15 @@ fn conformance_level_2_configured_supported_subset() {
   // cannot run at all, because the fallback has no pack to read `[prohibited]` from. Two
   // vectors now share a universe and a prohibited key and disagree about the outcome; the
   // only difference between them is whether a pack governed.
-  ::std::assert_eq!(ran, 9, "level-2 supported-vector count drifted");
+  // 11 since 2026-10-16: + most_restrictive_merge_unions_required_sets and
+  // deontic_conflict_required_vs_prohibited_blocks (spec §4.2). These are the first vectors
+  // in the suite that resolve a query MORE THAN ONCE, and the first that can produce
+  // `verdict = block` from the reference resolver at all — every earlier vector permits,
+  // because fail-closed here means "require everything", which is still a permit.
+  ::std::assert_eq!(ran, 11, "level-2 supported-vector count drifted");
   ::std::assert_eq!(
     skipped.len(),
-    8,
+    6,
     "level-2 skip count drifted (capability implemented? update SUPPORTED + counts): {skipped:?}"
   );
 }

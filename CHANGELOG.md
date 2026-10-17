@@ -12,6 +12,41 @@ History banner in the spec for normative changes), rather than forking a version
 
 ## [0.1.0-draft]
 
+### Added (revision 2026-10-16 — cross-jurisdiction merge, spec §4.2)
+
+- **The reference resolver implements the most-restrictive merge and the deontic-conflict
+  rule** (spec §4.2, normative). A session spanning jurisdictions `J1..Jn` now resolves
+  against each jurisdiction's pack independently and merges: `required` is the UNION of the
+  per-jurisdiction sets, the verdict is `block` if any per-jurisdiction resolution blocks, and
+  a control required by one jurisdiction while marked `prohibition` by another is unsatisfiable
+  — `verdict = block`, with the conflicting control key and BOTH jurisdictions recorded.
+  `conformance/level-2.json`'s two vectors for these capabilities now run (11 of 17 level-2
+  vectors, up from 9; 6 remain authored-ahead).
+
+  Two capabilities is **not** a Level-2 conformance claim. Per `TRADEMARKS.md` the governed
+  wording stays "implements Level 2; Level 2 in progress" until every vector for the level
+  passes — `rfc4647_negotiation`, `delta_merge`, `gpc_escalation`, `per_domain_posture`,
+  `ieee7012_escalation` and `ambiguous_attribution` are still open.
+
+- **`ControlDecision` now surfaces `prohibited` and `conflicts`** (additive; the `prohibited`
+  set was previously computed, used to subtract from `required`, and discarded). Two reasons,
+  one of which is a fix rather than a feature:
+
+  1. §4.2.3 cannot be implemented without the forbidden set — a merge has to compare what one
+     jurisdiction requires against what another forbids.
+  2. A caller could not previously tell "not required" from "forbidden" at all. That matters
+     because a fail-closed fallback **over-requires** (the whole universe) while
+     **under-forbidding** (nothing, since no pack was read), so `prohibited` is empty on a
+     `fell_back` decision and is NOT evidence that nothing is prohibited. The asymmetry is now
+     visible to a caller instead of being implicit in the resolver; it remains the reason a
+     prohibition key must never appear in a caller's universe.
+
+  Both fields are additive and reach the JS/TS and Python packages through
+  `resolver/src/wire.rs` — the merge lives in the core and the shims gained no logic
+  (bindings policy). Verified end-to-end through the wasm boundary: a cross-jurisdiction query
+  returns `block` with the conflict naming both jurisdictions, and a query that omits
+  `jurisdictions` resolves exactly as before.
+
 ### Changed (revision 2026-08-23 — public-repo preparation)
 
 - **The vocabulary namespace moved** from its previous host to `https://r14n.squillo.com/ns#` —

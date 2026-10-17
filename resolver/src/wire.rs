@@ -37,6 +37,11 @@ struct WireQuery {
   universe: ::std::vec::Vec<::std::string::String>,
   #[serde(default)]
   as_of: ::std::option::Option<::std::string::String>,
+  /// Spec §4.2 — resolve against EACH jurisdiction and merge most-restrictively.
+  /// Absent or empty resolves `profile` once, which is the single-jurisdiction
+  /// behaviour every existing caller already has.
+  #[serde(default)]
+  jurisdictions: ::std::vec::Vec<::std::string::String>,
 }
 
 impl WireQuery {
@@ -63,12 +68,26 @@ struct WireProvenance {
   fell_back: bool,
 }
 
+/// The wire form of [`crate::DeonticConflict`] (spec §4.2.3).
+#[derive(::serde::Serialize)]
+struct WireConflict {
+  control: ::std::string::String,
+  required_by: ::std::string::String,
+  prohibited_by: ::std::string::String,
+}
+
 /// The wire form of [`crate::ControlDecision`]. `required` is emitted in
 /// BTreeSet order, so the JSON is byte-stable across hosts and runs.
 #[derive(::serde::Serialize)]
 struct WireDecision {
   verdict: ::std::string::String,
   required: ::std::vec::Vec<::std::string::String>,
+  /// Spec §3 `prohibition`, intersected with the query universe. Empty under
+  /// `fell_back` — a fallback read no pack, so it knows of no prohibition.
+  prohibited: ::std::vec::Vec<::std::string::String>,
+  /// Spec §4.2.3. Non-empty implies `verdict == "block"`; each entry names the
+  /// control and BOTH jurisdictions, which the spec makes a MUST.
+  conflicts: ::std::vec::Vec<WireConflict>,
   provenance: WireProvenance,
   disclaimer: &'static str,
 }
@@ -78,6 +97,20 @@ impl WireDecision {
     Self {
       verdict: ::std::string::String::from(d.verdict.as_str()),
       required: d.required.iter().map(|c| ::std::string::String::from(c.as_str())).collect(),
+      prohibited: d
+        .prohibited
+        .iter()
+        .map(|c| ::std::string::String::from(c.as_str()))
+        .collect(),
+      conflicts: d
+        .conflicts
+        .iter()
+        .map(|c| WireConflict {
+          control: ::std::string::String::from(c.control.as_str()),
+          required_by: c.required_by.clone(),
+          prohibited_by: c.prohibited_by.clone(),
+        })
+        .collect(),
       provenance: WireProvenance {
         profile: d.provenance.profile.0.clone(),
         strictness: ::std::string::String::from(d.provenance.strictness.as_str()),
@@ -168,13 +201,21 @@ fn decide(
   let packs: ::std::collections::BTreeMap<::std::string::String, ::std::string::String> =
     ::serde_json::from_str(packs_json)
       .map_err(|e| ::std::format!("packs_json is not an object of path->toml strings: {e}"))?;
-  let query: WireQuery = ::serde_json::from_str(query_json)
+  let mut query: WireQuery = ::serde_json::from_str(query_json)
     .map_err(|e| ::std::format!("query_json is not a valid RegulatoryQuery: {e}"))?;
   let dial = strictness_override.map(crate::Strictness::parse);
   let adapter = crate::InMemoryRegulatoryPolicyAdapter::new(packs, dial);
-  ::std::result::Result::Ok(crate::RegulatoryPolicyPort::required_controls(
+  // ONE door for both shapes. `resolve_across_jurisdictions` resolves `query`
+  // unchanged when the list is empty, so a single-jurisdiction caller reaches
+  // exactly the same code path it always did and a host never has to branch —
+  // which is also why the §4.2 merge lives in the core and not in a shim
+  // (bindings policy: logic added to a shim is logic the other language never
+  // gets).
+  let jurisdictions = ::std::mem::take(&mut query.jurisdictions);
+  ::std::result::Result::Ok(crate::RegulatoryPolicyPort::resolve_across_jurisdictions(
     &adapter,
     &query.into_core(),
+    &jurisdictions,
   ))
 }
 

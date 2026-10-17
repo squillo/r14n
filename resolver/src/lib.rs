@@ -220,8 +220,77 @@ pub struct ControlDecision {
   pub verdict: Verdict,
   /// The controls the caller MUST satisfy (a subset of the query universe).
   pub required: ::std::collections::BTreeSet<ControlKey>,
+  /// The controls the resolved pack FORBIDS, intersected with the query universe
+  /// (spec §3 `prohibition`).
+  ///
+  /// Surfaced because `required` alone cannot tell "not required" apart from
+  /// "forbidden", and §4.2.3 cannot detect a cross-jurisdiction deontic conflict
+  /// without the forbidden set. Held in the same frame as `required`, so
+  /// `required` and `prohibited` are always disjoint within one decision: a
+  /// prohibition on a control the caller could not enforce anyway changes no
+  /// outcome.
+  ///
+  /// EMPTY UNDER FALLBACK, and that is the asymmetry to design around. A
+  /// fail-closed fallback over-requires (the whole universe) AND under-forbids
+  /// (nothing at all, because no pack was read). A `fell_back` decision is
+  /// therefore NOT evidence that nothing is prohibited, which is exactly why a
+  /// prohibition key must never appear in a caller universe.
+  pub prohibited: ::std::collections::BTreeSet<ControlKey>,
+  /// Unsatisfiable required-vs-prohibited pairs found while merging across
+  /// jurisdictions (spec §4.2.3). Non-empty implies `verdict == Block`.
+  ///
+  /// Recording these is a spec MUST, not a courtesy: a bare `block` tells a
+  /// caller it may not proceed but not what to escalate, and §4.2.3 forbids
+  /// resolving the conflict by silently dropping either side.
+  pub conflicts: ::std::vec::Vec<DeonticConflict>,
   /// How this decision was reached.
   pub provenance: PolicyProvenance,
+}
+
+
+/// The more restrictive of two postures, for the cross-jurisdiction merge
+/// (spec §4.2 rule 1).
+///
+/// Order is Aggressive > AsConfigured > Minimal, and `Other(_)` ranks WITH
+/// Aggressive rather than below it: an unrecognised posture is already treated
+/// as require-everything everywhere else in this resolver, and ranking an
+/// unknown word as permissive is how a typo in one pack would relax a merged
+/// session.
+fn most_restrictive(a: Strictness, b: Strictness) -> Strictness {
+  fn rank(s: &Strictness) -> u8 {
+    match s {
+      Strictness::Aggressive | Strictness::Other(_) => 2,
+      Strictness::AsConfigured => 1,
+      Strictness::Minimal => 0,
+    }
+  }
+  if rank(&b) > rank(&a) {
+    b
+  } else {
+    a
+  }
+}
+/// One unsatisfiable required-vs-prohibited pair across two jurisdictions
+/// (spec §4.2.3).
+///
+/// The spec requires the receipt to record "the conflicting control key and both
+/// jurisdictions", so all three travel together. A `Vec<ControlKey>` would have
+/// satisfied the verdict and failed the record.
+#[derive(
+  ::std::clone::Clone,
+  ::std::fmt::Debug,
+  ::std::cmp::PartialEq,
+  ::std::cmp::Eq,
+  ::std::cmp::PartialOrd,
+  ::std::cmp::Ord,
+)]
+pub struct DeonticConflict {
+  /// The control one jurisdiction requires and another forbids.
+  pub control: ControlKey,
+  /// The jurisdiction whose pack REQUIRES `control`.
+  pub required_by: ::std::string::String,
+  /// The jurisdiction whose pack marks `control` prohibited.
+  pub prohibited_by: ::std::string::String,
 }
 
 impl ControlDecision {
@@ -247,6 +316,124 @@ pub trait RegulatoryPolicyPort:
 {
   /// Resolve the required controls for `query`.
   fn required_controls(&self, query: &RegulatoryQuery) -> ControlDecision;
+
+  /// Resolve across jurisdictions `J1..Jn` and merge MOST-RESTRICTIVELY
+  /// (spec §4.2, normative).
+  ///
+  /// A provided method, not a per-adapter one, deliberately: §4.2 says a
+  /// *resolver* MUST merge this way, so every adapter in this crate inherits one
+  /// implementation and none can drift. Each jurisdiction names its own pack
+  /// chain, so the sub-query carries it as BOTH the profile (which selects the
+  /// pack) and the jurisdiction key (which packs may vary controls by).
+  ///
+  /// The four rules, in order:
+  ///   1. merged `required` is the UNION of the per-jurisdiction required sets;
+  ///   2. the merged verdict is `block` if ANY per-jurisdiction resolution blocks;
+  ///   3. a control required by one jurisdiction and prohibited by another is
+  ///      unsatisfiable — verdict `block`, and both jurisdictions recorded;
+  ///   4. the merge stays within one domain (§3 per-domain independence holds).
+  ///
+  /// An empty `jurisdictions` resolves `query` unchanged, so a caller may route
+  /// every query through here without branching.
+  ///
+  /// ⚠ UNION, NOT INTERSECTION, AND NOT A DROP. Merging the other way would
+  /// relax a session to the most permissive jurisdiction it touches, and
+  /// dropping a conflicting control would silently satisfy a query the spec says
+  /// is unsatisfiable. Both are the same class of mistake as "fixing" a
+  /// fail-closed fallback into a permissive default.
+  fn resolve_across_jurisdictions(
+    &self,
+    query: &RegulatoryQuery,
+    jurisdictions: &[::std::string::String],
+  ) -> ControlDecision {
+    if jurisdictions.is_empty() {
+      return self.required_controls(query);
+    }
+
+    let mut required: ::std::collections::BTreeSet<ControlKey> =
+      ::std::collections::BTreeSet::new();
+    let mut prohibited: ::std::collections::BTreeSet<ControlKey> =
+      ::std::collections::BTreeSet::new();
+    // Per jurisdiction, kept separate from the unions so §4.2.3 can name BOTH
+    // sides of a conflict. Collapsing to unions first loses which one said what.
+    let mut per: ::std::vec::Vec<(::std::string::String, ControlDecision)> =
+      ::std::vec::Vec::new();
+    let mut blocked = false;
+    let mut fell_back = false;
+    let mut sources: ::std::vec::Vec<::std::string::String> = ::std::vec::Vec::new();
+    let mut strictness = ::std::option::Option::None::<Strictness>;
+
+    for j in jurisdictions {
+      let sub = RegulatoryQuery {
+        domain: query.domain.clone(),
+        profile: RegulatoryProfile(j.clone()),
+        jurisdiction: j.clone(),
+        subject: query.subject.clone(),
+        universe: query.universe.clone(),
+        as_of: query.as_of.clone(),
+      };
+      let d = self.required_controls(&sub);
+      required.extend(d.required.iter().cloned());
+      prohibited.extend(d.prohibited.iter().cloned());
+      blocked = blocked || ::std::matches!(d.verdict, Verdict::Block);
+      // ANY jurisdiction falling back taints the merge: the merged set is then
+      // partly a fail-closed guess, and a caller that read `fell_back = false`
+      // would believe a reviewed pack governed all of it.
+      fell_back = fell_back || d.provenance.fell_back;
+      sources.push(::std::format!("{j}={}", d.provenance.source));
+      strictness = ::std::option::Option::Some(match strictness.take() {
+        ::std::option::Option::Some(acc) => most_restrictive(acc, d.provenance.strictness.clone()),
+        ::std::option::Option::None => d.provenance.strictness.clone(),
+      });
+      per.push((j.clone(), d));
+    }
+
+    // §4.2.3 — required HERE against prohibited THERE. A sub-resolution already
+    // subtracted its own pack's prohibitions, so a conflict is cross-jurisdiction
+    // by construction and this loop cannot report a pack against itself.
+    let mut conflicts: ::std::vec::Vec<DeonticConflict> = ::std::vec::Vec::new();
+    for (ja, da) in &per {
+      for (jb, db) in &per {
+        if ja == jb {
+          continue;
+        }
+        for control in da.required.intersection(&db.prohibited) {
+          conflicts.push(DeonticConflict {
+            control: control.clone(),
+            required_by: ja.clone(),
+            prohibited_by: jb.clone(),
+          });
+        }
+      }
+    }
+    conflicts.sort();
+    conflicts.dedup();
+
+    let verdict = if blocked || !conflicts.is_empty() {
+      Verdict::Block
+    } else {
+      Verdict::Permit
+    };
+
+    ControlDecision {
+      verdict,
+      required,
+      prohibited,
+      conflicts,
+      provenance: PolicyProvenance {
+        profile: query.profile.clone(),
+        strictness: strictness.unwrap_or(Strictness::Aggressive),
+        source: ::std::format!("<merge:{}>", sources.join(",")),
+        // A merge spans packs whose review states may differ, and there is no
+        // honest single value for the pair. Left None rather than picking one:
+        // reporting one pack's `approved` for a merged decision would overstate
+        // what counsel reviewed.
+        legal_review_status: ::std::option::Option::None,
+        last_reviewed_against_guidance: ::std::option::Option::None,
+        fell_back,
+      },
+    }
+  }
 }
 
 /// Composition alias (§11.21).
@@ -265,6 +452,11 @@ fn aggressive_over_universe(
   ControlDecision {
     verdict: Verdict::Permit,
     required: query.universe.clone(),
+    // A fallback read NO pack, so it knows of no prohibition. Empty here is the
+    // under-forbidding half of the fail-closed asymmetry, not an assertion that
+    // nothing is forbidden -- see the field doc on `prohibited`.
+    prohibited: ::std::collections::BTreeSet::new(),
+    conflicts: ::std::vec::Vec::new(),
     provenance: PolicyProvenance {
       profile: query.profile.clone(),
       strictness: Strictness::Aggressive,
@@ -447,18 +639,26 @@ fn decide_from_pack_text(
   // resolved pack marks prohibited — subtract [prohibited] from EVERY posture's
   // set, including Aggressive ("aggressive" = union of permitted-or-required,
   // never prohibited).
-  let required: ::std::collections::BTreeSet<ControlKey> = match &pack.prohibited {
+  //
+  // The prohibited set is also RETAINED on the decision now, not just consumed
+  // here: §4.2.3 cannot detect a cross-jurisdiction conflict without it, and a
+  // caller could not previously tell "not required" from "forbidden" at all.
+  // Intersected with the universe so it shares `required`'s frame.
+  let prohibited: ::std::collections::BTreeSet<ControlKey> = match &pack.prohibited {
     ::std::option::Option::Some(p) => {
-      let prohibited = control_set(p);
-      required.into_iter().filter(|k| !prohibited.contains(k)).collect()
+      controls_in_universe(p, &query.universe)
     }
-    ::std::option::Option::None => required,
+    ::std::option::Option::None => ::std::collections::BTreeSet::new(),
   };
+  let required: ::std::collections::BTreeSet<ControlKey> =
+    required.into_iter().filter(|k| !prohibited.contains(k)).collect();
 
   let legal_review_status = pack.meta.legal_review.and_then(|r| r.status);
   ControlDecision {
     verdict: Verdict::Permit,
     required,
+    prohibited,
+    conflicts: ::std::vec::Vec::new(),
     provenance: PolicyProvenance {
       profile: query.profile.clone(),
       strictness,
@@ -584,6 +784,192 @@ impl RegulatoryPolicyPort for InMemoryRegulatoryPolicyAdapter {
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
+
+/// Cross-jurisdiction merge (spec §4.2). These sit beside the conformance
+/// vectors deliberately: the vectors pin the two outcomes the standard
+/// publishes, and these pin the DIRECTIONS the implementation could silently
+/// go wrong in without any vector noticing.
+#[cfg(test)]
+mod merge_tests {
+  fn adapter(
+    packs: &[(&str, &str)],
+  ) -> crate::InMemoryRegulatoryPolicyAdapter {
+    crate::InMemoryRegulatoryPolicyAdapter::new(
+      packs
+        .iter()
+        .map(|(k, v)| (::std::string::String::from(*k), ::std::string::String::from(*v)))
+        .collect(),
+      ::std::option::Option::None,
+    )
+  }
+
+  fn query(universe: &[&str]) -> crate::RegulatoryQuery {
+    crate::RegulatoryQuery {
+      domain: ::std::string::String::from("recording_consent"),
+      profile: crate::RegulatoryProfile(::std::string::String::from("base")),
+      jurisdiction: ::std::string::String::from("multi"),
+      subject: ::std::string::String::from("telepresence"),
+      universe: universe
+        .iter()
+        .map(|c| crate::ControlKey(::std::string::String::from(*c)))
+        .collect(),
+      as_of: ::std::option::Option::None,
+    }
+  }
+
+  fn js(names: &[&str]) -> ::std::vec::Vec<::std::string::String> {
+    names.iter().map(|n| ::std::string::String::from(*n)).collect()
+  }
+
+  const A: &str = "[meta]\nstrictness = \"as_configured\"\n\n[subject.telepresence]\ncontrols = [\"attestation\"]\n\n[legally_required]\ncontrols = [\"attestation\"]\n";
+  const B: &str = "[meta]\nstrictness = \"as_configured\"\n\n[subject.telepresence]\ncontrols = [\"signal_notice\"]\n\n[legally_required]\ncontrols = [\"signal_notice\"]\n";
+
+  /// Why: §4.2 rule 1 says UNION, and the failure that matters is the merge
+  /// going the other way. An intersection — or taking the first jurisdiction and
+  /// stopping — returns a STRICT SUBSET, which reads as a successful decision
+  /// and silently relaxes a session to its most permissive jurisdiction. That is
+  /// the same class of defect as "fixing" a fail-closed fallback into a
+  /// permissive default, and nothing about the output would look wrong.
+  #[test]
+  fn the_merge_unions_and_is_a_superset_of_every_part() {
+    let ad = adapter(&[
+      ("ja/recording_consent.r14n.toml", A),
+      ("jb/recording_consent.r14n.toml", B),
+    ]);
+    let q = query(&["attestation", "signal_notice", "aph_mandate"]);
+    let merged = crate::RegulatoryPolicyPort::resolve_across_jurisdictions(&ad, &q, &js(&["ja", "jb"]));
+
+    let got: ::std::vec::Vec<&str> = merged.required.iter().map(|c| c.as_str()).collect();
+    ::std::assert_eq!(got, ["attestation", "signal_notice"], "merge is not the union");
+
+    // And a superset of each part, checked against the parts themselves rather
+    // than a literal, so this keeps holding if the fixtures change.
+    for j in ["ja", "jb"] {
+      let one = crate::RegulatoryPolicyPort::resolve_across_jurisdictions(&ad, &q, &js(&[j]));
+      ::std::assert!(
+        one.required.is_subset(&merged.required),
+        "{j} requires something the merge dropped: {:?} vs {:?}",
+        one.required,
+        merged.required
+      );
+    }
+  }
+
+  /// Why: §4.2.3 makes recording the conflict a MUST — "the receipt MUST record
+  /// the conflicting control key and both jurisdictions". A resolver that returns
+  /// a bare `block` satisfies the verdict and fails the record: the caller is
+  /// told it may not proceed and cannot tell anyone WHY, which is unactionable
+  /// at exactly the moment someone needs to escalate. Both directions of the
+  /// pair are asserted, because naming only the prohibiting side would read as
+  /// correct in a one-conflict test.
+  #[test]
+  fn a_deontic_conflict_names_the_control_and_both_jurisdictions() {
+    const REQUIRES: &str = "[meta]\nstrictness = \"as_configured\"\n\n[subject.telepresence]\ncontrols = [\"aph_mandate\"]\n\n[legally_required]\ncontrols = [\"aph_mandate\"]\n";
+    const PROHIBITS: &str = "[meta]\nstrictness = \"as_configured\"\n\n[subject.telepresence]\ncontrols = [\"signal_notice\"]\n\n[legally_required]\ncontrols = [\"signal_notice\"]\n\n[prohibited]\ncontrols = [\"aph_mandate\"]\n";
+    let ad = adapter(&[
+      ("j_requires/recording_consent.r14n.toml", REQUIRES),
+      ("j_prohibits/recording_consent.r14n.toml", PROHIBITS),
+    ]);
+    let q = query(&["attestation", "signal_notice", "aph_mandate"]);
+    let d = crate::RegulatoryPolicyPort::resolve_across_jurisdictions(
+      &ad,
+      &q,
+      &js(&["j_requires", "j_prohibits"]),
+    );
+
+    ::std::assert_eq!(d.verdict, crate::Verdict::Block, "an unsatisfiable query must block");
+    ::std::assert_eq!(d.conflicts.len(), 1, "expected exactly one conflict: {:?}", d.conflicts);
+    ::std::assert_eq!(d.conflicts[0].control.as_str(), "aph_mandate");
+    ::std::assert_eq!(d.conflicts[0].required_by, "j_requires");
+    ::std::assert_eq!(d.conflicts[0].prohibited_by, "j_prohibits");
+    // §4.2.3 also forbids resolving the conflict by dropping a side. The control
+    // stays in `required` AND in `prohibited`, so the contradiction is visible
+    // rather than tidied away into a set that looks satisfiable.
+    ::std::assert!(
+      d.required.iter().any(|c| c.as_str() == "aph_mandate"),
+      "the conflicting control was dropped from `required` — that is the silent resolution \
+       §4.2.3 forbids"
+    );
+    ::std::assert!(d.prohibited.iter().any(|c| c.as_str() == "aph_mandate"));
+  }
+
+  /// Why: a conflict is CROSS-jurisdiction by definition. Within one pack the
+  /// data-minimization guard already subtracts `[prohibited]` from `required`,
+  /// so a self-conflict is impossible — but an implementation that compared
+  /// every pair INCLUDING a pack against itself would report one anyway, and
+  /// would block a single perfectly satisfiable jurisdiction. That failure is
+  /// invisible in the two-jurisdiction vectors.
+  #[test]
+  fn a_pack_that_prohibits_what_it_does_not_require_does_not_conflict_with_itself() {
+    const SELF: &str = "[meta]\nstrictness = \"as_configured\"\n\n[subject.telepresence]\ncontrols = [\"attestation\", \"aph_mandate\"]\n\n[legally_required]\ncontrols = [\"attestation\"]\n\n[prohibited]\ncontrols = [\"aph_mandate\"]\n";
+    let ad = adapter(&[("solo/recording_consent.r14n.toml", SELF)]);
+    let q = query(&["attestation", "signal_notice", "aph_mandate"]);
+    let d = crate::RegulatoryPolicyPort::resolve_across_jurisdictions(&ad, &q, &js(&["solo"]));
+    ::std::assert!(d.conflicts.is_empty(), "self-conflict reported: {:?}", d.conflicts);
+    ::std::assert_eq!(d.verdict, crate::Verdict::Permit);
+    ::std::assert!(!d.required.iter().any(|c| c.as_str() == "aph_mandate"), "guard did not subtract");
+    ::std::assert!(d.prohibited.iter().any(|c| c.as_str() == "aph_mandate"), "prohibited not surfaced");
+  }
+
+  /// Why: invariant 1 is that a missing pack fails closed, and a MERGE must not
+  /// launder that. If one jurisdiction has no pack, part of the merged set is a
+  /// fail-closed guess — so `fell_back` has to stay true for the whole decision.
+  /// Reporting `false` because the OTHER jurisdiction had a reviewed pack would
+  /// tell a caller a reviewed pack governed all of it, which is the one thing
+  /// provenance exists to prevent.
+  #[test]
+  fn any_jurisdiction_falling_back_taints_the_whole_merge() {
+    let ad = adapter(&[("ja/recording_consent.r14n.toml", A)]);
+    let q = query(&["attestation", "signal_notice", "aph_mandate"]);
+    let d = crate::RegulatoryPolicyPort::resolve_across_jurisdictions(
+      &ad,
+      &q,
+      &js(&["ja", "absent_jurisdiction"]),
+    );
+    ::std::assert!(d.provenance.fell_back, "a merge over a missing pack reported fell_back = false");
+    // And the fallback half contributes the WHOLE universe, per invariant 1.
+    ::std::assert_eq!(d.required.len(), q.universe.len(), "fallback did not require the universe");
+  }
+
+  /// Why: an empty jurisdiction list must be the identity, because the wire
+  /// boundary routes EVERY query through this door so hosts never branch. If it
+  /// were not the identity, adding the merge would have silently changed the
+  /// answer for every existing single-jurisdiction caller and binding.
+  #[test]
+  fn an_empty_jurisdiction_list_resolves_exactly_as_a_single_query() {
+    let ad = adapter(&[("base/recording_consent.r14n.toml", A)]);
+    let q = query(&["attestation", "signal_notice"]);
+    let direct = crate::RegulatoryPolicyPort::required_controls(&ad, &q);
+    let through = crate::RegulatoryPolicyPort::resolve_across_jurisdictions(&ad, &q, &[]);
+    ::std::assert_eq!(direct.required, through.required);
+    ::std::assert_eq!(direct.verdict, through.verdict);
+    ::std::assert_eq!(direct.provenance.source, through.provenance.source);
+    ::std::assert_eq!(direct.provenance.fell_back, through.provenance.fell_back);
+  }
+
+  /// Why: the merged posture is reported in provenance, and ranking an
+  /// UNRECOGNISED posture as permissive would let a typo in one pack relax a
+  /// merged session's reported strictness. `Other(_)` ranks with Aggressive
+  /// everywhere else in this resolver; this pins that it does here too.
+  #[test]
+  fn an_unknown_posture_ranks_with_aggressive_not_below_minimal() {
+    ::std::assert_eq!(
+      crate::most_restrictive(
+        crate::Strictness::Minimal,
+        crate::Strictness::Other(::std::string::String::from("typo"))
+      ),
+      crate::Strictness::Other(::std::string::String::from("typo"))
+    );
+    ::std::assert_eq!(
+      crate::most_restrictive(crate::Strictness::Minimal, crate::Strictness::AsConfigured),
+      crate::Strictness::AsConfigured
+    );
+    ::std::assert_eq!(
+      crate::most_restrictive(crate::Strictness::Aggressive, crate::Strictness::Minimal),
+      crate::Strictness::Aggressive
+    );
+  }
+}
 #[cfg(test)]
 mod tests {
   fn universe() -> ::std::collections::BTreeSet<super::ControlKey> {
