@@ -12,6 +12,42 @@ History banner in the spec for normative changes), rather than forking a version
 
 ## [0.1.0-draft]
 
+### Added (revision 2026-10-17 — §4.1 ambiguous attribution is enforced)
+
+- **The reference resolver implements `ambiguous_attribution`** (spec §4.1, normative). A
+  query may now carry `attribution_source` — `declared` | `inferred` | `unknown`, with a
+  forward-additive escape hatch — and an ambiguous attribution resolves to
+  `verdict = block`. Level-2 vectors run 12 of 17 (up from 11); five remain
+  authored-ahead. This was the gap `conformance/README.md` had flagged for months as the one
+  a reader was most likely to assume closed.
+
+  **Checked before any pack is read.** Attribution answers *which* law applies, and no amount
+  of correctly resolving the wrong jurisdiction's pack repairs a wrong answer to that — a
+  resolver that resolved first and blocked second would still have chosen a pack it had no
+  basis to choose.
+
+  **Typed, never a bare string.** An unrecognised spelling decides as `unknown` rather than as
+  a verified source, because ranking an unknown word as "attributed" is how one caller's typo
+  would turn a fail-closed condition into a permit. The escape hatch round-trips verbatim so
+  it stays auditable.
+
+  **A block keeps the fail-closed SHAPE.** `required` is the caller's whole universe, not an
+  empty set: a blocked decision reading empty would, to anything that ignored the verdict, be
+  indistinguishable from "nothing is required" — the permissive reading of a refusal.
+  `provenance.fell_back` is true and `source` names the ambiguity, because no pack was
+  consulted and a gate filtering for unreviewed decisions has to see it.
+
+  ⚠ **Absent is not assent.** Omitting `attribution_source` OPTS OUT of the §4.1 check and
+  resolves normally — the same contract `as_of: None` already has for the temporal envelope,
+  and for the same reason: a field every pre-§4.1 caller omits cannot start refusing their
+  queries without notice. A gate that must enforce §4.1 has to SUPPLY the field; a permit
+  from an opted-out query is not evidence that attribution succeeded.
+
+  Reaches the JS/TS and Python packages through `resolver/src/wire.rs` with no shim logic
+  (bindings policy). Verified through the wasm boundary: `unknown` and an unrecognised
+  spelling both block with the universe intact, `declared` resolves, and an omitted field
+  resolves exactly as before.
+
 ### Changed (revision 2026-10-16 — the typed pack shape IS the published pack shape)
 
 - **The framework Snapp's `PolicyPack` was renamed to match the published schema**, so a

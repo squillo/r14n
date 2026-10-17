@@ -28,6 +28,7 @@ pub fn resolve_arbitrary_pack(pack_text: &[u8]) -> usize {
     subject: ::std::string::String::from("telepresence"),
     universe: universe.clone(),
     as_of: ::std::option::Option::Some(::std::string::String::from("2026-06-15")),
+    attribution_source: ::std::option::Option::None,
   };
   let adapter = ::r14n::TomlRegulatoryPolicyAdapter::new(tmp.path().to_path_buf(), ::std::option::Option::None);
   let decision = ::r14n::RegulatoryPolicyPort::required_controls(&adapter, &query);

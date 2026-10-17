@@ -139,6 +139,65 @@ impl Strictness {
   }
 }
 
+
+/// How the caller determined the jurisdiction it is asking about (spec §4.1).
+///
+/// TYPED, never a bare string, because the whole point is that a resolver
+/// decides on a CLOSED set and an unrecognised word must fall to the safe side.
+/// `Other(String)` is the forward-additive escape hatch (§23.5), and it ranks
+/// with `Unknown` rather than with a verified source: a spelling this resolver
+/// has never heard of is not evidence that attribution succeeded.
+#[derive(
+  ::std::clone::Clone,
+  ::std::fmt::Debug,
+  ::std::cmp::PartialEq,
+  ::std::cmp::Eq,
+  ::std::default::Default,
+)]
+pub enum AttributionSource {
+  /// The principal stated its jurisdiction outright.
+  Declared,
+  /// Derived from an observable signal (a locale, a network location, …).
+  Inferred,
+  /// Attribution FAILED or was never performed — spec §4.1's fail-closed input.
+  #[default]
+  Unknown,
+  /// Forward-additive escape hatch (§23.5). Treated as `Unknown` when deciding.
+  Other(::std::string::String),
+}
+
+impl AttributionSource {
+  /// Parse the wire string; an unrecognised value becomes `Other`, which
+  /// decides as `Unknown` (fail-closed).
+  pub fn parse(s: &str) -> Self {
+    match s {
+      "declared" => Self::Declared,
+      "inferred" => Self::Inferred,
+      "unknown" => Self::Unknown,
+      other => Self::Other(::std::string::String::from(other)),
+    }
+  }
+
+  /// The wire string (inverse of [`AttributionSource::parse`]).
+  pub fn as_str(&self) -> &str {
+    match self {
+      Self::Declared => "declared",
+      Self::Inferred => "inferred",
+      Self::Unknown => "unknown",
+      Self::Other(other) => other,
+    }
+  }
+
+  /// Does §4.1 consider this attribution AMBIGUOUS, and therefore blocking?
+  ///
+  /// `Declared` and `Inferred` are attributions that happened. Everything else
+  /// is one that did not, including a spelling this build does not recognise —
+  /// ranking an unknown word as "attributed" is how a typo in one caller would
+  /// turn a fail-closed condition into a permit.
+  pub fn is_ambiguous(&self) -> bool {
+    !::std::matches!(self, Self::Declared | Self::Inferred)
+  }
+}
 /// A query into the regulatory policy: the caller declares the FULL control
 /// universe it could enforce; the port returns the required subset.
 #[derive(::std::clone::Clone, ::std::fmt::Debug)]
@@ -159,6 +218,16 @@ pub struct RegulatoryQuery {
   /// effective-date envelope does not cover it fails closed (spec §4). `None`
   /// disables the temporal check (the caller opts out of envelope enforcement).
   pub as_of: ::std::option::Option<::std::string::String>,
+  /// How the caller determined `jurisdiction` (spec §4.1). `None` means the
+  /// caller is not asserting anything about attribution and OPTS OUT of the
+  /// §4.1 check — the same contract `as_of: None` has for the temporal
+  /// envelope, and the same reason: a field every existing caller omits cannot
+  /// start refusing their queries without notice.
+  ///
+  /// ⚠ So `None` is NOT "attribution succeeded". A gate that must enforce §4.1
+  /// has to SUPPLY this; it cannot infer compliance from a resolver that was
+  /// never told.
+  pub attribution_source: ::std::option::Option<AttributionSource>,
 }
 
 /// The decision verdict (spec §2.6). The infallible reference resolver always
@@ -346,6 +415,43 @@ pub trait RegulatoryPolicyPort:
     query: &RegulatoryQuery,
     jurisdictions: &[::std::string::String],
   ) -> ControlDecision {
+    // ── §4.1 FIRST, before any pack is read ──────────────────────────────────
+    // Spec §4.1 makes ambiguous jurisdiction attribution a fail-closed `block`.
+    // It is checked HERE, ahead of resolution, because the question it answers
+    // is "do we know WHICH law to apply" — and no amount of correctly resolving
+    // the wrong jurisdiction's pack repairs a wrong answer to that. A resolver
+    // that resolved first and blocked second would still have read a pack it had
+    // no basis to choose.
+    //
+    // `None` opts out (see the field doc): absent means the caller asserted
+    // nothing, not that attribution succeeded.
+    if let ::std::option::Option::Some(source) = &query.attribution_source {
+      if source.is_ambiguous() {
+        return ControlDecision {
+          verdict: Verdict::Block,
+          // The caller's whole universe, NOT an empty set. A blocked decision
+          // whose `required` read empty would, to anything that ignored the
+          // verdict, be indistinguishable from "nothing is required" — the
+          // permissive reading of a refusal. Invariant 1's shape, applied to a
+          // block.
+          required: query.universe.clone(),
+          prohibited: ::std::collections::BTreeSet::new(),
+          conflicts: ::std::vec::Vec::new(),
+          provenance: PolicyProvenance {
+            profile: query.profile.clone(),
+            strictness: Strictness::Aggressive,
+            source: ::std::format!("<ambiguous-attribution:{}>", source.as_str()),
+            legal_review_status: ::std::option::Option::None,
+            last_reviewed_against_guidance: ::std::option::Option::None,
+            // No pack was consulted, so this IS a fail-closed degrade and must
+            // say so — a caller filtering on `fell_back` to find unreviewed
+            // decisions has to see this one.
+            fell_back: true,
+          },
+        };
+      }
+    }
+
     if jurisdictions.is_empty() {
       return self.required_controls(query);
     }
@@ -371,6 +477,11 @@ pub trait RegulatoryPolicyPort:
         subject: query.subject.clone(),
         universe: query.universe.clone(),
         as_of: query.as_of.clone(),
+        // Carried forward rather than blanked. The §4.1 gate already ran above,
+        // so this cannot block again today — but a sub-query IS about the same
+        // attribution as its parent, and a field that lies about that would be
+        // wrong the moment the check moves or a second reader appears.
+        attribution_source: query.attribution_source.clone(),
       };
       let d = self.required_controls(&sub);
       required.extend(d.required.iter().cloned());
@@ -785,6 +896,105 @@ impl RegulatoryPolicyPort for InMemoryRegulatoryPolicyAdapter {
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 
+
+/// Spec §4.1 — ambiguous jurisdiction attribution is a fail-closed block. These sit beside
+/// the single conformance vector because the vector pins ONE shape (`unknown`), and the
+/// ways this can be implemented wrongly are mostly about the OTHER inputs.
+#[cfg(test)]
+mod attribution_tests {
+  fn query(source: ::std::option::Option<crate::AttributionSource>) -> crate::RegulatoryQuery {
+    crate::RegulatoryQuery {
+      domain: ::std::string::String::from("recording_consent"),
+      profile: crate::RegulatoryProfile(::std::string::String::from("amb")),
+      jurisdiction: ::std::string::String::from("all_party"),
+      subject: ::std::string::String::from("telepresence"),
+      universe: ["attestation", "signal_notice"]
+        .into_iter()
+        .map(|c| crate::ControlKey(::std::string::String::from(c)))
+        .collect(),
+      as_of: ::std::option::Option::None,
+      attribution_source: source,
+    }
+  }
+
+  fn adapter() -> crate::InMemoryRegulatoryPolicyAdapter {
+    crate::InMemoryRegulatoryPolicyAdapter::new(
+      [(
+        ::std::string::String::from("amb/recording_consent.r14n.toml"),
+        ::std::string::String::from(
+          "[meta]\nstrictness = \"minimal\"\n\n[subject.telepresence]\ncontrols = [\"attestation\"]\n\n[legally_required]\ncontrols = [\"attestation\"]\n",
+        ),
+      )]
+      .into_iter()
+      .collect(),
+      ::std::option::Option::None,
+    )
+  }
+
+  fn decide(source: ::std::option::Option<crate::AttributionSource>) -> crate::ControlDecision {
+    crate::RegulatoryPolicyPort::resolve_across_jurisdictions(&adapter(), &query(source), &[])
+  }
+
+  /// Why: §4.1 is the gap `conformance/README.md` calls the one a reader is most likely to
+  /// assume closed, and the failure it guards is applying the wrong jurisdiction's law
+  /// confidently. The pack here RESOLVES cleanly under `minimal` — so a resolver that read
+  /// the pack first would return a tidy permit, and nothing in that answer would look wrong.
+  #[test]
+  fn an_unknown_attribution_blocks_even_when_a_pack_would_have_resolved() {
+    let permitted = decide(::std::option::Option::Some(crate::AttributionSource::Declared));
+    ::std::assert_eq!(permitted.verdict, crate::Verdict::Permit, "a declared attribution must resolve");
+
+    let blocked = decide(::std::option::Option::Some(crate::AttributionSource::Unknown));
+    ::std::assert_eq!(blocked.verdict, crate::Verdict::Block, "unknown attribution must block");
+    ::std::assert!(
+      blocked.provenance.source.contains("ambiguous-attribution"),
+      "the provenance must say WHY it blocked, not just that it did: {}",
+      blocked.provenance.source
+    );
+  }
+
+  /// Why: a blocked decision whose `required` set read EMPTY would, to anything that ignored
+  /// the verdict, be indistinguishable from "nothing is required" — the permissive reading of
+  /// a refusal. Invariant 1 gives the fail-closed shape as the caller's whole universe, and a
+  /// block has to keep it; and `fell_back` must be true because no pack was consulted, or a
+  /// gate filtering for unreviewed decisions would miss this one entirely.
+  #[test]
+  fn a_block_still_requires_the_whole_universe_and_reports_falling_back() {
+    let d = decide(::std::option::Option::Some(crate::AttributionSource::Unknown));
+    let got: ::std::vec::Vec<&str> = d.required.iter().map(|c| c.as_str()).collect();
+    ::std::assert_eq!(got, ["attestation", "signal_notice"], "a block must not read as empty");
+    ::std::assert!(d.provenance.fell_back, "no pack was read, so this is a fail-closed degrade");
+  }
+
+  /// Why: `None` has to stay the opt-out, because every caller written before §4.1 omits the
+  /// field and would otherwise start being refused without notice. This is the same contract
+  /// `as_of: None` already has for the temporal envelope — stated as a test so the two cannot
+  /// drift into different meanings for "absent".
+  #[test]
+  fn an_absent_attribution_opts_out_rather_than_blocking() {
+    let d = decide(::std::option::Option::None);
+    ::std::assert_eq!(d.verdict, crate::Verdict::Permit);
+    ::std::assert!(!d.provenance.fell_back, "opting out is not a fail-closed degrade");
+  }
+
+  /// Why: an unrecognised spelling must rank with `Unknown`, not with a verified source.
+  /// Ranking an unknown word as "attributed" is how one caller's typo turns a fail-closed
+  /// condition into a permit — the same reasoning as an unknown POSTURE ranking with
+  /// aggressive, and the round-trip is pinned so the escape hatch stays auditable.
+  #[test]
+  fn an_unrecognised_source_decides_as_unknown_and_round_trips() {
+    let other = crate::AttributionSource::parse("gps-triangulated");
+    ::std::assert!(other.is_ambiguous(), "an unrecognised source must not read as attributed");
+    ::std::assert_eq!(other.as_str(), "gps-triangulated", "the escape hatch must round-trip verbatim");
+    ::std::assert_eq!(decide(::std::option::Option::Some(other)).verdict, crate::Verdict::Block);
+
+    for s in ["declared", "inferred"] {
+      ::std::assert!(!crate::AttributionSource::parse(s).is_ambiguous(), "{s} is an attribution");
+    }
+    ::std::assert!(crate::AttributionSource::parse("unknown").is_ambiguous());
+  }
+}
+
 /// Cross-jurisdiction merge (spec §4.2). These sit beside the conformance
 /// vectors deliberately: the vectors pin the two outcomes the standard
 /// publishes, and these pin the DIRECTIONS the implementation could silently
@@ -814,6 +1024,7 @@ mod merge_tests {
         .map(|c| crate::ControlKey(::std::string::String::from(*c)))
         .collect(),
       as_of: ::std::option::Option::None,
+      attribution_source: ::std::option::Option::None,
     }
   }
 
@@ -990,6 +1201,7 @@ mod tests {
       subject: ::std::string::String::from(subject),
       universe: universe(),
       as_of: ::std::option::Option::None,
+      attribution_source: ::std::option::Option::None,
     }
   }
 
@@ -1385,6 +1597,7 @@ mod tests {
     );
     let dated = |as_of: ::std::option::Option<&str>| super::RegulatoryQuery {
       as_of: as_of.map(::std::string::String::from),
+      attribution_source: ::std::option::Option::None,
       ..query("dated", "telepresence")
     };
     // Expired (after the window) ⇒ loud fallback to the whole universe.
