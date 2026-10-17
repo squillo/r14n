@@ -4,7 +4,6 @@
 mod packs {
   photo_library_aggressive: <PolicyPack> {
     id: "photo_library"
-    domain: "photo_library"
     meta: {
       strictness: "aggressive"
       description: "Fail-closed baseline — full Photos control universe; limited selection + EXIF-location withholding required."

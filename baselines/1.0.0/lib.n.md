@@ -17,12 +17,11 @@ packs are counsel-gated and held out.
   r14n {
     use { $::* }
     from: "../../snapp/r14n@0.1.0-alpha.1.json"
-    integrity: "sha256-4ef8e3b5223d10de7a170f045860dded96991decd227e2173b4d74bef240ea5e"
+    integrity: "sha256-cef1cb5ea02621405625ba9d8524810c1976410f299ddab86d5c3da4df036d96"
   }
 }
 
 policies "HEALTH_AGGRESSIVE" {
-  domain     = "health"
   meta {
     strictness = "aggressive"
     description    = "Fail-closed baseline — the full HealthKit control universe."
@@ -56,7 +55,6 @@ policies "HEALTH_AGGRESSIVE" {
 // NOT LEGAL ADVICE, and `aggressive` != `compliant`.
 
 policies "RECORDING_CONSENT_AGGRESSIVE" {
-  domain     = "recording_consent"
   meta {
     strictness = "aggressive"
     description    = "Fail-closed baseline — the full per-rail control universe, every jurisdiction."
@@ -75,7 +73,6 @@ policies "RECORDING_CONSENT_AGGRESSIVE" {
 // or empty floor does not resolve to "nothing required", it fails closed to the
 // caller's entire universe and discards this pack whole.
 policies "RECORDING_CONSENT_MINIMAL" {
-  domain              = "recording_consent"
   meta {
     strictness = "minimal"
     description    = "Least-restrictive floor — only legally-required controls are enforced."

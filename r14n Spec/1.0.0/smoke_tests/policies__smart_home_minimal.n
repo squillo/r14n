@@ -6,7 +6,6 @@
 mod packs {
   smart_home_minimal: <PolicyPack> {
     id: "smart_home"
-    domain: "smart_home"
     meta: {
       strictness: "minimal"
       description: "Least-restrictive floor — consent + usage description; unconfirmed home-actuation never allowed."

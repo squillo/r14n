@@ -6,7 +6,6 @@
 mod packs {
   health_minimal: <PolicyPack> {
     id: "health"
-    domain: "health"
     meta: {
       strictness: "minimal"
       description: "Least-restrictive floor — explicit consent + usage description always required for health data."

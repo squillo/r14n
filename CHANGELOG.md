@@ -12,6 +12,34 @@ History banner in the spec for normative changes), rather than forking a version
 
 ## [0.1.0-draft]
 
+### Changed (revision 2026-10-17 — the domain lives in the path, not the pack)
+
+- **`domain` was removed from the typed `PolicyPack`.** The emitted keyword-form node is now
+  byte-for-byte a publishable pack: it validates against `schema/pack.schema.json` **as
+  emitted**, with nothing stripped first. Spec §2.2 already placed the domain in the PATH —
+  on disk a pack is `<domain>.r14n.toml` under its profile directory — and an emitted bundle
+  keys each pack by its declaration name, so carrying the domain in the body as well was
+  duplicate data that cost the node its validity against a schema with
+  `additionalProperties: false`.
+
+  Removing it, rather than permitting it, was chosen over two alternatives. Adding `domain`
+  as an optional schema property would have argued against §2.2's stated design and needed an
+  RFC with two maintainer approvals. Having a writer drop the key named `domain` would have
+  been a **by-name string rule** — the thing `Data Contracts Over String-Matching` forbids,
+  and the same defect class as the legacy tool-id literals retired elsewhere this week. The
+  measurement that settled it: every consumer that read the field already held the same value
+  as the bundle key it was iterating (verified across all shipped downstream profiles), so the
+  field was redundant rather than load-bearing.
+
+  Both bundles were re-emitted and the framework integrity pin refreshed in this same change.
+  `nlang check` + `test` (11/11) + `export` green for both Snapps under the memory/time guard
+  with an isolated cache, gated on emitted CONTENT rather than exit code.
+
+  ⚠ A downstream consumer that reads a pack's `domain` from an emitted bundle must switch to
+  the bundle key. No shipped consumer breaks today, because the vendored copy of the framework
+  bundle still carries the pre-change bytes with its matching pin and is internally
+  consistent — the change surfaces when that copy is refreshed.
+
 ### Added (revision 2026-10-17 — §4.1 ambiguous attribution is enforced)
 
 - **The reference resolver implements `ambiguous_attribution`** (spec §4.1, normative). A

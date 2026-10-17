@@ -12,7 +12,6 @@
 mod packs {
   photo_library_minimal: <PolicyPack> {
     id: "photo_library"
-    domain: "photo_library"
     meta: {
       strictness: "minimal"
       description: "Least-restrictive floor — consent + usage description; scoped picker access preferred over full-library."

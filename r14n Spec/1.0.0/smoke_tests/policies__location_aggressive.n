@@ -6,7 +6,6 @@
 mod packs {
   location_aggressive: <PolicyPack> {
     id: "location"
-    domain: "location"
     meta: {
       strictness: "aggressive"
       description: "Fail-closed baseline — full location control universe; background delivery denied, precise accuracy opt-in only."
