@@ -12,6 +12,29 @@ History banner in the spec for normative changes), rather than forking a version
 
 ## [0.1.0-draft]
 
+### Changed (revision 2026-10-17 — re-exporting a Snapp is idempotent now)
+
+- **The Snapp pipeline sets `SOURCE_DATE_EPOCH`**, and `AGENTS.md` carries it as a fourth
+  rule beside the guard, the cache isolation and the gate-on-content rule.
+
+  Both bundles embed `@snapp.date`, and `@snapp.integrity` is a content address over the whole
+  artifact — `date` included. That is correct behaviour for a content address, but it meant a
+  no-op re-export changed the bytes and so invalidated the downstream `integrity` pin for a
+  reason unrelated to content. "The pin went stale" could not distinguish *the dependency
+  changed* from *somebody re-ran export*, which made the one gate guarding invariant 11 noisy
+  in exactly the way that teaches people to refresh pins without reading them.
+
+  Measured on `nlang 0.1.0-dev (c87e92fd6)`: without the variable, a re-export with identical
+  sources differs in exactly `date` and `integrity`, all pack and type content byte-identical.
+  With it, two exports at the same epoch are byte-identical, and both bundles here now re-emit
+  with zero diff. The epoch convention is the commit time of the Snapp sources, so the date
+  records when the content was last authored rather than when a build happened to run.
+
+  Both bundles were re-emitted under the convention and the framework pin refreshed in the
+  same change. The wrinkle is documented rather than hidden: the source commit time moves when
+  the change is committed, so emit before committing — the property this buys is that a NO-OP
+  re-export is free, not that the date derives from nothing.
+
 ### Added (revision 2026-10-17 — per-domain posture precedence, spec §3)
 
 - **`per_domain_posture` is implemented.** A query may carry
