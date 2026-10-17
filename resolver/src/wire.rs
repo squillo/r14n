@@ -42,6 +42,10 @@ struct WireQuery {
   /// behaviour every existing caller already has.
   #[serde(default)]
   jurisdictions: ::std::vec::Vec<::std::string::String>,
+  /// Spec §4.1 — how the caller determined `jurisdiction`. Absent opts out of
+  /// the §4.1 check; see the core field's doc for why absence is not assent.
+  #[serde(default)]
+  attribution_source: ::std::option::Option<::std::string::String>,
 }
 
 impl WireQuery {
@@ -53,6 +57,10 @@ impl WireQuery {
       subject: self.subject,
       universe: self.universe.into_iter().map(crate::ControlKey).collect(),
       as_of: self.as_of,
+      attribution_source: self
+        .attribution_source
+        .as_deref()
+        .map(crate::AttributionSource::parse),
     }
   }
 }

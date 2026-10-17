@@ -27,6 +27,7 @@ const SUPPORTED: &[&str] = &[
   "receipt_kantara",
   "most_restrictive_merge",
   "deontic_conflict",
+  "ambiguous_attribution",
 ];
 
 fn vectors_file(name: &str) -> ::serde_json::Value {
@@ -159,6 +160,12 @@ fn run_suite(name: &str) -> (usize, ::std::vec::Vec<::std::string::String>) {
       subject: ::std::string::String::from(q["subject"].as_str().expect("subject")),
       universe,
       as_of: q.get("as_of").and_then(|v| v.as_str()).map(::std::string::String::from),
+      // Spec &4.1 — a vector may state HOW the jurisdiction was attributed. Read as a
+      // typed value, never kept as a string: the resolver decides on a closed set.
+      attribution_source: q
+        .get("attribution_source")
+        .and_then(|v| v.as_str())
+        .map(::r14n::AttributionSource::parse),
     };
     let override_ = q["posture_override"].as_str().map(::r14n::Strictness::parse);
     let adapter = ::r14n::TomlRegulatoryPolicyAdapter::new(tmp.path().to_path_buf(), override_);
@@ -260,10 +267,13 @@ fn conformance_level_2_configured_supported_subset() {
   // in the suite that resolve a query MORE THAN ONCE, and the first that can produce
   // `verdict = block` from the reference resolver at all — every earlier vector permits,
   // because fail-closed here means "require everything", which is still a permit.
-  ::std::assert_eq!(ran, 11, "level-2 supported-vector count drifted");
+  // 12 since 2026-10-17: + ambiguous_attribution_blocks (spec &4.1). The FIRST vector that
+  // blocks without reading a pack at all — attribution decides WHICH law applies, and no
+  // amount of correctly resolving the wrong jurisdiction repairs a wrong answer to that.
+  ::std::assert_eq!(ran, 12, "level-2 supported-vector count drifted");
   ::std::assert_eq!(
     skipped.len(),
-    6,
+    5,
     "level-2 skip count drifted (capability implemented? update SUPPORTED + counts): {skipped:?}"
   );
 }

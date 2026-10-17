@@ -61,31 +61,31 @@ report (not silently drop) the vectors it skips. The reference resolver's runner
 (`/resolver/tests/conformance.rs`) pins its supported set and asserts exact run counts, so a
 newly-added vector fails the build until the runner acknowledges it.
 
-Reference-resolver status (2026-10-16): implements all Level-1 capabilities; of Level 2:
+Reference-resolver status (2026-10-17): implements all Level-1 capabilities; of Level 2:
 `fail_closed_unknown_subject`, `posture_override`, `data_minimization_guard`,
-`temporal_envelope`, `most_restrictive_merge`, `deontic_conflict`
+`temporal_envelope`, `most_restrictive_merge`, `deontic_conflict`, `ambiguous_attribution`
 (not yet: `rfc4647_negotiation`, `delta_merge`, `gpc_escalation`, `per_domain_posture`,
-`ieee7012_escalation`, `ambiguous_attribution` — normative per spec §4, vectors authored
-ahead of implementation); of Level 3: all except `trust_root_revocation` (needs registry
-integration).
+`ieee7012_escalation` — normative per spec §4, vectors authored ahead of implementation);
+of Level 3: all except `trust_root_revocation` (needs registry integration).
 
 Per `TRADEMARKS.md` this is still **"implements Level 2; Level 2 in progress"** and NOT a
-Level-2 conformance claim: six Level-2 capabilities remain, and the governed wording turns
+Level-2 conformance claim: five Level-2 capabilities remain, and the governed wording turns
 only when every vector for a level passes.
-**`ambiguous_attribution` is called out deliberately.** Spec §4.1 makes ambiguous jurisdiction
-attribution a fail-closed `verdict = block` condition, so its absence here is the one gap a
-reader is most likely to assume closed. The reference resolver does NOT enforce it, and the
-§4.2 merge landing on 2026-10-16 did not change that — it moved ONE of the two blockers:
 
-- *"no jurisdictions supplied"* is now representable on the wire, since a query may carry a
-  `jurisdictions` list. But an EMPTY list is defined as the single-jurisdiction identity (the
-  wire routes every query through one door and a host never branches), so empty currently means
-  "resolve `profile` once", **not** "attribution failed". §4.1 would need those two cases
-  distinguished before an empty list could block.
-- *"source unknown"* is still not representable at all: `RegulatoryQuery` carries no attribution
-  source, so the resolver cannot be told HOW a jurisdiction was determined, and therefore cannot
-  know that it was not.
+**`ambiguous_attribution` is implemented as of 2026-10-17**, and it was called out here for
+months as the one gap a reader was most likely to assume closed. Spec §4.1 makes ambiguous
+jurisdiction attribution a fail-closed `verdict = block`, and the resolver now enforces it
+**before reading any pack** — attribution answers *which* law applies, and no amount of
+correctly resolving the wrong jurisdiction's pack repairs a wrong answer to that.
 
-A consuming gate that needs §4.1 must implement it itself and MUST NOT infer it from this
-resolver's behaviour — least of all from a merge that permits.
-needs §4.1 must implement it itself and MUST NOT infer it from this resolver's behaviour.
+A query carries `attribution_source` (`declared` | `inferred` | `unknown`, with a
+forward-additive escape hatch). `unknown` blocks, and so does any spelling this build does not
+recognise: ranking an unknown word as "attributed" is how one caller's typo would turn a
+fail-closed condition into a permit.
+
+⚠ **Absent is not assent.** A query that omits `attribution_source` OPTS OUT of the §4.1
+check and resolves normally — the same contract `as_of: None` has for the temporal envelope,
+and for the same reason: a field every pre-§4.1 caller omits cannot start refusing their
+queries without notice. So a consuming gate that must enforce §4.1 has to SUPPLY the field.
+It cannot infer compliance from a resolver that was never told, and a permit from an
+opted-out query is not evidence that attribution succeeded.
