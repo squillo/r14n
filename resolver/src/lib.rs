@@ -238,8 +238,40 @@ pub struct RegulatoryQuery {
   /// where it would drift.
   pub per_domain_posture_overrides:
     ::std::collections::BTreeMap<::std::string::String, Strictness>,
+  /// A `Sec-GPC: 1` signal from the principal (spec §4 step 5). When set, the
+  /// subject escalates to `aggressive` regardless of configured posture.
+  pub gpc_signal: bool,
+  /// An IEEE-7012 `NoRecording` term in the principal's agent terms (spec §4
+  /// step 5). Same effect as `gpc_signal`, from a different source.
+  pub ieee7012_no_recording: bool,
 }
 
+
+impl RegulatoryQuery {
+  /// Does spec §4 step 5 escalate this subject to `aggressive`?
+  ///
+  /// ESCALATE-ONLY, and that is the whole safety property. `aggressive` is the
+  /// maximum posture — the caller's entire declared universe — so forcing it can
+  /// only ever require MORE. There is deliberately no inverse: no signal here
+  /// can relax a posture, because a relaxation arriving as a request header is
+  /// precisely the thing a fail-closed standard must not honour.
+  pub fn escalates(&self) -> bool {
+    self.gpc_signal || self.ieee7012_no_recording
+  }
+
+  /// Which signals escalated, for provenance. Both are reported when both are
+  /// present: a receipt that named only the first would understate the basis.
+  fn escalation_reasons(&self) -> ::std::vec::Vec<&'static str> {
+    let mut out = ::std::vec::Vec::new();
+    if self.gpc_signal {
+      out.push("gpc_signal");
+    }
+    if self.ieee7012_no_recording {
+      out.push("ieee7012_no_recording");
+    }
+    out
+  }
+}
 /// The decision verdict (spec §2.6). The infallible reference resolver always
 /// produces `Permit` (fail-closed = require the full universe with `fell_back`,
 /// which is still a permit of everything); a Level-2 resolver that can BLOCK
@@ -493,6 +525,8 @@ pub trait RegulatoryPolicyPort:
         // wrong the moment the check moves or a second reader appears.
         attribution_source: query.attribution_source.clone(),
         per_domain_posture_overrides: query.per_domain_posture_overrides.clone(),
+        gpc_signal: query.gpc_signal,
+        ieee7012_no_recording: query.ieee7012_no_recording,
       };
       let d = self.required_controls(&sub);
       required.extend(d.required.iter().cloned());
@@ -683,28 +717,34 @@ fn decide_from_pack_text(
     }
   };
 
-  // Posture precedence, MOST SPECIFIC first (spec §3): a per-domain override
-  // beats the global dial, which beats the pack's declared posture, which falls
-  // back to Aggressive.
+  // Spec §4 step 5 — a GPC signal or an IEEE-7012 NoRecording term escalates the
+  // subject to `aggressive` REGARDLESS of configured posture, so it sits above
+  // every rung of the precedence ladder below rather than inside it.
   //
-  // The per-domain entry is read from the QUERY rather than the adapter because
-  // it is per-domain and an adapter serves every domain. Putting it on the
-  // adapter would have meant one adapter per domain or a mutable dial, and a
-  // mutable dial is a posture that can change between two queries a caller
-  // believes are comparable.
-  let strictness = query
-    .per_domain_posture_overrides
-    .get(&query.domain)
-    .cloned()
-    .or_else(|| strictness_override.clone())
-    .unwrap_or_else(|| {
-      pack
-        .meta
-        .strictness
-        .as_deref()
-        .map(Strictness::parse)
-        .unwrap_or(Strictness::Aggressive)
-    });
+  // Step 5 runs after step 3 (posture) and step 4 (merge) in the spec's order.
+  // Applying it here, per pack, reaches the same answer: `aggressive` resolves to
+  // the caller's whole universe whatever the pack says, and a union of whole
+  // universes is the whole universe. Doing it per pack also means a merge cannot
+  // lose the escalation by picking a posture from one jurisdiction.
+  //
+  // It can only ever make the answer STRICTER — see `escalates`.
+  let strictness = if query.escalates() {
+    Strictness::Aggressive
+  } else {
+    query
+      .per_domain_posture_overrides
+      .get(&query.domain)
+      .cloned()
+      .or_else(|| strictness_override.clone())
+      .unwrap_or_else(|| {
+        pack
+          .meta
+          .strictness
+          .as_deref()
+          .map(Strictness::parse)
+          .unwrap_or(Strictness::Aggressive)
+      })
+  };
 
   // Text-in-effect envelope (spec §2.5/§4/§7): when the caller supplies a
   // decision date and the pack declares an envelope, a date outside
@@ -797,7 +837,15 @@ fn decide_from_pack_text(
     provenance: PolicyProvenance {
       profile: query.profile.clone(),
       strictness,
-      source: ::std::string::String::from(source),
+      // An escalated decision reports WHY in its provenance. `strictness` alone
+      // would read `aggressive` while the pack declares `minimal`, which to an
+      // auditor looks like the pack and the receipt disagree. Uses the same
+      // `<marker>` convention as the merge and ambiguous-attribution paths.
+      source: if query.escalates() {
+        ::std::format!("<escalated:{}>{source}", query.escalation_reasons().join("+"))
+      } else {
+        ::std::string::String::from(source)
+      },
       legal_review_status,
       last_reviewed_against_guidance: pack.meta.last_reviewed_against_guidance,
       fell_back: false,
@@ -921,6 +969,123 @@ impl RegulatoryPolicyPort for InMemoryRegulatoryPolicyAdapter {
 
 
 
+/// Spec §4 step 5 escalation. The conformance vectors pin that each signal escalates; these
+/// pin the properties a resolver could get wrong while still passing them.
+#[cfg(test)]
+mod escalation_tests {
+  // Declares `minimal` AND carries a prohibition, so escalation and the §3
+  // data-minimization guard are exercised against each other.
+  const PACK: &str = "[meta]\nstrictness = \"minimal\"\n\n[subject.telepresence]\ncontrols = [\"signal_notice\"]\n\n[legally_required]\ncontrols = [\"attestation\"]\n\n[prohibited]\ncontrols = [\"aph_mandate\"]\n";
+
+  fn decide(gpc: bool, ieee: bool, per_domain: &[(&str, crate::Strictness)]) -> crate::ControlDecision {
+    let adapter = crate::InMemoryRegulatoryPolicyAdapter::new(
+      [(
+        ::std::string::String::from("esc/recording_consent.r14n.toml"),
+        ::std::string::String::from(PACK),
+      )]
+      .into_iter()
+      .collect(),
+      ::std::option::Option::None,
+    );
+    let query = crate::RegulatoryQuery {
+      domain: ::std::string::String::from("recording_consent"),
+      profile: crate::RegulatoryProfile(::std::string::String::from("esc")),
+      jurisdiction: ::std::string::String::from("all_party"),
+      subject: ::std::string::String::from("telepresence"),
+      universe: ["attestation", "signal_notice", "aph_mandate"]
+        .into_iter()
+        .map(|c| crate::ControlKey(::std::string::String::from(c)))
+        .collect(),
+      as_of: ::std::option::Option::None,
+      attribution_source: ::std::option::Option::None,
+      per_domain_posture_overrides: per_domain
+        .iter()
+        .map(|(d, s)| (::std::string::String::from(*d), s.clone()))
+        .collect(),
+      gpc_signal: gpc,
+      ieee7012_no_recording: ieee,
+    };
+    crate::RegulatoryPolicyPort::required_controls(&adapter, &query)
+  }
+
+  fn required(d: &crate::ControlDecision) -> ::std::vec::Vec<&str> {
+    d.required.iter().map(|c| c.as_str()).collect()
+  }
+
+  /// Why: escalation must beat EVERY rung of the posture ladder, not just the pack's declared
+  /// posture — "regardless of configured posture" (§4 step 5). A per-domain override is the
+  /// most specific rung and therefore the one most likely to be checked first and win by
+  /// accident; a resolver that folded escalation into the ladder instead of above it would
+  /// pass the conformance vectors, which supply no override at all.
+  #[test]
+  fn escalation_beats_the_most_specific_posture_override() {
+    let no_signal = decide(false, false, &[("recording_consent", crate::Strictness::Minimal)]);
+    ::std::assert_eq!(required(&no_signal), ["attestation"], "baseline: the override governs");
+
+    for (gpc, ieee) in [(true, false), (false, true), (true, true)] {
+      let d = decide(gpc, ieee, &[("recording_consent", crate::Strictness::Minimal)]);
+      ::std::assert_eq!(
+        required(&d),
+        ["attestation", "signal_notice"],
+        "escalation lost to a per-domain override (gpc={gpc}, ieee={ieee})"
+      );
+    }
+  }
+
+  /// Why: escalation raises the posture, it does NOT bypass the §3 data-minimization guard.
+  /// Spec §3 says no posture may ADD a prohibited control, "including Aggressive" — so an
+  /// escalated decision is the universe MINUS the prohibition, never the raw universe. A
+  /// resolver that short-circuited to `query.universe` on a signal would hand back a control
+  /// the pack forbids, which is the under-forbidding direction and the worse one.
+  #[test]
+  fn escalation_does_not_override_a_prohibition() {
+    let d = decide(true, false, &[]);
+    ::std::assert!(
+      !d.required.iter().any(|c| c.as_str() == "aph_mandate"),
+      "escalation added a PROHIBITED control: {:?}",
+      required(&d)
+    );
+    ::std::assert!(
+      d.prohibited.iter().any(|c| c.as_str() == "aph_mandate"),
+      "the prohibition is not surfaced on an escalated decision"
+    );
+  }
+
+  /// Why: an escalated decision reads `strictness = aggressive` while the pack declares
+  /// `minimal`, which to an auditor looks like the pack and the receipt disagree. The
+  /// provenance has to say WHY, and it has to name BOTH signals when both fired — reporting
+  /// only the first would understate the basis for the decision.
+  #[test]
+  fn provenance_names_the_signals_that_escalated() {
+    ::std::assert_eq!(
+      decide(false, false, &[]).provenance.source,
+      "esc/recording_consent.r14n.toml",
+      "an unescalated decision must not carry an escalation marker"
+    );
+    let gpc = decide(true, false, &[]).provenance.source;
+    ::std::assert!(gpc.starts_with("<escalated:gpc_signal>"), "got {gpc}");
+    let ieee = decide(false, true, &[]).provenance.source;
+    ::std::assert!(ieee.starts_with("<escalated:ieee7012_no_recording>"), "got {ieee}");
+    let both = decide(true, true, &[]).provenance.source;
+    ::std::assert!(
+      both.starts_with("<escalated:gpc_signal+ieee7012_no_recording>"),
+      "both signals fired but provenance named fewer: {both}"
+    );
+  }
+
+  /// Why: a pack GOVERNED this decision — escalation changed which table was read, not
+  /// whether a reviewed pack applied. If `fell_back` were set, every gate that filters for
+  /// unreviewed decisions would flag an escalated one, and the signal that actually means
+  /// "no pack governed" would lose its meaning.
+  #[test]
+  fn escalation_is_not_a_fallback() {
+    let d = decide(true, false, &[]);
+    ::std::assert!(!d.provenance.fell_back, "escalation reported as a fail-closed fallback");
+    ::std::assert_eq!(d.verdict, crate::Verdict::Permit);
+  }
+}
+
+
 /// Spec §4.1 — ambiguous jurisdiction attribution is a fail-closed block. These sit beside
 /// the single conformance vector because the vector pins ONE shape (`unknown`), and the
 /// ways this can be implemented wrongly are mostly about the OTHER inputs.
@@ -939,6 +1104,8 @@ mod attribution_tests {
       as_of: ::std::option::Option::None,
       attribution_source: source,
       per_domain_posture_overrides: ::std::collections::BTreeMap::new(),
+      gpc_signal: false,
+      ieee7012_no_recording: false,
     }
   }
 
@@ -1056,6 +1223,8 @@ mod per_domain_posture_tests {
         .iter()
         .map(|(d, s)| (::std::string::String::from(*d), s.clone()))
         .collect(),
+      gpc_signal: false,
+      ieee7012_no_recording: false,
     };
     crate::RegulatoryPolicyPort::required_controls(&adapter, &query)
   }
@@ -1162,6 +1331,8 @@ mod merge_tests {
       as_of: ::std::option::Option::None,
       attribution_source: ::std::option::Option::None,
       per_domain_posture_overrides: ::std::collections::BTreeMap::new(),
+      gpc_signal: false,
+      ieee7012_no_recording: false,
     }
   }
 
@@ -1340,6 +1511,8 @@ mod tests {
       as_of: ::std::option::Option::None,
       attribution_source: ::std::option::Option::None,
       per_domain_posture_overrides: ::std::collections::BTreeMap::new(),
+      gpc_signal: false,
+      ieee7012_no_recording: false,
     }
   }
 
@@ -1737,6 +1910,8 @@ mod tests {
       as_of: as_of.map(::std::string::String::from),
       attribution_source: ::std::option::Option::None,
       per_domain_posture_overrides: ::std::collections::BTreeMap::new(),
+      gpc_signal: false,
+      ieee7012_no_recording: false,
       ..query("dated", "telepresence")
     };
     // Expired (after the window) ⇒ loud fallback to the whole universe.
