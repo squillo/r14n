@@ -27,6 +27,7 @@ fn rebuild_example() -> ::std::string::String {
     universe,
     as_of: ::std::option::Option::None,
     attribution_source: ::std::option::Option::None,
+    per_domain_posture_overrides: ::std::collections::BTreeMap::new(),
   };
   let adapter = ::r14n::AggressiveDefaultPolicyAdapter;
   let decision = ::r14n::RegulatoryPolicyPort::required_controls(&adapter, &query);

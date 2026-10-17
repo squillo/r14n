@@ -28,6 +28,7 @@ const SUPPORTED: &[&str] = &[
   "most_restrictive_merge",
   "deontic_conflict",
   "ambiguous_attribution",
+  "per_domain_posture",
 ];
 
 fn vectors_file(name: &str) -> ::serde_json::Value {
@@ -166,6 +167,21 @@ fn run_suite(name: &str) -> (usize, ::std::vec::Vec<::std::string::String>) {
         .get("attribution_source")
         .and_then(|v| v.as_str())
         .map(::r14n::AttributionSource::parse),
+      // Spec §3 — per-domain posture overrides. Parsed through the typed
+      // `Strictness::parse` so a vector cannot smuggle an unvalidated posture
+      // string past the closed set; an unknown word becomes `Other`, which this
+      // resolver already treats as require-everything.
+      per_domain_posture_overrides: q
+        .get("per_domain_posture_overrides")
+        .and_then(|v| v.as_object())
+        .map(|m| {
+          m.iter()
+            .filter_map(|(d, s)| {
+              s.as_str().map(|s| (d.clone(), ::r14n::Strictness::parse(s)))
+            })
+            .collect()
+        })
+        .unwrap_or_default(),
     };
     let override_ = q["posture_override"].as_str().map(::r14n::Strictness::parse);
     let adapter = ::r14n::TomlRegulatoryPolicyAdapter::new(tmp.path().to_path_buf(), override_);
@@ -270,10 +286,12 @@ fn conformance_level_2_configured_supported_subset() {
   // 12 since 2026-10-17: + ambiguous_attribution_blocks (spec &4.1). The FIRST vector that
   // blocks without reading a pack at all — attribution decides WHICH law applies, and no
   // amount of correctly resolving the wrong jurisdiction repairs a wrong answer to that.
-  ::std::assert_eq!(ran, 12, "level-2 supported-vector count drifted");
+  // 13 since 2026-10-17: + per_domain_posture_override_is_most_specific (spec §3). The first
+  // vector where TWO postures are supplied at once and the answer depends on which wins.
+  ::std::assert_eq!(ran, 13, "level-2 supported-vector count drifted");
   ::std::assert_eq!(
     skipped.len(),
-    5,
+    4,
     "level-2 skip count drifted (capability implemented? update SUPPORTED + counts): {skipped:?}"
   );
 }

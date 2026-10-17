@@ -41,6 +41,7 @@ fn query(
       .collect(),
     as_of: ::std::option::Option::None,
     attribution_source: ::std::option::Option::None,
+    per_domain_posture_overrides: ::std::collections::BTreeMap::new(),
   }
 }
 
