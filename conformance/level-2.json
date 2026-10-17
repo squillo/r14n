@@ -242,16 +242,16 @@
     },
     {
       "name": "rfc4647_progressive_truncation_resolves_parent_profile",
-      "description": "Spec 4.1: gdpr/eu/de negotiates to gdpr/eu when no de-specific pack exists.",
+      "description": "Spec 4.1: example/region/locality negotiates to example/region when no locality-specific pack exists. Profiles here are DELIBERATELY FICTIONAL: a real-jurisdiction profile is counsel-gated, and the grammar this proves is subtag truncation, which fictional subtags prove identically.",
       "capabilities": [
         "rfc4647_negotiation"
       ],
       "packs": {
-        "gdpr/eu/recording_consent.r14n.toml": "[meta]\nstrictness = \"as_configured\"\n\n[meta.legal_review]\nstatus = \"draft\"\n\n[subject.telepresence]\ncontrols = [\"signal_notice\"]\n\n[legally_required]\ncontrols = [\"attestation\"]\n"
+        "example/region/recording_consent.r14n.toml": "[meta]\nstrictness = \"as_configured\"\n\n[meta.legal_review]\nstatus = \"draft\"\n\n[subject.telepresence]\ncontrols = [\"signal_notice\"]\n\n[legally_required]\ncontrols = [\"attestation\"]\n"
       },
       "query": {
         "domain": "recording_consent",
-        "profile": "gdpr/eu/de",
+        "profile": "example/region/locality",
         "jurisdiction": "all_party",
         "subject": "telepresence",
         "universe": [
@@ -276,12 +276,12 @@
         "delta_merge"
       ],
       "packs": {
-        "gdpr/recording_consent.r14n.toml": "[meta]\nstrictness = \"as_configured\"\n\n[subject.telepresence]\ncontrols = [\"signal_notice\"]\n\n[subject.import]\ncontrols = [\"attestation\"]\n\n[legally_required]\ncontrols = [\"attestation\"]\n",
-        "gdpr/eu/recording_consent.r14n.toml": "[meta]\nstrictness = \"as_configured\"\ninherits = \"gdpr\"\n\n[subject.telepresence]\ncontrols = [\"signal_notice\", \"attestation\"]\n\n[legally_required]\ncontrols = [\"attestation\"]\n"
+        "example/recording_consent.r14n.toml": "[meta]\nstrictness = \"as_configured\"\n\n[subject.telepresence]\ncontrols = [\"signal_notice\"]\n\n[subject.import]\ncontrols = [\"attestation\"]\n\n[legally_required]\ncontrols = [\"attestation\"]\n",
+        "example/region/recording_consent.r14n.toml": "[meta]\nstrictness = \"as_configured\"\ninherits = \"example\"\n\n[subject.telepresence]\ncontrols = [\"signal_notice\", \"attestation\"]\n\n[legally_required]\ncontrols = [\"attestation\"]\n"
       },
       "query": {
         "domain": "recording_consent",
-        "profile": "gdpr/eu",
+        "profile": "example/region",
         "jurisdiction": "all_party",
         "subject": "import",
         "universe": [
