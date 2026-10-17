@@ -12,6 +12,29 @@ History banner in the spec for normative changes), rather than forking a version
 
 ## [0.1.0-draft]
 
+### Changed (revision 2026-10-17 — the consumer declares the version it folds)
+
+- **`baselines/1.0.0` now pins its dependency by `name@version`**, not just by hash:
+  `@deps "r14n@0.1.0-alpha.1" { … }` in place of the versionless
+  `@deps { r14n { … } }`. The integrity hash was already catching byte changes; what was
+  missing is that a versionless declaration means the version-agreement check never runs at
+  all, so the consumer folded whatever artifact the name resolved to and verified only its
+  bytes. Now it states the version it expects and the compiler enforces it.
+
+  This also removes a latent trap the toolchain lane traced to its root cause: a versionless
+  `@deps` makes the resolver FABRICATE version `0.0.0` and write `.n/deps/local/r14n@0.0.0.json`,
+  and a later scan trusts that filename over the artifact's own `@snapp.version`. That is why
+  every build here reported `dep:r14n@0.0.0` while the bundle declared `0.1.0-alpha.1`, and why
+  anyone who later wrote the versioned form hit a confusing pin failure against a cache entry
+  the versionless form had minted. The dep cache now holds exactly
+  `r14n@0.1.0-alpha.1.json` and builds report that identity.
+
+- **The drift gate's `@deps` parser is whitespace-insensitive.** It matched the exact strings
+  `from =` / `integrity =`, so padding a key for column alignment (`from      = "…"`) made it
+  stop seeing the entry. It caught this itself on the change above — the right failure, because
+  an unparsed `from` leaves nothing for the `integrity` line to be checked against, and
+  silently skipping a pin is the one thing this gate exists to prevent.
+
 ### Changed (revision 2026-10-17 — re-exporting a Snapp is idempotent now)
 
 - **The Snapp pipeline sets `SOURCE_DATE_EPOCH`**, and `AGENTS.md` carries it as a fourth

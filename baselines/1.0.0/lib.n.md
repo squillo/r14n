@@ -13,12 +13,10 @@ to an ABI-consumable dist that the Squillo OS regulatory-policy engine reads thr
 packs are counsel-gated and held out.
 
 ```nlang
-@deps {
-  r14n {
-    use { $::* }
-    from: "../../snapp/r14n@0.1.0-alpha.1.json"
-    integrity: "sha256-04507edd9f1f1daeff0b17cc83cbbab2872b7f97cc3a77f6bccbc7e6882db01b"
-  }
+@deps "r14n@0.1.0-alpha.1" {
+  use { $::* }
+  from      = "../../snapp/r14n@0.1.0-alpha.1.json"
+  integrity = "sha256-04507edd9f1f1daeff0b17cc83cbbab2872b7f97cc3a77f6bccbc7e6882db01b"
 }
 
 policies "HEALTH_AGGRESSIVE" {
