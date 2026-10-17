@@ -165,6 +165,21 @@ fn the_framework_bundle_carries_every_declared_pack_and_agrees_with_its_filename
   }
 }
 
+/// `<key>` followed by optional spaces, then `=` or `:`, then the value.
+///
+/// Both assignment spellings are legal N Lang and both appear in this tree, and the key is
+/// routinely padded for column alignment (`from      = "…"`). A parser that matched one exact
+/// spelling read this file correctly right up until someone aligned a column — which is what
+/// happened, and this gate caught it rather than silently skipping the pin it could no longer
+/// see. Skipping is the failure that matters here: an unparsed `from` leaves nothing to check
+/// the `integrity` against.
+fn assignment<'a>(line: &'a str, key: &str) -> ::std::option::Option<&'a str> {
+  let rest = line.trim().strip_prefix(key)?;
+  let rest = rest.trim_start();
+  let rest = rest.strip_prefix('=').or_else(|| rest.strip_prefix(':'))?;
+  ::std::option::Option::Some(rest.trim())
+}
+
 /// Why: re-emitting a framework bundle changes its bytes and so invalidates every
 /// `integrity` pin on it, by design — that is the dependency system working. But the
 /// refresh has to land in the SAME change as the re-emit, or the dependent fails to build
@@ -179,11 +194,10 @@ fn every_local_integrity_pin_matches_its_targets_current_bytes() {
 
   for line in body.lines() {
     let t = line.trim();
-    if let ::std::option::Option::Some(rest) = t.strip_prefix("from:").or(t.strip_prefix("from =")) {
-      pending_from = rest.trim().trim_matches('"').split('"').next().map(::std::string::String::from);
-    } else if let ::std::option::Option::Some(rest) =
-      t.strip_prefix("integrity:").or(t.strip_prefix("integrity ="))
-    {
+    if let ::std::option::Option::Some(rest) = assignment(t, "from") {
+      pending_from =
+        rest.trim_matches('"').split('"').next().map(::std::string::String::from);
+    } else if let ::std::option::Option::Some(rest) = assignment(t, "integrity") {
       let pinned = rest.trim().trim_matches('"').trim_start_matches("sha256-");
       let target = pending_from
         .take()
