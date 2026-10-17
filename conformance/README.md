@@ -72,10 +72,20 @@ integration).
 Per `TRADEMARKS.md` this is still **"implements Level 2; Level 2 in progress"** and NOT a
 Level-2 conformance claim: six Level-2 capabilities remain, and the governed wording turns
 only when every vector for a level passes.
-
 **`ambiguous_attribution` is called out deliberately.** Spec §4.1 makes ambiguous jurisdiction
 attribution a fail-closed `verdict = block` condition, so its absence here is the one gap a
-reader is most likely to assume closed. The reference resolver does NOT enforce it: a
-`RegulatoryQuery` carries a single `jurisdiction` string and no attribution source, so it cannot
-express "no jurisdictions supplied" or "source unknown" — the §4.1 inputs. A consuming gate that
+reader is most likely to assume closed. The reference resolver does NOT enforce it, and the
+§4.2 merge landing on 2026-10-16 did not change that — it moved ONE of the two blockers:
+
+- *"no jurisdictions supplied"* is now representable on the wire, since a query may carry a
+  `jurisdictions` list. But an EMPTY list is defined as the single-jurisdiction identity (the
+  wire routes every query through one door and a host never branches), so empty currently means
+  "resolve `profile` once", **not** "attribution failed". §4.1 would need those two cases
+  distinguished before an empty list could block.
+- *"source unknown"* is still not representable at all: `RegulatoryQuery` carries no attribution
+  source, so the resolver cannot be told HOW a jurisdiction was determined, and therefore cannot
+  know that it was not.
+
+A consuming gate that needs §4.1 must implement it itself and MUST NOT infer it from this
+resolver's behaviour — least of all from a merge that permits.
 needs §4.1 must implement it itself and MUST NOT infer it from this resolver's behaviour.
