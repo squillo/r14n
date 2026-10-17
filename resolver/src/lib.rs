@@ -228,6 +228,16 @@ pub struct RegulatoryQuery {
   /// has to SUPPLY this; it cannot infer compliance from a resolver that was
   /// never told.
   pub attribution_source: ::std::option::Option<AttributionSource>,
+  /// Per-domain posture overrides (spec §3), keyed by domain. The MOST SPECIFIC
+  /// setting wins: an entry here beats the global dial, which beats the pack's
+  /// own declared posture.
+  ///
+  /// Carried as a map rather than a single resolved value because a caller
+  /// configures its postures once and issues many queries — collapsing it at
+  /// the call site would put the precedence rule in every caller, which is
+  /// where it would drift.
+  pub per_domain_posture_overrides:
+    ::std::collections::BTreeMap<::std::string::String, Strictness>,
 }
 
 /// The decision verdict (spec §2.6). The infallible reference resolver always
@@ -482,6 +492,7 @@ pub trait RegulatoryPolicyPort:
         // attribution as its parent, and a field that lies about that would be
         // wrong the moment the check moves or a second reader appears.
         attribution_source: query.attribution_source.clone(),
+        per_domain_posture_overrides: query.per_domain_posture_overrides.clone(),
       };
       let d = self.required_controls(&sub);
       required.extend(d.required.iter().cloned());
@@ -672,15 +683,28 @@ fn decide_from_pack_text(
     }
   };
 
-  // The global dial wins; else the pack's declared strictness; else Aggressive.
-  let strictness = strictness_override.clone().unwrap_or_else(|| {
-    pack
-      .meta
-      .strictness
-      .as_deref()
-      .map(Strictness::parse)
-      .unwrap_or(Strictness::Aggressive)
-  });
+  // Posture precedence, MOST SPECIFIC first (spec §3): a per-domain override
+  // beats the global dial, which beats the pack's declared posture, which falls
+  // back to Aggressive.
+  //
+  // The per-domain entry is read from the QUERY rather than the adapter because
+  // it is per-domain and an adapter serves every domain. Putting it on the
+  // adapter would have meant one adapter per domain or a mutable dial, and a
+  // mutable dial is a posture that can change between two queries a caller
+  // believes are comparable.
+  let strictness = query
+    .per_domain_posture_overrides
+    .get(&query.domain)
+    .cloned()
+    .or_else(|| strictness_override.clone())
+    .unwrap_or_else(|| {
+      pack
+        .meta
+        .strictness
+        .as_deref()
+        .map(Strictness::parse)
+        .unwrap_or(Strictness::Aggressive)
+    });
 
   // Text-in-effect envelope (spec §2.5/§4/§7): when the caller supplies a
   // decision date and the pack declares an envelope, a date outside
@@ -914,6 +938,7 @@ mod attribution_tests {
         .collect(),
       as_of: ::std::option::Option::None,
       attribution_source: source,
+      per_domain_posture_overrides: ::std::collections::BTreeMap::new(),
     }
   }
 
@@ -995,6 +1020,117 @@ mod attribution_tests {
   }
 }
 
+
+/// Per-domain posture precedence (spec §3). The conformance vector pins the one ordering
+/// that matters most; these pin the rest of the ladder, where a wrong answer still looks
+/// like a successful resolution.
+#[cfg(test)]
+mod per_domain_posture_tests {
+  const PACK: &str = "[meta]\nstrictness = \"aggressive\"\n\n[subject.telepresence]\ncontrols = [\"signal_notice\"]\n\n[legally_required]\ncontrols = [\"attestation\"]\n";
+
+  fn decide(
+    global: ::std::option::Option<crate::Strictness>,
+    per_domain: &[(&str, crate::Strictness)],
+  ) -> crate::ControlDecision {
+    let adapter = crate::InMemoryRegulatoryPolicyAdapter::new(
+      [(
+        ::std::string::String::from("pd/recording_consent.r14n.toml"),
+        ::std::string::String::from(PACK),
+      )]
+      .into_iter()
+      .collect(),
+      global,
+    );
+    let query = crate::RegulatoryQuery {
+      domain: ::std::string::String::from("recording_consent"),
+      profile: crate::RegulatoryProfile(::std::string::String::from("pd")),
+      jurisdiction: ::std::string::String::from("all_party"),
+      subject: ::std::string::String::from("telepresence"),
+      universe: ["attestation", "signal_notice", "aph_mandate"]
+        .into_iter()
+        .map(|c| crate::ControlKey(::std::string::String::from(c)))
+        .collect(),
+      as_of: ::std::option::Option::None,
+      attribution_source: ::std::option::Option::None,
+      per_domain_posture_overrides: per_domain
+        .iter()
+        .map(|(d, s)| (::std::string::String::from(*d), s.clone()))
+        .collect(),
+    };
+    crate::RegulatoryPolicyPort::required_controls(&adapter, &query)
+  }
+
+  fn required(d: &crate::ControlDecision) -> ::std::vec::Vec<&str> {
+    d.required.iter().map(|c| c.as_str()).collect()
+  }
+
+  /// Why: the whole ladder, asserted in one place because the failure mode is a resolution
+  /// that SUCCEEDS at the wrong posture. Each rung produces a different set from the same
+  /// pack, so an off-by-one in the precedence returns a plausible answer rather than an
+  /// error — the pack declares `aggressive` (whole universe), its subject table is
+  /// `[signal_notice]`, and its floor is `[attestation]`.
+  #[test]
+  fn the_most_specific_posture_wins_at_every_rung() {
+    // Nothing supplied: the pack's own declared posture governs.
+    ::std::assert_eq!(
+      required(&decide(::std::option::Option::None, &[])),
+      ["aph_mandate", "attestation", "signal_notice"],
+      "the pack's declared aggressive posture did not govern"
+    );
+    // Global dial beats the pack.
+    ::std::assert_eq!(
+      required(&decide(::std::option::Option::Some(crate::Strictness::AsConfigured), &[])),
+      ["signal_notice"],
+      "the global dial did not beat the pack's declared posture"
+    );
+    // Per-domain beats the global dial — the vector's case.
+    ::std::assert_eq!(
+      required(&decide(
+        ::std::option::Option::Some(crate::Strictness::Aggressive),
+        &[("recording_consent", crate::Strictness::Minimal)],
+      )),
+      ["attestation"],
+      "a per-domain override did not beat the global dial"
+    );
+    // Per-domain beats the pack with no global dial set.
+    ::std::assert_eq!(
+      required(&decide(
+        ::std::option::Option::None,
+        &[("recording_consent", crate::Strictness::Minimal)],
+      )),
+      ["attestation"],
+      "a per-domain override did not beat the pack's declared posture"
+    );
+  }
+
+  /// Why: §3's per-domain INDEPENDENCE. An override for another domain must not reach this
+  /// one — and the failure is silent, because applying someone else's posture still returns
+  /// a well-formed set. A map lookup that ignored the key, or took the first entry, would
+  /// pass every single-entry test.
+  #[test]
+  fn an_override_for_a_different_domain_does_not_leak_into_this_one() {
+    ::std::assert_eq!(
+      required(&decide(
+        ::std::option::Option::None,
+        &[("some_other_domain", crate::Strictness::Minimal)],
+      )),
+      ["aph_mandate", "attestation", "signal_notice"],
+      "another domain's posture override changed THIS domain's answer"
+    );
+    // And with both present, only the matching key applies.
+    ::std::assert_eq!(
+      required(&decide(
+        ::std::option::Option::None,
+        &[
+          ("some_other_domain", crate::Strictness::Aggressive),
+          ("recording_consent", crate::Strictness::Minimal),
+        ],
+      )),
+      ["attestation"],
+      "the override was selected by something other than the domain key"
+    );
+  }
+}
 /// Cross-jurisdiction merge (spec §4.2). These sit beside the conformance
 /// vectors deliberately: the vectors pin the two outcomes the standard
 /// publishes, and these pin the DIRECTIONS the implementation could silently
@@ -1025,6 +1161,7 @@ mod merge_tests {
         .collect(),
       as_of: ::std::option::Option::None,
       attribution_source: ::std::option::Option::None,
+      per_domain_posture_overrides: ::std::collections::BTreeMap::new(),
     }
   }
 
@@ -1202,6 +1339,7 @@ mod tests {
       universe: universe(),
       as_of: ::std::option::Option::None,
       attribution_source: ::std::option::Option::None,
+      per_domain_posture_overrides: ::std::collections::BTreeMap::new(),
     }
   }
 
@@ -1598,6 +1736,7 @@ mod tests {
     let dated = |as_of: ::std::option::Option<&str>| super::RegulatoryQuery {
       as_of: as_of.map(::std::string::String::from),
       attribution_source: ::std::option::Option::None,
+      per_domain_posture_overrides: ::std::collections::BTreeMap::new(),
       ..query("dated", "telepresence")
     };
     // Expired (after the window) ⇒ loud fallback to the whole universe.

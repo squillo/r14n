@@ -12,6 +12,28 @@ History banner in the spec for normative changes), rather than forking a version
 
 ## [0.1.0-draft]
 
+### Added (revision 2026-10-17 — per-domain posture precedence, spec §3)
+
+- **`per_domain_posture` is implemented.** A query may carry
+  `per_domain_posture_overrides`, keyed by domain, and the MOST SPECIFIC setting wins: a
+  per-domain entry beats the global strictness dial, which beats the pack's own declared
+  posture, which falls back to `aggressive`. Level-2 vectors run 13 of 17 (up from 12); four
+  remain authored-ahead.
+
+  Carried on the QUERY rather than the adapter, because it is per-domain and an adapter
+  serves every domain — the alternative was one adapter per domain or a mutable dial, and a
+  mutable dial is a posture that can change between two queries a caller believes are
+  comparable. Kept as a map rather than a resolved value so the precedence rule has one home
+  instead of one copy per call site.
+
+  Tests pin the whole ladder in one place, because the failure mode is a resolution that
+  SUCCEEDS at the wrong posture: the fixture pack declares `aggressive`, has a one-control
+  subject table and a different one-control floor, so every rung returns a distinct
+  well-formed set and an off-by-one in the precedence looks like an answer rather than an
+  error. §3's per-domain independence is pinned separately — an override for another domain
+  must not reach this one, and a lookup that ignored the key or took the first entry would
+  pass every single-entry test.
+
 ### Changed (revision 2026-10-17 — the domain lives in the path, not the pack)
 
 - **`domain` was removed from the typed `PolicyPack`.** The emitted keyword-form node is now

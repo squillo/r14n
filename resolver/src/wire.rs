@@ -46,6 +46,11 @@ struct WireQuery {
   /// the §4.1 check; see the core field's doc for why absence is not assent.
   #[serde(default)]
   attribution_source: ::std::option::Option<::std::string::String>,
+  /// Spec §3 — per-domain posture overrides, keyed by domain. The most specific
+  /// setting wins over the global dial and over the pack's declared posture.
+  #[serde(default)]
+  per_domain_posture_overrides:
+    ::std::collections::BTreeMap<::std::string::String, ::std::string::String>,
 }
 
 impl WireQuery {
@@ -61,6 +66,11 @@ impl WireQuery {
         .attribution_source
         .as_deref()
         .map(crate::AttributionSource::parse),
+      per_domain_posture_overrides: self
+        .per_domain_posture_overrides
+        .into_iter()
+        .map(|(d, s)| (d, crate::Strictness::parse(&s)))
+        .collect(),
     }
   }
 }

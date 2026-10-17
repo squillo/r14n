@@ -29,6 +29,7 @@ pub fn resolve_arbitrary_pack(pack_text: &[u8]) -> usize {
     universe: universe.clone(),
     as_of: ::std::option::Option::Some(::std::string::String::from("2026-06-15")),
     attribution_source: ::std::option::Option::None,
+    per_domain_posture_overrides: ::std::collections::BTreeMap::new(),
   };
   let adapter = ::r14n::TomlRegulatoryPolicyAdapter::new(tmp.path().to_path_buf(), ::std::option::Option::None);
   let decision = ::r14n::RegulatoryPolicyPort::required_controls(&adapter, &query);
