@@ -12,6 +12,30 @@ History banner in the spec for normative changes), rather than forking a version
 
 ## [0.1.0-draft]
 
+### Fixed (revision 2026-10-17 — the conformance suite stops naming a real jurisdiction)
+
+- **Two shipped Level-2 vectors carried inline `gdpr/eu` pack fixtures**, which invariant 2
+  names by name as counsel-gated and deliberately absent: *"do not generate one, even as an
+  example — use `packs/example/region/` (explicitly fictional)"*. They are now
+  `example` → `example/region` → `example/region/locality`.
+
+  Nothing was lost. What those vectors prove is RFC-4647 subtag truncation and delta-only
+  inheritance, and fictional subtags prove both identically — the grammar does not depend on
+  the subtag being real. The packs were inline TOML, so no file under `packs/` existed for the
+  pack lint to notice, and this repository is PUBLIC: a published conformance vector naming
+  `gdpr/eu` reads as a GDPR pack existing, which is exactly the misreading invariant 2 exists
+  to prevent.
+
+- **Invariant 2 is machine-checked for the conformance suite now**
+  (`tools/tests/schema_conformance.rs`). It was prose, and the suite had been violating it. The
+  guard scans every serialized level file — not just pack keys — because the jurisdiction can
+  hide in a profile string, an `inherits` value inside inline TOML, or a description. Verified
+  by running it against the pre-change file, where it refuses and names the token.
+
+  It matches a closed list of counsel-gated names rather than trying to detect "looks like a
+  law". A clever pattern would flag `example/region` on its next revision and be deleted by
+  whoever it blocked.
+
 ### Added (revision 2026-10-17 — GPC and IEEE-7012 escalation, spec §4 step 5)
 
 - **`gpc_escalation` and `ieee7012_escalation` are implemented.** A query may carry

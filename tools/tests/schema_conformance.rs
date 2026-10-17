@@ -132,3 +132,47 @@ fn example_receipt_conforms_to_receipt_schema() {
   let errs = errors(&v, &example["dpv_27560"]);
   ::std::assert!(errs.is_empty(), "example dpv_27560: {errs:?}");
 }
+
+/// Counsel-gated jurisdiction tokens. Invariant 2 names the first two outright; the rest are
+/// the regimes most likely to be reached for when someone wants a "realistic" example.
+///
+/// Deliberately NOT a general "looks like a law" matcher. A closed list of the names actually
+/// at risk refuses the ones that matter and stays readable; a clever pattern would flag
+/// `example/region` on its next revision and get deleted by whoever it blocked.
+const COUNSEL_GATED: [&str; 8] =
+  ["gdpr", "wiretap", "ccpa", "cpra", "hipaa", "coppa", "lgpd", "pipeda"];
+
+/// Why: invariant 2 — "never author a real-jurisdiction pack … do not generate one, EVEN AS AN
+/// EXAMPLE" — was prose only, and the conformance suite had been violating it. Two shipped
+/// Level-2 vectors carried inline `gdpr/eu` pack fixtures, which is the exact string the
+/// invariant names as counsel-gated and deliberately absent.
+///
+/// A vector fixture is the easiest place for this to happen and the worst place for it to
+/// land: the packs are inline TOML, so no file under `packs/` exists to notice, and this
+/// repository is PUBLIC — a published conformance vector naming `gdpr/eu` reads as a GDPR pack
+/// existing, which is precisely the misreading invariant 2 exists to prevent. The grammar
+/// these vectors prove is subtag truncation and delta-merge, and fictional subtags prove it
+/// identically, so nothing was lost by renaming them to `example/region`.
+///
+/// Scans the whole serialized file rather than the pack keys alone: the jurisdiction can hide
+/// in a profile string, an `inherits` value inside the inline TOML, or a description.
+#[test]
+fn no_conformance_vector_names_a_counsel_gated_jurisdiction() {
+  let mut scanned = 0usize;
+  for level in ["conformance/level-1.json", "conformance/level-2.json", "conformance/level-3.json"] {
+    let raw = ::std::fs::read_to_string(root().join(level))
+      .unwrap_or_else(|e| ::std::panic!("read {level}: {e}"));
+    let lower = raw.to_lowercase();
+    for token in COUNSEL_GATED {
+      ::std::assert!(
+        !lower.contains(token),
+        "{level} names the counsel-gated jurisdiction {token:?}. Invariant 2 forbids authoring \
+         a real-jurisdiction pack even as an example — use an explicitly fictional profile \
+         (`example`, `example/region`) instead. The grammar a vector proves does not depend on \
+         the subtag being real."
+      );
+    }
+    scanned += 1;
+  }
+  ::std::assert_eq!(scanned, 3, "a level file was not scanned — the list or the paths moved");
+}
