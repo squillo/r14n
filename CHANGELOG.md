@@ -12,6 +12,37 @@ History banner in the spec for normative changes), rather than forking a version
 
 ## [0.1.0-draft]
 
+### Added (revision 2026-10-19 — RFC-4647 negotiation and delta-merge; Level 2 complete)
+
+- **`rfc4647_negotiation` and `delta_merge` are implemented** (spec §4 steps 1-2, §4.3).
+  **All 17 Level-2 vectors now run and pass; the skip list is empty for the first time.**
+
+  Profile negotiation truncates `/`-delimited subtags most-specific-first
+  (`example/region/locality → example/region → example → root`) and the first pack that exists
+  governs. Truncation is LOOKUP ONLY: provenance still reports the profile the caller ASKED
+  for, and `source` names the pack that answered, so a reader can see that a request for a
+  locality was served by its region. Rewriting the profile would erase the only evidence that
+  negotiation happened.
+
+  Delta-merge follows `[meta] inherits` and applies §4.3's three rules, each a REPLACE rather
+  than a union — which is what "delta-only" means: a child that lists a subject states the
+  complete table for it. Union would be wrong in both directions. On floors it would make a
+  child unable to state its own floor at all, which the spec gives it authority to do; on
+  prohibitions it would let a parent forbid a control the child's reviewing attorney
+  permitted, silently.
+
+  Both adapters resolve the chain identically and a malformed pack ANYWHERE in it fails
+  closed, not only a malformed child — an unparseable parent means the effective pack is
+  unknown, which is invariant 1's case. An inheritance cycle terminates and the packs resolved
+  before it still govern, because a loop is an authoring mistake in files the caller may not
+  own.
+
+  ⚠ **The governed conformance claim is now ELIGIBLE and has deliberately NOT been turned.**
+  `TRADEMARKS.md` permits "conforms to RLPS Level 2, rlps-conformance/0.1" only when every
+  vector for the level passes, and that is now true. `conformance/README.md` states the
+  measurement and keeps the conservative wording: making a public conformance claim on a
+  standards project is a maintainer decision, not a consequence of a green test run.
+
 ### Fixed (revision 2026-10-17 — the conformance suite stops naming a real jurisdiction)
 
 - **Two shipped Level-2 vectors carried inline `gdpr/eu` pack fixtures**, which invariant 2
