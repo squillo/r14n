@@ -1,0 +1,62 @@
+# RLPS Control Catalog — domain: data_retention
+#
+# The canonical, jurisdiction-neutral declaration of the control keys a data-retention
+# pack may reference, each with a deontic KIND and a title. Packs reference these keys;
+# they do NOT redefine them. NOT LEGAL ADVICE — a control is a stable identifier for a
+# required (or forbidden) action, not a statement of any jurisdiction's law. **RLPS does
+# not prescribe a retention period**: that is the deploying operator's decision under
+# applicable law (/docs/receipt-data-handling.md), and no key here encodes a duration.
+# See /docs/not-legal-advice.md.
+#
+# kind ∈ { permit | obligation | prohibition }
+#
+# ── WHY THIS CATALOG EXISTS ─────────────────────────────────────────────────
+#
+# Same reason as data_residency: this domain's packs are maintained by a consuming
+# application, and until this file existed they referenced control keys that no catalog
+# declared — so a typo'd or retired key resolved silently instead of failing lint
+# (invariant 11). It ships no packs; a pack naming a real regime is counsel-gated
+# (invariant 2).
+#
+# ⚠ `kind` is DOCUMENTATION today — nothing enforces it; `r14n validate` keys off
+# catalog MEMBERSHIP alone. The values are derived from shipped precedent exactly as in
+# the data_residency catalog: every key below appears in a requirement table of a
+# shipped pack, so none can be a `prohibition`, and the `*_permitted` key follows the
+# `aph_mandate_principal_signed` permit precedent. See that file's header for the full
+# derivation.
+#
+# ── NO KEY HERE NAMES A DURATION, AND THAT IS DELIBERATE ────────────────────
+#
+# A control key is opaque and carries no value. A key per retention window would put
+# policy in the vocabulary and would need a new key every time a window changed, so the
+# window lives in the enforcing layer's configuration and the key below asserts only
+# that the bound was consulted and applied. The same reasoning is spelled out for
+# `secret_assurance_floor` in the credential_use catalog.
+#
+# ⚠ One gap this file records rather than fixes, for the lane that authors these packs:
+# the shipped packs for this domain carry NO backup, archive, or export subject, so the
+# retention of a database dump or a bulk export is not governed by any control here.
+# Nothing in this catalog should be read as covering it.
+
+[domain]
+name = "data_retention"
+description = "Controls governing HOW LONG data may be kept and on what basis it was collected — the retention bound applied to a record set, and the consent or authorization its collection rests on."
+
+# ── Obligations — a state the enforcing gate must bring about ────────────────
+
+[control.contacts_audit_retention_enforced]
+kind = "obligation"
+title = "Contact-audit retention enforced"
+description = "The contact-audit record set is held under an enforced retention bound and pruned when it lapses. The bound's length lives in the enforcing layer's configuration; this control asserts it was consulted and applied, and deliberately encodes no duration."
+
+[control.usage_analytics_opt_in]
+kind = "obligation"
+title = "Usage analytics opt-in held"
+description = "Usage or telemetry emission rests on an affirmative opt-in rather than on silence. The one key in this domain that is a floor control under both shipped profiles, so it is the control most likely to be the ONLY one resolved under `minimal` strictness."
+
+# ── Permits — a named authorization the actor must hold ─────────────────────
+
+[control.external_agent_harvest_permitted]
+kind = "permit"
+title = "External-agent harvest permitted"
+description = "Collection of data by an agent outside the trust boundary carries an authorization for the harvest it performs. ⚠ Not in either shipped profile's floor, and subject tables are IGNORED under `minimal` strictness — so under that posture this control does not resolve even though a harvest subject is named."
