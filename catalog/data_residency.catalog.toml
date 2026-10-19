@@ -1,0 +1,125 @@
+# RLPS Control Catalog — domain: data_residency
+#
+# The canonical, jurisdiction-neutral declaration of the control keys a data-residency
+# pack may reference, each with a deontic KIND and a title. Packs reference these keys;
+# they do NOT redefine them. NOT LEGAL ADVICE — a control is a stable identifier for a
+# required (or forbidden) action, not a statement of any jurisdiction's law, and
+# satisfying every control here is not a finding that any placement of data is lawful.
+# A region named by a pack is not a region blessed by this file. See
+# /docs/not-legal-advice.md.
+#
+# kind ∈ { permit | obligation | prohibition }
+#
+# ── WHY THIS CATALOG EXISTS, AND WHAT IT DOES NOT DO ────────────────────────
+#
+# This domain's packs are maintained by a consuming application, not here. Until this
+# file existed, those packs referenced control keys that NO catalog declared, so a
+# typo'd or retired key resolved silently instead of failing lint — invariant 11, the
+# class this repository has shipped broken three times. This catalog closes that: CI
+# globs every catalog and validates its domain's packs in both directions.
+#
+# It deliberately does NOT ship packs. r14n publishes no data-residency pack, because a
+# pack that names a real region or a real regime is counsel-gated (invariant 2) and no
+# attorney of record has been named for one. A catalog is jurisdiction-neutral by
+# construction — it declares that a key EXISTS and what kind of thing it is, never
+# where data may sit.
+#
+# ── ON THE `kind` COLUMN: DERIVED FROM SHIPPED PRECEDENT, AND PROVISIONAL ────
+#
+# `kind` is currently DOCUMENTATION. Nothing enforces it: the only reader outside the
+# catalog parser prints it as a comment in `r14n extract` output, and `r14n validate`
+# keys off catalog MEMBERSHIP alone. So the values below are recorded to be correct, not
+# because a gate depends on them today.
+#
+# They were derived, not invented. Every key here appears in a `[legally_required]` or
+# `[subject.*]` table of a shipped pack, which per the credential_use catalog's rule 1
+# means none of them can be a `prohibition`. Between the other two, the `*_permitted`
+# keys are modelled on the shipped `aph_mandate_principal_signed` precedent
+# (`kind = "permit"`, and it sits in subject requirement tables across every published
+# pack): a required permit reads "the actor must HOLD this authorization." The rest name
+# a state the enforcing gate must bring about, so they are obligations.
+#
+# ⚠ Two modelling questions this file records rather than answers, both for the lane
+# that authors these packs:
+#
+#   1. `cloud_tts_egress_denied` and `on_device_inference_only` read as PROHIBITIONS in
+#      intent — "this egress must not happen." They are obligations here only because
+#      they appear in requirement tables, and rule 1 forbids a prohibition key from
+#      doing that. If the intent is a state that must never obtain, they belong in
+#      `[prohibited]` as prohibition keys instead, which would make them subtracted
+#      under every posture rather than merely required under some. That is a behaviour
+#      change, so it is not made here.
+#
+#   2. `tax_customer_location_sourcing` and `tax_origin_sourcing` are both required by
+#      the single subject `tax_situs`. Those read as mutually ALTERNATIVE sourcing
+#      rules; requiring both may be intended (assert that each was considered) or may be
+#      a modelling slip. A control key is opaque and carries no value, so this file
+#      cannot tell the difference.
+
+[domain]
+name = "data_residency"
+description = "Controls governing WHERE data may be processed, stored, or sent — the region or boundary a processing step is confined to, and the authorizations a crossing requires."
+
+# ── Obligations — a state the enforcing gate must bring about ────────────────
+
+[control.provider_residency_enforced]
+kind = "obligation"
+title = "Provider residency enforced"
+description = "The selected inference or service provider is confined to an approved region, and a selection outside it is refused rather than downgraded. Named by the provider-selection and region subjects, which is why it is one key rather than one per provider."
+
+[control.contacts_data_residency_required]
+kind = "obligation"
+title = "Contact-data residency required"
+description = "A write of contact records is confined to its required residency boundary. Distinct from the sync authorization below: this constrains where the data lands, not whether the crossing was permitted."
+
+[control.on_device_recognition_required]
+kind = "obligation"
+title = "On-device recognition required"
+description = "Speech recognition is performed on the device rather than by a remote service, so the audio does not leave the trust boundary to be transcribed."
+
+[control.on_device_inference_only]
+kind = "obligation"
+title = "On-device inference only"
+description = "Model inference is performed on the device only. See modelling question 1 in this file's header: the intent reads as a prohibition, and the key is an obligation here because shipped packs place it in requirement tables."
+
+[control.cloud_tts_egress_denied]
+kind = "obligation"
+title = "Cloud text-to-speech egress denied"
+description = "Text destined for speech synthesis is not sent to a remote synthesis service. See modelling question 1 in this file's header — this key names a state that must not obtain, expressed as an obligation to deny it."
+
+[control.tax_customer_location_sourcing]
+kind = "obligation"
+title = "Tax sourcing by customer location"
+description = "Tax situs is sourced from the customer's location. Required alongside the origin-sourcing key by the same subject; see modelling question 2 in this file's header."
+
+[control.tax_origin_sourcing]
+kind = "obligation"
+title = "Tax sourcing by origin"
+description = "Tax situs is sourced from the transaction's origin. Required alongside the customer-location key by the same subject; see modelling question 2 in this file's header."
+
+# ── Permits — a named authorization the actor must hold ─────────────────────
+#
+# Modelled on `aph_mandate_principal_signed` in the recording_consent catalog: a permit
+# in a requirement table means the actor must HOLD the authorization, not that holding
+# it is optional. A permit asserts nothing about whether the authorization is valid
+# anywhere — that is the enforcing gate's question, and the region's is counsel's.
+
+[control.credential_vault_residency_permitted]
+kind = "permit"
+title = "Credential-vault residency permitted"
+description = "The credential vault's placement carries an authorization for the region it occupies. The one key that is also a floor control under the least-restrictive shipped profile."
+
+[control.contact_sync_residency_permitted]
+kind = "permit"
+title = "Contact-sync residency crossing permitted"
+description = "A contact-sync crossing carries an authorization for the regions it spans."
+
+[control.backup_region_permitted]
+kind = "permit"
+title = "Backup region permitted"
+description = "A backup's destination region carries an authorization. ⚠ This key is NOT in the least-restrictive shipped profile's floor, and subject tables are IGNORED under `minimal` strictness — so under that posture this control does not resolve even though the pack names a backup subject. A gate that needs it must not assume the posture supplies it."
+
+[control.vfs_pii_fetch_permitted]
+kind = "permit"
+title = "Virtual-filesystem PII fetch permitted"
+description = "A fetch of personal data through the virtual filesystem carries an authorization for the crossing it performs."
