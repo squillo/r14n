@@ -31,6 +31,8 @@ const SUPPORTED: &[&str] = &[
   "per_domain_posture",
   "gpc_escalation",
   "ieee7012_escalation",
+  "rfc4647_negotiation",
+  "delta_merge",
 ];
 
 fn vectors_file(name: &str) -> ::serde_json::Value {
@@ -301,10 +303,14 @@ fn conformance_level_2_configured_supported_subset() {
   // ieee7012_no_recording_escalates_subject_to_aggressive (spec §4 step 5). Both pack
   // fixtures declare `minimal` and the expectation is the WHOLE universe, so a resolver that
   // ignored the signal would return the floor and look perfectly well-formed.
-  ::std::assert_eq!(ran, 15, "level-2 supported-vector count drifted");
+  // 17 since 2026-10-19: + rfc4647_progressive_truncation_resolves_parent_profile and
+  // delta_merge_child_overrides_only_its_deviations (spec §4 steps 1-2). EVERY Level-2 vector
+  // now runs — the skip list is empty for the first time, which is why the assertion below
+  // pins ZERO rather than being deleted: a vector added later must still force this test red.
+  ::std::assert_eq!(ran, 17, "level-2 supported-vector count drifted");
   ::std::assert_eq!(
     skipped.len(),
-    2,
+    0,
     "level-2 skip count drifted (capability implemented? update SUPPORTED + counts): {skipped:?}"
   );
 }

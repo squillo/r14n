@@ -699,23 +699,161 @@ fn controls_in_universe(
   control_set(list).into_iter().filter(|k| universe.contains(k)).collect()
 }
 
-/// The whole RLPS decision pipeline over an already-loaded pack text — shared
+
+/// The `[meta] inherits` tag from a pack text (spec §4.3) — the ONE reader of that field.
+///
+/// `PackMeta` deliberately does NOT carry it. A typed field would have made two readers of
+/// one declaration, and the parsed one would have been the unused one — which is how the two
+/// drift and nobody notices, because only the unused reader is ever type-checked.
+///
+/// Read on the cheap path on purpose: the chain is built BEFORE anything is validated, so a
+/// pack that will not parse must still be reachable — `decide_from_pack_text` is where a
+/// malformed pack fails closed, and it can only do that if the chain walker put it in the
+/// chain first. A full parse here would silently truncate the chain at the bad pack and
+/// resolve against its parents while reporting success.
+fn parent_tag(raw: &str) -> ::std::option::Option<::std::string::String> {
+  for line in raw.lines() {
+    let t = line.trim();
+    let rest = match t.strip_prefix("inherits") {
+      ::std::option::Option::Some(r) => r.trim_start(),
+      ::std::option::Option::None => continue,
+    };
+    let rest = match rest.strip_prefix('=') {
+      ::std::option::Option::Some(r) => r.trim(),
+      ::std::option::Option::None => continue,
+    };
+    let value = rest.trim_matches('"');
+    if !value.is_empty() {
+      return ::std::option::Option::Some(::std::string::String::from(value));
+    }
+  }
+  ::std::option::Option::None
+}
+/// RFC-4647-style progressive truncation over `/`-delimited subtags (spec §4 step 1).
+///
+/// `example/region/locality` yields `["example/region/locality", "example/region", "example", ""]`
+/// — most specific first, ending at the root profile. A caller tries each in order and the
+/// first pack that exists governs.
+///
+/// Truncation is LOOKUP ONLY. It never changes the decision's reported profile: provenance
+/// names what the caller ASKED for, and the `source` names the pack that answered, so a
+/// reader can see that a request for a locality was served by its region. Rewriting the
+/// profile would hide exactly that.
+fn profile_candidates(profile: &str) -> ::std::vec::Vec<::std::string::String> {
+  let mut out = ::std::vec::Vec::new();
+  let mut remaining = profile;
+  loop {
+    out.push(::std::string::String::from(remaining));
+    match remaining.rfind('/') {
+      ::std::option::Option::Some(cut) => remaining = &remaining[..cut],
+      ::std::option::Option::None => break,
+    }
+  }
+  // The root profile, reached last. Pushed only when the profile was not already
+  // empty, so a root-profile query does not get a duplicate candidate.
+  if !profile.is_empty() {
+    out.push(::std::string::String::new());
+  }
+  out
+}
+
+/// Delta-merge a resolved inheritance chain into one effective pack (spec §4.3).
+///
+/// `chain` is CHILD FIRST. The merge rules are the spec's, and each one is a REPLACE rather
+/// than a union, which is the whole point of "delta-only": a child that lists a subject is
+/// stating the complete table for that subject, not adding rows to the parent's.
+///
+///   1. `[meta]` scalars — the child's value wins where it has one.
+///   2. `[subject.<name>]` — a child's table REPLACES the parent's for that subject; subjects
+///      the child does not mention come from the parent unchanged.
+///   3. `[legally_required]` / `[prohibited]` — the child's table, when present, REPLACES.
+///
+/// ⚠ WHY REPLACE AND NOT UNION, for rule 3 especially. A union of floors could only ever grow
+/// the floor, which sounds safe — but it would make a child unable to state a floor at all,
+/// and the spec gives the child that authority. A union of PROHIBITIONS would be worse in the
+/// other direction: it would let a parent forbid a control the child's reviewing attorney
+/// permitted, silently, with no way for the child to say so.
+fn merge_chain(chain: ::std::vec::Vec<PolicyPackToml>) -> ::std::option::Option<PolicyPackToml> {
+  let mut iter = chain.into_iter();
+  let mut effective = iter.next()?;
+  for parent in iter {
+    // Rule 1 — child scalars win; take the parent's only where the child is silent.
+    effective.meta.strictness = effective.meta.strictness.or(parent.meta.strictness);
+    effective.meta.legal_review = effective.meta.legal_review.or(parent.meta.legal_review);
+    effective.meta.last_reviewed_against_guidance = effective
+      .meta
+      .last_reviewed_against_guidance
+      .or(parent.meta.last_reviewed_against_guidance);
+    effective.meta.effective_from =
+      effective.meta.effective_from.or(parent.meta.effective_from);
+    effective.meta.effective_until =
+      effective.meta.effective_until.or(parent.meta.effective_until);
+
+    // Rule 2 — per-subject REPLACE: only subjects the child never mentioned are inherited.
+    for (name, table) in parent.subject {
+      effective.subject.entry(name).or_insert(table);
+    }
+
+    // Rule 3 — the child's table replaces when present; otherwise inherit.
+    effective.legally_required = effective.legally_required.or(parent.legally_required);
+    effective.prohibited = effective.prohibited.or(parent.prohibited);
+  }
+  ::std::option::Option::Some(effective)
+}
+
+/// The whole RLPS decision pipeline over a resolved inheritance CHAIN — shared
 /// verbatim by the filesystem adapter and the in-memory adapter so the two can
-/// never drift (one behavior, two transports). `source` is the provenance
-/// string surfaced in the decision (a path for the fs adapter, a map key for
-/// the in-memory one).
+/// never drift (one behavior, two transports).
+///
+/// `chain` is `(source, pack text)` pairs, CHILD FIRST, already resolved by RFC-4647
+/// truncation and `inherits` following (spec §4 steps 1-2). The `source` surfaced in the
+/// decision names the CHILD — the pack that governs — with its inherited parents appended,
+/// so a reader can see the whole chain that produced the answer rather than just its head.
+///
+/// A MALFORMED PACK ANYWHERE IN THE CHAIN fails closed, not just a malformed child. A parent
+/// that will not parse means the effective pack is unknown, and an unknown pack is exactly
+/// invariant 1's case — silently dropping the unparseable parent would resolve against a
+/// partial pack while reporting success.
 fn decide_from_pack_text(
-  raw: &str,
-  source: &str,
+  chain: &[(::std::string::String, ::std::string::String)],
   strictness_override: &::std::option::Option<Strictness>,
   query: &RegulatoryQuery,
 ) -> ControlDecision {
-  let pack: PolicyPackToml = match ::toml::from_str(raw) {
-    ::std::result::Result::Ok(p) => p,
-    ::std::result::Result::Err(_) => {
-      return aggressive_over_universe(query, ::std::format!("<malformed:{source}>"), true);
+  let source = match chain.first() {
+    ::std::option::Option::Some((s, _)) => {
+      if chain.len() == 1 {
+        s.clone()
+      } else {
+        let parents: ::std::vec::Vec<&str> =
+          chain[1..].iter().map(|(s, _)| s.as_str()).collect();
+        ::std::format!("{s}<-{}", parents.join("<-"))
+      }
+    }
+    ::std::option::Option::None => {
+      return aggressive_over_universe(query, ::std::string::String::from("<empty-chain>"), true);
     }
   };
+
+  let mut parsed: ::std::vec::Vec<PolicyPackToml> = ::std::vec::Vec::new();
+  for (one_source, raw) in chain {
+    match ::toml::from_str::<PolicyPackToml>(raw) {
+      ::std::result::Result::Ok(p) => parsed.push(p),
+      ::std::result::Result::Err(_) => {
+        return aggressive_over_universe(
+          query,
+          ::std::format!("<malformed:{one_source}>"),
+          true,
+        );
+      }
+    }
+  }
+  let pack = match merge_chain(parsed) {
+    ::std::option::Option::Some(p) => p,
+    ::std::option::Option::None => {
+      return aggressive_over_universe(query, ::std::format!("<empty-chain:{source}>"), true);
+    }
+  };
+  let source = source.as_str();
 
   // Spec §4 step 5 — a GPC signal or an IEEE-7012 NoRecording term escalates the
   // subject to `aggressive` REGARDLESS of configured posture, so it sits above
@@ -875,14 +1013,57 @@ impl TomlRegulatoryPolicyAdapter {
   /// Prefer the RLPS pack extension `<domain>.r14n.toml`; fall back to the
   /// legacy `<domain>.toml` (backward compatible — Squillo's `policies/` trees
   /// keep resolving unchanged).
-  fn pack_path(&self, query: &RegulatoryQuery) -> ::std::path::PathBuf {
-    let dir = self.root.join(&query.profile.0);
-    let r14n = dir.join(::std::format!("{}.r14n.toml", query.domain));
-    if r14n.is_file() {
-      r14n
-    } else {
-      dir.join(::std::format!("{}.toml", query.domain))
+  /// Resolve the pack path for one profile tag, preferring the RLPS extension.
+  fn path_for(&self, profile: &str, domain: &str) -> ::std::option::Option<::std::path::PathBuf> {
+    let dir = if profile.is_empty() { self.root.clone() } else { self.root.join(profile) };
+    for name in [::std::format!("{domain}.r14n.toml"), ::std::format!("{domain}.toml")] {
+      let candidate = dir.join(&name);
+      if candidate.is_file() {
+        return ::std::option::Option::Some(candidate);
+      }
     }
+    ::std::option::Option::None
+  }
+
+  /// The inheritance chain, child first (spec §4 steps 1-2): negotiate the profile by
+  /// RFC-4647 truncation, then follow `inherits` from whatever that found.
+  fn chain(
+    &self,
+    query: &RegulatoryQuery,
+  ) -> ::std::vec::Vec<(::std::string::String, ::std::string::String)> {
+    let mut out = ::std::vec::Vec::new();
+    let mut seen: ::std::collections::BTreeSet<::std::string::String> =
+      ::std::collections::BTreeSet::new();
+    let mut want = query.profile.0.clone();
+    loop {
+      // Truncation applies to EVERY link, not just the first: a parent tag may itself
+      // name a profile that only exists further up the chain.
+      let found = profile_candidates(&want)
+        .into_iter()
+        .find_map(|c| self.path_for(&c, &query.domain).map(|p| (c, p)));
+      let (tag, path) = match found {
+        ::std::option::Option::Some(f) => f,
+        ::std::option::Option::None => break,
+      };
+      // A cycle, or a diamond revisiting one tag, stops here rather than looping. The
+      // packs resolved so far still govern — refusing the whole decision because a
+      // parent pointed back would fail closed on an authoring mistake in a file the
+      // caller may not own.
+      if !seen.insert(tag.clone()) {
+        break;
+      }
+      let raw = match ::std::fs::read_to_string(&path) {
+        ::std::result::Result::Ok(s) => s,
+        ::std::result::Result::Err(_) => break,
+      };
+      let parent = parent_tag(&raw);
+      out.push((path.display().to_string(), raw));
+      match parent {
+        ::std::option::Option::Some(p) => want = p,
+        ::std::option::Option::None => break,
+      }
+    }
+    out
   }
 
   /// Aggressive fallback decision (fail-closed) with loud provenance.
@@ -895,19 +1076,14 @@ impl __private_seal::RegulatoryPolicyPortSeal for TomlRegulatoryPolicyAdapter {}
 
 impl RegulatoryPolicyPort for TomlRegulatoryPolicyAdapter {
   fn required_controls(&self, query: &RegulatoryQuery) -> ControlDecision {
-    let path = self.pack_path(query);
-    let raw = match ::std::fs::read_to_string(&path) {
-      ::std::result::Result::Ok(s) => s,
-      ::std::result::Result::Err(_) => {
-        return Self::fallback(query, ::std::format!("<missing:{}>", path.display()));
-      }
-    };
-    decide_from_pack_text(
-      &raw,
-      &path.display().to_string(),
-      &self.strictness_override,
-      query,
-    )
+    let chain = self.chain(query);
+    if chain.is_empty() {
+      return Self::fallback(
+        query,
+        ::std::format!("<missing:{}>", self.root.join(&query.profile.0).display()),
+      );
+    }
+    decide_from_pack_text(&chain, &self.strictness_override, query)
   }
 }
 
@@ -935,16 +1111,53 @@ impl InMemoryRegulatoryPolicyAdapter {
 
   /// Prefer the RLPS pack key `<profile>/<domain>.r14n.toml`; fall back to the
   /// legacy `<profile>/<domain>.toml` — the same probe order as the fs adapter.
-  fn pack_entry(
+  fn key_for(
+    &self,
+    profile: &str,
+    domain: &str,
+  ) -> ::std::option::Option<(::std::string::String, &::std::string::String)> {
+    for name in [
+      ::std::format!("{domain}.r14n.toml"),
+      ::std::format!("{domain}.toml"),
+    ] {
+      let key =
+        if profile.is_empty() { name.clone() } else { ::std::format!("{profile}/{name}") };
+      if let ::std::option::Option::Some(text) = self.packs.get(&key) {
+        return ::std::option::Option::Some((key, text));
+      }
+    }
+    ::std::option::Option::None
+  }
+
+  /// The inheritance chain, child first (spec §4 steps 1-2). Mirrors the fs adapter's
+  /// `chain` exactly; only the transport differs.
+  fn chain(
     &self,
     query: &RegulatoryQuery,
-  ) -> ::std::option::Option<(::std::string::String, &::std::string::String)> {
-    let r14n = ::std::format!("{}/{}.r14n.toml", query.profile.0, query.domain);
-    if let ::std::option::Option::Some(text) = self.packs.get(&r14n) {
-      return ::std::option::Option::Some((r14n, text));
+  ) -> ::std::vec::Vec<(::std::string::String, ::std::string::String)> {
+    let mut out = ::std::vec::Vec::new();
+    let mut seen: ::std::collections::BTreeSet<::std::string::String> =
+      ::std::collections::BTreeSet::new();
+    let mut want = query.profile.0.clone();
+    loop {
+      let found = profile_candidates(&want)
+        .into_iter()
+        .find_map(|c| self.key_for(&c, &query.domain).map(|(k, t)| (c, k, t)));
+      let (tag, key, text) = match found {
+        ::std::option::Option::Some(f) => f,
+        ::std::option::Option::None => break,
+      };
+      if !seen.insert(tag) {
+        break;
+      }
+      let parent = parent_tag(text);
+      out.push((key, text.clone()));
+      match parent {
+        ::std::option::Option::Some(p) => want = p,
+        ::std::option::Option::None => break,
+      }
     }
-    let legacy = ::std::format!("{}/{}.toml", query.profile.0, query.domain);
-    self.packs.get(&legacy).map(|text| (legacy, text))
+    out
   }
 }
 
@@ -952,16 +1165,15 @@ impl __private_seal::RegulatoryPolicyPortSeal for InMemoryRegulatoryPolicyAdapte
 
 impl RegulatoryPolicyPort for InMemoryRegulatoryPolicyAdapter {
   fn required_controls(&self, query: &RegulatoryQuery) -> ControlDecision {
-    match self.pack_entry(query) {
-      ::std::option::Option::Some((source, raw)) => {
-        decide_from_pack_text(raw, &source, &self.strictness_override, query)
-      }
-      ::std::option::Option::None => aggressive_over_universe(
+    let chain = self.chain(query);
+    if chain.is_empty() {
+      return aggressive_over_universe(
         query,
         ::std::format!("<missing:{}/{}.r14n.toml>", query.profile.0, query.domain),
         true,
-      ),
+      );
     }
+    decide_from_pack_text(&chain, &self.strictness_override, query)
   }
 }
 
@@ -1082,6 +1294,168 @@ mod escalation_tests {
     let d = decide(true, false, &[]);
     ::std::assert!(!d.provenance.fell_back, "escalation reported as a fail-closed fallback");
     ::std::assert_eq!(d.verdict, crate::Verdict::Permit);
+  }
+}
+
+/// RFC-4647 negotiation and delta-merge (spec §4 steps 1-2, §4.3). The two conformance
+/// vectors pin one truncation and one inheritance case; these pin the directions a resolver
+/// can get wrong while passing both.
+#[cfg(test)]
+mod inheritance_tests {
+  const PARENT: &str = "[meta]\nstrictness = \"as_configured\"\n\n[subject.telepresence]\ncontrols = [\"signal_notice\"]\n\n[subject.import]\ncontrols = [\"attestation\"]\n\n[legally_required]\ncontrols = [\"attestation\"]\n\n[prohibited]\ncontrols = [\"aph_mandate\"]\n";
+  const CHILD: &str = "[meta]\nstrictness = \"as_configured\"\ninherits = \"example\"\n\n[subject.telepresence]\ncontrols = [\"signal_notice\", \"attestation\"]\n";
+
+  fn adapter(packs: &[(&str, &str)]) -> crate::InMemoryRegulatoryPolicyAdapter {
+    crate::InMemoryRegulatoryPolicyAdapter::new(
+      packs
+        .iter()
+        .map(|(k, v)| (::std::string::String::from(*k), ::std::string::String::from(*v)))
+        .collect(),
+      ::std::option::Option::None,
+    )
+  }
+
+  fn decide(packs: &[(&str, &str)], profile: &str, subject: &str) -> crate::ControlDecision {
+    let query = crate::RegulatoryQuery {
+      domain: ::std::string::String::from("recording_consent"),
+      profile: crate::RegulatoryProfile(::std::string::String::from(profile)),
+      jurisdiction: ::std::string::String::from("all_party"),
+      subject: ::std::string::String::from(subject),
+      universe: ["attestation", "signal_notice", "aph_mandate"]
+        .into_iter()
+        .map(|c| crate::ControlKey(::std::string::String::from(c)))
+        .collect(),
+      as_of: ::std::option::Option::None,
+      attribution_source: ::std::option::Option::None,
+      per_domain_posture_overrides: ::std::collections::BTreeMap::new(),
+      gpc_signal: false,
+      ieee7012_no_recording: false,
+    };
+    crate::RegulatoryPolicyPort::required_controls(&adapter(packs), &query)
+  }
+
+  fn required(d: &crate::ControlDecision) -> ::std::vec::Vec<&str> {
+    d.required.iter().map(|c| c.as_str()).collect()
+  }
+
+  const CHAIN: [(&str, &str); 2] = [
+    ("example/recording_consent.r14n.toml", PARENT),
+    ("example/region/recording_consent.r14n.toml", CHILD),
+  ];
+
+  /// Why: §4.3 rule 2 is REPLACE per subject, not union. The child here lists `telepresence`
+  /// with two controls where the parent lists one; a union would return the same set, so the
+  /// vectors cannot tell replace from union on that subject. This checks the direction that
+  /// CAN differ — a child narrowing a subject the parent made broader.
+  #[test]
+  fn a_child_subject_table_replaces_the_parents_rather_than_unioning() {
+    const NARROWING: &str = "[meta]\nstrictness = \"as_configured\"\ninherits = \"example\"\n\n[subject.import]\ncontrols = [\"signal_notice\"]\n";
+    let packs = [
+      ("example/recording_consent.r14n.toml", PARENT),
+      ("example/region/recording_consent.r14n.toml", NARROWING),
+    ];
+    // The parent requires `attestation` for `import`; the child replaces that table with
+    // `signal_notice`. A union would return both and look like a stricter, plausible answer.
+    ::std::assert_eq!(
+      required(&decide(&packs, "example/region", "import")),
+      ["signal_notice"],
+      "the child's subject table did not REPLACE the parent's"
+    );
+  }
+
+  /// Why: the half of §4.3 rule 2 that makes it delta-ONLY — a subject the child never
+  /// mentions must come from the parent unchanged. A resolver that treated an inheriting
+  /// child as the complete pack would hit the unknown-subject path instead and return the
+  /// whole universe, which is fail-closed and therefore looks defensible rather than wrong.
+  #[test]
+  fn a_subject_the_child_omits_is_inherited_not_fail_closed() {
+    let d = decide(&CHAIN, "example/region", "import");
+    ::std::assert_eq!(required(&d), ["attestation"], "the unlisted subject was not inherited");
+    ::std::assert_eq!(d.required.len(), 1, "an unknown-subject fallback would require all three");
+  }
+
+  /// Why: §4.3 rule 3 — the child's floor and prohibitions REPLACE when present and are
+  /// INHERITED when absent. This child declares neither, so both must come from the parent;
+  /// losing the inherited `[prohibited]` would silently restore a control the parent forbids,
+  /// which is the under-forbidding direction.
+  #[test]
+  fn an_absent_floor_and_prohibition_are_inherited() {
+    let d = decide(&CHAIN, "example/region", "telepresence");
+    ::std::assert!(
+      d.prohibited.iter().any(|c| c.as_str() == "aph_mandate"),
+      "the parent's prohibition was lost across the merge: {:?}",
+      d.prohibited
+    );
+    ::std::assert!(
+      !d.required.iter().any(|c| c.as_str() == "aph_mandate"),
+      "a prohibited control came back: {:?}",
+      required(&d)
+    );
+  }
+
+  /// Why: §4 step 1 truncation must NOT rewrite the reported profile. Provenance names what
+  /// the caller asked for and `source` names the pack that answered, so a reader can see that
+  /// a request for a locality was served by its region. A resolver that overwrote the profile
+  /// with the tag it matched would erase the only evidence that negotiation happened.
+  #[test]
+  fn truncation_serves_a_parent_pack_without_rewriting_the_asked_profile() {
+    let packs = [("example/region/recording_consent.r14n.toml", CHILD)];
+    let d = decide(&packs, "example/region/locality", "telepresence");
+    ::std::assert_eq!(
+      d.provenance.profile.0, "example/region/locality",
+      "truncation rewrote the profile the caller asked for"
+    );
+    ::std::assert!(
+      d.provenance.source.contains("example/region/"),
+      "source does not name the pack that actually answered: {}",
+      d.provenance.source
+    );
+    ::std::assert!(!d.provenance.fell_back, "a negotiated pack DID govern");
+  }
+
+  /// Why: an inheritance cycle is an authoring mistake in files the caller may not own, and
+  /// it must not hang or recurse without bound. It also must not fail the whole decision —
+  /// the packs resolved before the cycle still govern. Asserted on a self-inheriting pack,
+  /// the tightest possible loop.
+  #[test]
+  fn a_self_inheriting_pack_terminates_and_still_governs() {
+    const LOOP: &str = "[meta]\nstrictness = \"as_configured\"\ninherits = \"example\"\n\n[subject.telepresence]\ncontrols = [\"signal_notice\"]\n\n[legally_required]\ncontrols = [\"attestation\"]\n";
+    let packs = [("example/recording_consent.r14n.toml", LOOP)];
+    let d = decide(&packs, "example", "telepresence");
+    ::std::assert_eq!(required(&d), ["signal_notice"], "the self-inheriting pack did not govern");
+    ::std::assert!(!d.provenance.fell_back, "a cycle must not fail the decision closed");
+  }
+
+  /// Why: a malformed pack ANYWHERE in the chain has to fail closed, not just a malformed
+  /// child. Dropping an unparseable parent would resolve against a partial pack and report
+  /// success — the pack's real content is unknown, which is precisely invariant 1's case.
+  #[test]
+  fn a_malformed_parent_fails_the_whole_chain_closed() {
+    let packs = [
+      ("example/recording_consent.r14n.toml", "this is not toml {{{"),
+      ("example/region/recording_consent.r14n.toml", CHILD),
+    ];
+    let d = decide(&packs, "example/region", "telepresence");
+    ::std::assert!(d.provenance.fell_back, "a malformed PARENT was silently dropped");
+    ::std::assert_eq!(d.required.len(), 3, "a fail-closed decision requires the whole universe");
+    ::std::assert!(
+      d.provenance.source.starts_with("<malformed:"),
+      "provenance does not name the malformed pack: {}",
+      d.provenance.source
+    );
+  }
+
+  /// Why: the truncation candidate list is the whole of §4 step 1, and it is easy to write one
+  /// that drops the root or duplicates it. `gdpr/eu/de → gdpr/eu → gdpr → root` is the spec's
+  /// own worked example, transliterated to fictional subtags.
+  #[test]
+  fn the_candidate_list_truncates_to_root_exactly_once() {
+    ::std::assert_eq!(
+      crate::profile_candidates("example/region/locality"),
+      ["example/region/locality", "example/region", "example", ""]
+    );
+    ::std::assert_eq!(crate::profile_candidates("example"), ["example", ""]);
+    ::std::assert_eq!(crate::profile_candidates(""), [""], "root must not yield a duplicate");
   }
 }
 
