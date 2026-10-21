@@ -33,10 +33,34 @@
 # that the bound was consulted and applied. The same reasoning is spelled out for
 # `secret_assurance_floor` in the credential_use catalog.
 #
-# ⚠ One gap this file records rather than fixes, for the lane that authors these packs:
-# the shipped packs for this domain carry NO backup, archive, or export subject, so the
-# retention of a database dump or a bulk export is not governed by any control here.
-# Nothing in this catalog should be read as covering it.
+# ── THE COLLECTION-BASIS KEYS MOVED OUT, 2026-10-21 ─────────────────────────
+#
+# `usage_analytics_opt_in` and `external_agent_harvest_permitted` now live in the
+# `analytics_consent` domain: consent to COLLECT and a bound on how long you KEEP are
+# different questions, and sharing a domain made them share a floor. They are retained
+# below as DEPRECATED rather than deleted, because a control key is long-lived audit
+# evidence (invariant 10) and receipts already issued name them in THIS domain. A key is
+# namespaced by its owning domain (spec §2.1), so the keys in `analytics_consent` are
+# different keys that share a spelling — not the same key seen from elsewhere.
+#
+# ⚠⚠ THE MOVE EMPTIES THE LEAST-RESTRICTIVE FLOOR, AND AN EMPTY FLOOR IS NOT EMPTY.
+#
+# The shipped `minimal` pack for this domain has exactly ONE floor control,
+# `usage_analytics_opt_in` — the key that moved. Its one remaining subject
+# (`contacts_audit`) uses a DIFFERENT control, so removing the moved key leaves the floor
+# empty. A `minimal` pack with an empty `[legally_required]` does NOT resolve to "nothing
+# required": it fails closed to the caller's entire universe with `fell_back = true`,
+# discarding the pack whole. Pinned by `minimal_pack_empty_floor_fails_closed`.
+#
+# So the lane performing the move MUST give that pack a new floor in the same change.
+# `contacts_audit_retention_enforced` is the only control its remaining subject uses,
+# which makes it the sole candidate — but a floor is what counsel confirmed as the
+# minimum, so this file names the candidate and does not choose it.
+#
+# ⚠ One gap this file records rather than fixes: the shipped packs for this domain carry
+# NO backup, archive, or export subject, so the retention of a database dump or a bulk
+# export is not governed by any control here. Nothing in this catalog should be read as
+# covering it.
 
 [domain]
 name = "data_retention"
@@ -51,12 +75,16 @@ description = "The contact-audit record set is held under an enforced retention 
 
 [control.usage_analytics_opt_in]
 kind = "obligation"
-title = "Usage analytics opt-in held"
-description = "Usage or telemetry emission rests on an affirmative opt-in rather than on silence. The one key in this domain that is a floor control under both shipped profiles, so it is the control most likely to be the ONLY one resolved under `minimal` strictness."
+title = "Usage analytics opt-in held (DEPRECATED — moved to analytics_consent)"
+description = "DEPRECATED 2026-10-21: the collection-basis controls moved to the `analytics_consent` domain so a consent gate resolves one domain rather than two. Retained because receipts already issued name this key in THIS domain and a control key is long-lived audit evidence. MUST NOT be used in new data_retention packs. Use the `analytics_consent` key of the same spelling."
+deprecated = "2026-10-21"
+superseded_by = ["analytics_consent::usage_analytics_opt_in"]
 
 # ── Permits — a named authorization the actor must hold ─────────────────────
 
 [control.external_agent_harvest_permitted]
 kind = "permit"
-title = "External-agent harvest permitted"
-description = "Collection of data by an agent outside the trust boundary carries an authorization for the harvest it performs. ⚠ Not in either shipped profile's floor, and subject tables are IGNORED under `minimal` strictness — so under that posture this control does not resolve even though a harvest subject is named."
+title = "External-agent harvest permitted (DEPRECATED — moved to analytics_consent)"
+description = "DEPRECATED 2026-10-21: moved to the `analytics_consent` domain with the other collection-basis controls. Retained as long-lived audit evidence; MUST NOT be used in new data_retention packs. Use the `analytics_consent` key of the same spelling."
+deprecated = "2026-10-21"
+superseded_by = ["analytics_consent::external_agent_harvest_permitted"]

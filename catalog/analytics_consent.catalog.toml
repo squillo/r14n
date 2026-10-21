@@ -1,0 +1,64 @@
+# RLPS Control Catalog — domain: analytics_consent
+#
+# The canonical, jurisdiction-neutral declaration of the control keys an
+# analytics-consent pack may reference, each with a deontic KIND and a title. Packs
+# reference these keys; they do NOT redefine them. NOT LEGAL ADVICE — a control is a
+# stable identifier for a required action, not a statement of any jurisdiction's law,
+# and requiring an opt-in here is not a finding that any regime demands one. See
+# /docs/not-legal-advice.md.
+#
+# kind ∈ { permit | obligation | prohibition }
+#
+# ── WHY THIS DOMAIN EXISTS SEPARATELY FROM data_retention ───────────────────
+#
+# Consent to COLLECT and a bound on how long you KEEP are different questions with
+# different satisfiers, and a gate asking one should not have to resolve the other.
+# These keys previously sat in `data_retention`, where the collection-basis controls
+# and the retention controls shared a domain and therefore shared a floor. Splitting
+# them gives each gate one home. The same split is already shipped between
+# `recording_consent` (may you capture) and the residency domain (where it may land).
+#
+# A note for anyone wiring a gate against this domain, because it is the mistake this
+# domain was created in response to: **a control READ is not a control ARMED.** A gate
+# that resolves this domain and finds no governing pack must decide deliberately what
+# that means. If it treats "no pack" as "no enforcement", the gate is dormant — it
+# will run green forever and consent will never be checked. That is not a hypothetical;
+# it is why this catalog exists.
+#
+# ⚠ `kind` is DOCUMENTATION today — nothing enforces it; `r14n validate` keys off
+# catalog MEMBERSHIP alone. Values are derived from shipped precedent exactly as in the
+# data_residency catalog; see that file's header for the derivation.
+#
+# ── THIS FILE SHIPS NO PACKS, AND THE REASON IS INVARIANT 2 ─────────────────
+#
+# A consuming application maintains this domain's packs. r14n publishes none, because
+# the profile that most needs one names a real regime, and a pack claiming a
+# jurisdiction needs a named attorney of record (invariant 2). A catalog is
+# jurisdiction-neutral by construction: it declares that a key EXISTS and what kind of
+# thing it is, never which regime demands it or of whom.
+#
+# ── NO KEY HERE ENCODES A DEFAULT ───────────────────────────────────────────
+#
+# Whether a profile's default is opt-IN or opt-OUT is pack data, expressed by whether
+# that profile's pack requires `usage_analytics_opt_in` at all — NOT by a key. A
+# `usage_analytics_opt_out_default` key would put policy in the vocabulary and would
+# need a new key every time a profile's default changed. A control key is opaque and
+# carries no value; the profile is the dimension that varies.
+
+[domain]
+name = "analytics_consent"
+description = "Controls governing the BASIS on which usage, telemetry, or analytics data may be collected — the consent or authorization a collection step rests on, independent of how long the result is kept."
+
+# ── Obligations — a state the enforcing gate must bring about ────────────────
+
+[control.usage_analytics_opt_in]
+kind = "obligation"
+title = "Usage analytics opt-in held"
+description = "Usage or telemetry emission rests on an affirmative opt-in rather than on silence. The control asserts the opt-in was consulted and held; it encodes neither the prompt's wording nor which profiles demand it, both of which are pack and product decisions. ⚠ A gate requiring this control is only as real as the surface that lets a user GRANT it: if nothing writes the opt-in, requiring it makes every user silent with no way to consent."
+
+# ── Permits — a named authorization the actor must hold ─────────────────────
+
+[control.external_agent_harvest_permitted]
+kind = "permit"
+title = "External-agent harvest permitted"
+description = "Collection of data by an agent outside the trust boundary carries an authorization for the harvest it performs. Modelled on the shipped `aph_mandate_principal_signed` permit precedent: in a requirement table this reads 'the actor must HOLD this authorization', not that holding it is optional."
