@@ -61,4 +61,4 @@ description = "Usage or telemetry emission rests on an affirmative opt-in rather
 [control.external_agent_harvest_permitted]
 kind = "permit"
 title = "External-agent harvest permitted"
-description = "Collection of data by an agent outside the trust boundary carries an authorization for the harvest it performs. Modelled on the shipped `aph_mandate_principal_signed` permit precedent: in a requirement table this reads 'the actor must HOLD this authorization', not that holding it is optional."
+description = "Collection of data by an agent outside the trust boundary carries an authorization for the harvest it performs. ⚠ MEASURED 2026-10-21: the only gates that read this key compute `!required.contains(key)` and have NO grant input, so REQUIRING it denies the harvest outright and nothing can grant it back. Despite the `_permitted` name and the permit `kind`, a pack that requires this key is imposing a PROHIBITION. Do not place it in an opt-out profile. This is the canonical illustration of §2.1: a control key is opaque and the enforcing gate owns its polarity — the catalog can declare that a key exists, never which direction a gate will read it."
