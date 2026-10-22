@@ -12,6 +12,54 @@ History banner in the spec for normative changes), rather than forking a version
 
 ## [0.1.0-draft]
 
+### Added (revision 2026-10-21 — spec §6 trust-root resolution; Level 3 complete)
+
+- **`trust_root_revocation` is implemented** (spec §6:188-192). **Every vector in all three
+  level files now runs and passes — Level 1 7/7, Level 2 17/17, Level 3 7/7, and all three
+  skip lists are empty.**
+
+  The resolver now resolves a pack's signing key against a reviewer-key directory as of the
+  decision date: listing, revocation and expiry, with revocation outranking expiry and the
+  revocation date itself already revoked ("from `revoked_at` FORWARD"). §6:190's
+  non-retroactivity holds — a decision dated before revocation keeps its attestation — and
+  §6:192's "expiry MUST be handled identically to revocation" is enforced by the same path.
+
+  All of it is lexical ISO-date comparison, so it needs no new dependency and invariant 9's
+  cap (serde + serde_json + toml + std) is untouched. Signature verification is the half this
+  crate cannot do and arrives as `TrustRoot::signatures_verified`, an explicit caller
+  assertion. **Both halves must hold**: a verified signature by a revoked key is exactly the
+  case §6 exists to catch, and a directory listing proves nothing about a pack that merely
+  NAMES the key.
+
+  The trust root crosses the JSON boundary, so the generated JS and Python packages can supply
+  one and read `provenance_verified` / `trust_status` back. A field the bindings cannot send
+  would be a capability only Rust callers have (invariant 4).
+
+### Fixed (revision 2026-10-21 — two controls that were read but never armed)
+
+- **`advisory_only` was unconditionally `true`.** It was computed from a hardcoded
+  `const PROVENANCE_VERIFIED: bool = false`, so no input could ever clear the taint — and the
+  revocation vector EXPECTS `advisory_only: true`. Enabling the capability without this fix
+  would have turned Level 3 green while proving nothing, because the suite could not tell a
+  working revocation check from a resolver that taints everything.
+
+  Fixed by making it read `PolicyProvenance::provenance_verified` and deleting the constant.
+  A **green control** vector (`directory_listed_unrevoked_key_clears_the_advisory_taint` —
+  same pack, same directory, revocation block removed, expects `false`) now makes the revoked
+  vector meaningful, and three receipt tests cover the direction that was previously
+  unreachable. Verified by mutation, not by observing green: removing the revocation
+  comparison turns the revoked vector red, and clearing `provenance_verified` turns the green
+  control red.
+
+- **The conformance runner silently ignored a vector field.** Two shipped vectors spelled the
+  decision date `decision_date`; the runner reads `as_of`. Both therefore resolved with NO
+  date, so their temporal intent had never been applied and nothing reported it. Renamed to
+  the one spelling, and `vector.schema.json`'s `query` object — which listed 7 of the 12 keys
+  actually in use and left `additionalProperties: true`, which is WHY this went unnoticed —
+  now declares all 12 and is sealed. A vector key the runner cannot read is a schema failure
+  rather than a silent no-op, matching the closed-set guard the runner already applies to
+  `expect`.
+
 ### Added (revision 2026-10-19 — RFC-4647 negotiation and delta-merge; Level 2 complete)
 
 - **`rfc4647_negotiation` and `delta_merge` are implemented** (spec §4 steps 1-2, §4.3).

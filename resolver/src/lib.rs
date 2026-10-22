@@ -301,6 +301,161 @@ impl Verdict {
   }
 }
 
+/// A reviewer-key directory entry (spec §6:193-199).
+///
+/// Only the fields §6 makes load-bearing for a TRUST decision are modelled.
+/// `public_key_ed25519` is deliberately absent: this crate cannot verify a
+/// signature (AGENTS.md invariant 9 caps its dependencies at serde/toml/std),
+/// so holding the key material here would invite a reader to think it does.
+#[derive(::std::clone::Clone, ::std::fmt::Debug, ::std::cmp::PartialEq, ::std::cmp::Eq, ::serde::Deserialize)]
+pub struct ReviewerKey {
+  /// The directory's identifier for this key — what a pack's
+  /// `[meta.legal_review] signature_key_id` names.
+  pub key_id: ::std::string::String,
+  /// The jurisdiction the reviewer is credentialed in.
+  #[serde(default)]
+  pub jurisdiction: ::std::option::Option<::std::string::String>,
+  /// ISO `YYYY-MM-DD`; a decision dated before this is NOT yet covered.
+  #[serde(default)]
+  pub valid_from: ::std::option::Option<::std::string::String>,
+  /// ISO `YYYY-MM-DD`; §6:192 — expiry is handled IDENTICALLY to revocation.
+  #[serde(default)]
+  pub valid_until: ::std::option::Option<::std::string::String>,
+  /// Present once the key is revoked (§6:188).
+  #[serde(default)]
+  pub revocation: ::std::option::Option<Revocation>,
+}
+
+/// A `revocation` block on a directory entry (spec §6:188).
+#[derive(::std::clone::Clone, ::std::fmt::Debug, ::std::cmp::PartialEq, ::std::cmp::Eq, ::serde::Deserialize)]
+pub struct Revocation {
+  /// ISO `YYYY-MM-DD`. From this date FORWARD the key is untrusted.
+  pub revoked_at: ::std::string::String,
+  /// Why, for the receipt. Absent reads `"unspecified"`.
+  #[serde(default)]
+  pub reason: ::std::option::Option<::std::string::String>,
+}
+
+/// The reviewer-key directory a deployment trusts (spec §6:193).
+#[derive(::std::clone::Clone, ::std::fmt::Debug, ::std::cmp::PartialEq, ::std::cmp::Eq, ::serde::Deserialize, ::std::default::Default)]
+pub struct ReviewerDirectory {
+  /// The listed keys. A key absent from here is UNKNOWN, never trusted.
+  #[serde(default)]
+  pub keys: ::std::vec::Vec<ReviewerKey>,
+}
+
+/// The trust status of a pack's signing key, as of a decision date (spec §6).
+#[derive(::std::clone::Clone, ::std::fmt::Debug, ::std::cmp::PartialEq, ::std::cmp::Eq)]
+pub enum KeyStatus {
+  /// Listed, in validity, not revoked. The ONLY status that can clear the taint.
+  Trusted,
+  /// Listed but revoked on/before the decision date (§6:188).
+  Revoked {
+    /// The date from which the key stopped being trusted.
+    revoked_at: ::std::string::String,
+    /// The recorded reason.
+    reason: ::std::string::String,
+  },
+  /// Listed but past `valid_until` — §6:192 treats this exactly as revoked.
+  Expired {
+    /// The date the key stopped being valid.
+    valid_until: ::std::string::String,
+  },
+  /// Listed, but the decision predates `valid_from`.
+  NotYetValid {
+    /// The date the key starts being valid.
+    valid_from: ::std::string::String,
+  },
+  /// No entry carries this `key_id` — or the pack named no key at all.
+  Unknown,
+  /// No directory was supplied, so no key CAN be trusted. Distinct from
+  /// `Unknown` on purpose: "I have a trust root and your key is not in it" and
+  /// "I have no trust root" are different operational facts, and collapsing
+  /// them hides a deployment that forgot to configure one.
+  NoDirectory,
+}
+
+impl KeyStatus {
+  /// True only for `Trusted`. A decision escapes advisory-only IFF this holds
+  /// AND the caller asserted a verified signature.
+  pub fn is_trusted(&self) -> bool {
+    ::std::matches!(self, Self::Trusted)
+  }
+
+  /// A stable lowercase tag for the receipt.
+  pub fn as_str(&self) -> &'static str {
+    match self {
+      Self::Trusted => "trusted",
+      Self::Revoked { .. } => "revoked",
+      Self::Expired { .. } => "expired",
+      Self::NotYetValid { .. } => "not_yet_valid",
+      Self::Unknown => "unknown",
+      Self::NoDirectory => "no_directory",
+    }
+  }
+}
+
+impl ReviewerDirectory {
+  /// Resolve `key_id`'s status as of ISO date `as_of` (spec §6:188-192).
+  ///
+  /// Ordering is load-bearing and mirrors the CLI's `key_status`: revocation
+  /// wins over expiry, which wins over not-yet-valid. ISO dates compare
+  /// lexically, which is why no date parsing (and so no date dependency) is
+  /// needed here.
+  pub fn key_status(&self, key_id: &str, as_of: &str) -> KeyStatus {
+    let entry = match self.keys.iter().find(|k| k.key_id == key_id) {
+      ::std::option::Option::Some(e) => e,
+      ::std::option::Option::None => return KeyStatus::Unknown,
+    };
+    // §6:188 — "from `revoked_at` FORWARD", so the boundary date is revoked.
+    if let ::std::option::Option::Some(rev) = &entry.revocation {
+      if !rev.revoked_at.is_empty() && as_of >= rev.revoked_at.as_str() {
+        return KeyStatus::Revoked {
+          revoked_at: rev.revoked_at.clone(),
+          reason: rev
+            .reason
+            .clone()
+            .unwrap_or_else(|| ::std::string::String::from("unspecified")),
+        };
+      }
+    }
+    if let ::std::option::Option::Some(until) = &entry.valid_until {
+      if as_of > until.as_str() {
+        return KeyStatus::Expired { valid_until: until.clone() };
+      }
+    }
+    if let ::std::option::Option::Some(from) = &entry.valid_from {
+      if as_of < from.as_str() {
+        return KeyStatus::NotYetValid { valid_from: from.clone() };
+      }
+    }
+    KeyStatus::Trusted
+  }
+}
+
+/// A deployment's trust root for pack provenance (spec §6).
+///
+/// Two separable facts, because this crate can only establish one of them:
+/// the DIRECTORY (listing, revocation, expiry — pure date comparison, which
+/// §6:188 says "a resolver MUST" perform), and whether the host
+/// CRYPTOGRAPHICALLY verified the pack signature (which needs Ed25519 and so
+/// lives in `r14n-tools`, per invariant 9).
+///
+/// `Default` is the safe one: no directory, no verified signature, so every
+/// decision stays advisory-only. A deployment that configures nothing gets the
+/// same answer the hardcoded constant used to give — but now because it SAID
+/// nothing, not because the code could not say otherwise.
+#[derive(::std::clone::Clone, ::std::fmt::Debug, ::std::default::Default)]
+pub struct TrustRoot {
+  /// The directory to resolve signing keys against.
+  pub directory: ::std::option::Option<ReviewerDirectory>,
+  /// The host asserts it verified the pack's Ed25519 signature against the
+  /// directory-listed public key before calling. **This crate cannot check
+  /// that claim** — it is the caller's attestation, and a caller that lies
+  /// here produces a receipt that overstates its own provenance.
+  pub signatures_verified: bool,
+}
+
 /// Provenance of a policy decision — surfaced in consent receipts (§21.3
 /// transparency). Records exactly which pack/profile/legal-review bound it.
 #[derive(::std::clone::Clone, ::std::fmt::Debug, ::std::cmp::PartialEq, ::std::cmp::Eq)]
@@ -320,6 +475,19 @@ pub struct PolicyProvenance {
   /// True when the port degraded to the aggressive fallback (pack missing /
   /// malformed) — a loud signal that no reviewed pack governed this decision.
   pub fell_back: bool,
+  /// Spec §6: provenance was established — the host asserted a verified
+  /// signature AND the signing key resolved `Trusted` against the directory as
+  /// of the decision date. ONLY this can clear the advisory-only taint.
+  ///
+  /// This was a hardcoded `const false` until trust-root resolution landed, so
+  /// every decision was advisory and no test could prove otherwise — a control
+  /// read that was never armed.
+  pub provenance_verified: bool,
+  /// The signing key's status tag as of the decision date: `trusted`,
+  /// `revoked`, `expired`, `not_yet_valid`, `unknown` or `no_directory`.
+  /// Surfaced so a receipt reader can tell WHY provenance failed, not merely
+  /// that it did.
+  pub trust_status: ::std::string::String,
 }
 
 /// The resolved decision: the set of controls required for the query, plus
@@ -489,6 +657,9 @@ pub trait RegulatoryPolicyPort:
             // say so — a caller filtering on `fell_back` to find unreviewed
             // decisions has to see this one.
             fell_back: true,
+            // No pack was read, so nothing could be attested.
+            provenance_verified: false,
+            trust_status: ::std::string::String::from("no_directory"),
           },
         };
       }
@@ -587,6 +758,12 @@ pub trait RegulatoryPolicyPort:
         legal_review_status: ::std::option::Option::None,
         last_reviewed_against_guidance: ::std::option::Option::None,
         fell_back,
+        // A merge spans packs whose provenance may differ, and there is no
+        // honest single value — the same reason `legal_review_status` is None
+        // above. False is the conservative read, and it costs nothing: a None
+        // review status already forces the advisory taint on this path.
+        provenance_verified: false,
+        trust_status: ::std::string::String::from("unknown"),
       },
     }
   }
@@ -620,6 +797,10 @@ fn aggressive_over_universe(
       legal_review_status: ::std::option::Option::None,
       last_reviewed_against_guidance: ::std::option::Option::None,
       fell_back,
+      // Aggressive-over-universe reads no pack, so there is no signature and
+      // no key to resolve.
+      provenance_verified: false,
+      trust_status: ::std::string::String::from("no_directory"),
     },
   }
 }
@@ -677,6 +858,10 @@ struct PackMeta {
 struct LegalReview {
   #[serde(default)]
   status: ::std::option::Option<::std::string::String>,
+  /// Spec §6:166 — the directory `key_id` whose signature binds this pack.
+  /// A pack naming no key can never be attested: the taint stays.
+  #[serde(default)]
+  signature_key_id: ::std::option::Option<::std::string::String>,
 }
 
 #[derive(::serde::Deserialize)]
@@ -818,6 +1003,7 @@ fn decide_from_pack_text(
   chain: &[(::std::string::String, ::std::string::String)],
   strictness_override: &::std::option::Option<Strictness>,
   query: &RegulatoryQuery,
+  trust: &TrustRoot,
 ) -> ControlDecision {
   let source = match chain.first() {
     ::std::option::Option::Some((s, _)) => {
@@ -966,7 +1152,33 @@ fn decide_from_pack_text(
   let required: ::std::collections::BTreeSet<ControlKey> =
     required.into_iter().filter(|k| !prohibited.contains(k)).collect();
 
-  let legal_review_status = pack.meta.legal_review.and_then(|r| r.status);
+  // ── Spec §6 trust root ──────────────────────────────────────────────────
+  //
+  // §6:188-190 assigns this to the RESOLVER by name: "from `revoked_at`
+  // forward a resolver MUST treat packs signed by that key as unattested".
+  // Listing, revocation and expiry are pure lexical date comparison, so this
+  // crate can do all of it without the crypto it is forbidden (invariant 9)
+  // from carrying. The SIGNATURE check is the half it cannot do, and that
+  // arrives as the caller's assertion.
+  //
+  // A decision date is required: "from revoked_at forward" is meaningless
+  // without a date to place the decision on, so `as_of: None` resolves
+  // `Unknown` and stays tainted rather than guessing a date that might fall
+  // the convenient side of a revocation.
+  let review = pack.meta.legal_review;
+  let signing_key = review.as_ref().and_then(|r| r.signature_key_id.clone());
+  let trust_status = match (&trust.directory, &signing_key, &query.as_of) {
+    (::std::option::Option::None, _, _) => KeyStatus::NoDirectory,
+    (::std::option::Option::Some(dir), ::std::option::Option::Some(key), ::std::option::Option::Some(as_of)) => {
+      dir.key_status(key, as_of)
+    }
+    _ => KeyStatus::Unknown,
+  };
+  // Both halves must hold. Either alone is insufficient: a verified signature
+  // by a revoked key is exactly the case §6 exists to catch, and a trusted
+  // directory entry proves nothing about a pack that merely NAMES the key.
+  let provenance_verified = trust.signatures_verified && trust_status.is_trusted();
+  let legal_review_status = review.and_then(|r| r.status);
   ControlDecision {
     verdict: Verdict::Permit,
     required,
@@ -987,6 +1199,8 @@ fn decide_from_pack_text(
       legal_review_status,
       last_reviewed_against_guidance: pack.meta.last_reviewed_against_guidance,
       fell_back: false,
+      provenance_verified,
+      trust_status: ::std::string::String::from(trust_status.as_str()),
     },
   }
 }
@@ -997,6 +1211,7 @@ fn decide_from_pack_text(
 pub struct TomlRegulatoryPolicyAdapter {
   root: ::std::path::PathBuf,
   strictness_override: ::std::option::Option<Strictness>,
+  trust: TrustRoot,
 }
 
 impl TomlRegulatoryPolicyAdapter {
@@ -1007,8 +1222,19 @@ impl TomlRegulatoryPolicyAdapter {
     root: ::std::path::PathBuf,
     strictness_override: ::std::option::Option<Strictness>,
   ) -> Self {
-    Self { root, strictness_override }
+    Self { root, strictness_override, trust: TrustRoot::default() }
   }
+
+  /// Attach a spec §6 trust root. Additive and opt-in: an adapter built with
+  /// `new` alone has none, so every decision stays advisory-only — the same
+  /// answer this crate gave before trust resolution existed, but now because
+  /// the deployment configured nothing rather than because the code could not
+  /// express otherwise.
+  pub fn with_trust_root(mut self, trust: TrustRoot) -> Self {
+    self.trust = trust;
+    self
+  }
+
 
   /// Prefer the RLPS pack extension `<domain>.r14n.toml`; fall back to the
   /// legacy `<domain>.toml` (backward compatible — Squillo's `policies/` trees
@@ -1083,7 +1309,7 @@ impl RegulatoryPolicyPort for TomlRegulatoryPolicyAdapter {
         ::std::format!("<missing:{}>", self.root.join(&query.profile.0).display()),
       );
     }
-    decide_from_pack_text(&chain, &self.strictness_override, query)
+    decide_from_pack_text(&chain, &self.strictness_override, query, &self.trust)
   }
 }
 
@@ -1097,6 +1323,7 @@ impl RegulatoryPolicyPort for TomlRegulatoryPolicyAdapter {
 pub struct InMemoryRegulatoryPolicyAdapter {
   packs: ::std::collections::BTreeMap<::std::string::String, ::std::string::String>,
   strictness_override: ::std::option::Option<Strictness>,
+  trust: TrustRoot,
 }
 
 impl InMemoryRegulatoryPolicyAdapter {
@@ -1106,8 +1333,19 @@ impl InMemoryRegulatoryPolicyAdapter {
     packs: ::std::collections::BTreeMap<::std::string::String, ::std::string::String>,
     strictness_override: ::std::option::Option<Strictness>,
   ) -> Self {
-    Self { packs, strictness_override }
+    Self { packs, strictness_override, trust: TrustRoot::default() }
   }
+
+  /// Attach a spec §6 trust root. Additive and opt-in: an adapter built with
+  /// `new` alone has none, so every decision stays advisory-only — the same
+  /// answer this crate gave before trust resolution existed, but now because
+  /// the deployment configured nothing rather than because the code could not
+  /// express otherwise.
+  pub fn with_trust_root(mut self, trust: TrustRoot) -> Self {
+    self.trust = trust;
+    self
+  }
+
 
   /// Prefer the RLPS pack key `<profile>/<domain>.r14n.toml`; fall back to the
   /// legacy `<profile>/<domain>.toml` — the same probe order as the fs adapter.
@@ -1173,7 +1411,7 @@ impl RegulatoryPolicyPort for InMemoryRegulatoryPolicyAdapter {
         true,
       );
     }
-    decide_from_pack_text(&chain, &self.strictness_override, query)
+    decide_from_pack_text(&chain, &self.strictness_override, query, &self.trust)
   }
 }
 
@@ -2321,5 +2559,136 @@ mod tests {
       super::Strictness::Other(::std::string::String::from("turbo")),
       "unknown values take the forward-additive Other arm"
     );
+  }
+}
+
+#[cfg(test)]
+mod trust_root_tests {
+  fn dir(json: &str) -> crate::ReviewerDirectory {
+    ::serde_json::from_str(json).expect("directory")
+  }
+
+  /// A directory with one key revoked on 2026-06-01.
+  fn revoked_dir() -> crate::ReviewerDirectory {
+    dir(
+      "{\"keys\":[{\"key_id\":\"reviewer-1\",\"jurisdiction\":\"US-CA\",\
+       \"valid_from\":\"2026-01-01\",\
+       \"revocation\":{\"revoked_at\":\"2026-06-01\",\"reason\":\"credential_lapsed\"}}]}",
+    )
+  }
+
+  /// Why: spec §6:188 — "from `revoked_at` FORWARD". The revocation date
+  /// itself is INSIDE the revoked window, so `>=` is the correct comparison
+  /// and `>` would leave a one-day hole on the exact day a credential lapsed.
+  /// No vector reaches this boundary, so only this test holds it.
+  #[test]
+  fn the_revocation_date_itself_is_already_revoked() {
+    ::std::assert!(
+      ::std::matches!(
+        revoked_dir().key_status("reviewer-1", "2026-06-01"),
+        crate::KeyStatus::Revoked { .. }
+      ),
+      "the boundary day must be revoked, not the last trusted day"
+    );
+  }
+
+  /// Why: spec §6:190 — "decisions issued before `revoked_at` are not
+  /// retroactively invalidated". Revocation is forward-dated, so a decision
+  /// dated before it keeps its attestation; treating revocation as retroactive
+  /// would silently re-taint every receipt ever issued under that key.
+  #[test]
+  fn revocation_is_not_retroactive() {
+    ::std::assert!(revoked_dir().key_status("reviewer-1", "2026-05-31").is_trusted());
+  }
+
+  /// Why: spec §6:192 — "key expiry (`valid_until` passed) MUST be handled
+  /// IDENTICALLY to revocation for new decisions". A directory that enforced
+  /// revocation but ignored expiry would trust a lapsed credential forever.
+  #[test]
+  fn expiry_is_handled_identically_to_revocation() {
+    let d = dir("{\"keys\":[{\"key_id\":\"k\",\"valid_until\":\"2026-03-01\"}]}");
+    ::std::assert!(::std::matches!(
+      d.key_status("k", "2026-03-02"),
+      crate::KeyStatus::Expired { .. }
+    ));
+    ::std::assert!(d.key_status("k", "2026-03-01").is_trusted(), "the last valid day is valid");
+  }
+
+  /// Why: a decision dated before the key was issued was not covered by it.
+  /// Backdating a decision must not borrow a credential that did not yet exist.
+  #[test]
+  fn a_decision_before_valid_from_is_not_yet_covered() {
+    let d = dir("{\"keys\":[{\"key_id\":\"k\",\"valid_from\":\"2026-01-01\"}]}");
+    ::std::assert!(::std::matches!(
+      d.key_status("k", "2025-12-31"),
+      crate::KeyStatus::NotYetValid { .. }
+    ));
+  }
+
+  /// Why: spec §6 — a key absent from the directory is NOT trusted. The
+  /// directory is an allow-list; an unlisted key must never resolve `Trusted`
+  /// merely because nothing contradicted it.
+  #[test]
+  fn an_unlisted_key_is_unknown_never_trusted() {
+    ::std::assert_eq!(revoked_dir().key_status("nobody", "2026-01-02"), crate::KeyStatus::Unknown);
+    ::std::assert!(!revoked_dir().key_status("nobody", "2026-01-02").is_trusted());
+  }
+
+  /// Why: revocation MUST win over expiry when both apply — it carries the
+  /// reason a receipt reader needs ("credential_lapsed"), and it is the
+  /// stronger statement. Ordering is load-bearing, so it gets a test rather
+  /// than relying on the order the branches happen to be written in.
+  #[test]
+  fn revocation_outranks_expiry_when_both_apply() {
+    let d = dir(
+      "{\"keys\":[{\"key_id\":\"k\",\"valid_until\":\"2026-02-01\",\
+       \"revocation\":{\"revoked_at\":\"2026-03-01\",\"reason\":\"credential_lapsed\"}}]}",
+    );
+    ::std::assert!(
+      ::std::matches!(d.key_status("k", "2026-04-01"), crate::KeyStatus::Revoked { .. }),
+      "revoked must be reported over expired"
+    );
+  }
+
+  /// Why: "no trust root configured" and "your key is not in my trust root"
+  /// are different operational facts. Collapsing them hides a deployment that
+  /// never configured a directory, which is the likeliest real-world cause of
+  /// a permanently advisory receipt.
+  #[test]
+  fn no_directory_is_distinct_from_an_unknown_key() {
+    ::std::assert_ne!(crate::KeyStatus::NoDirectory, crate::KeyStatus::Unknown);
+    ::std::assert_eq!(crate::KeyStatus::NoDirectory.as_str(), "no_directory");
+    ::std::assert_eq!(crate::KeyStatus::Unknown.as_str(), "unknown");
+    ::std::assert!(!crate::KeyStatus::NoDirectory.is_trusted());
+  }
+
+  /// Why: `Trusted` is the ONLY status that may clear the taint. If a future
+  /// arm were added and `is_trusted` kept matching loosely, a new failure mode
+  /// could silently become an attested one.
+  #[test]
+  fn only_trusted_is_trusted() {
+    for s in [
+      crate::KeyStatus::Revoked {
+        revoked_at: ::std::string::String::from("2026-01-01"),
+        reason: ::std::string::String::from("r"),
+      },
+      crate::KeyStatus::Expired { valid_until: ::std::string::String::from("2026-01-01") },
+      crate::KeyStatus::NotYetValid { valid_from: ::std::string::String::from("2026-01-01") },
+      crate::KeyStatus::Unknown,
+      crate::KeyStatus::NoDirectory,
+    ] {
+      ::std::assert!(!s.is_trusted(), "{s:?} must not be trusted");
+    }
+    ::std::assert!(crate::KeyStatus::Trusted.is_trusted());
+  }
+
+  /// Why: the default TrustRoot must be the SAFE one. A deployment that
+  /// configures nothing has to keep the advisory taint, or the migration from
+  /// the old hardcoded constant would silently clear taints nobody earned.
+  #[test]
+  fn the_default_trust_root_attests_nothing() {
+    let t = crate::TrustRoot::default();
+    ::std::assert!(t.directory.is_none());
+    ::std::assert!(!t.signatures_verified);
   }
 }

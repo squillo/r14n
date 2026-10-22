@@ -61,22 +61,46 @@ report (not silently drop) the vectors it skips. The reference resolver's runner
 (`/resolver/tests/conformance.rs`) pins its supported set and asserts exact run counts, so a
 newly-added vector fails the build until the runner acknowledges it.
 
-Reference-resolver status (2026-10-19): implements all Level-1 capabilities, and **every
-Level-2 capability** — `fail_closed_unknown_subject`, `posture_override`,
-`data_minimization_guard`, `temporal_envelope`, `most_restrictive_merge`, `deontic_conflict`,
-`ambiguous_attribution`, `per_domain_posture`, `gpc_escalation`, `ieee7012_escalation`,
-`rfc4647_negotiation`, `delta_merge`. All 17 Level-2 vectors run and pass; the skip list is
-empty. Of Level 3: all except `trust_root_revocation` (needs registry integration).
+Reference-resolver status (2026-10-21): implements all Level-1 capabilities, **every
+Level-2 capability**, and — as of 2026-10-21 — **every Level-3 capability**, including
+`trust_root_revocation`. Every vector in all three files runs and passes; **all three skip
+lists are empty.** Counts: Level 1 7/7, Level 2 17/17, Level 3 7/7.
 
 ⚠ **The governed claim has NOT been turned, and that is deliberate.** `TRADEMARKS.md` permits
-"conforms to RLPS Level 2, rlps-conformance/0.1" only when every vector for the level passes,
-which is now true — so the claim is ELIGIBLE. It is not asserted here. Making a public
-conformance claim on a standards project is a maintainer decision, not a consequence of a
-green test run, and the wording below stays at the conservative form until a maintainer turns
-it. A reader may rely on the measurement; nobody should read the measurement as the claim.
+"conforms to RLPS Level N, rlps-conformance/0.1" only when every vector for the level passes,
+which is now true for Levels 1, 2 AND 3 — so the claim is ELIGIBLE at all three. It is not
+asserted here. Making a public conformance claim on a standards project is a maintainer
+decision, not a consequence of a green test run, and the wording stays at the conservative
+form until a maintainer turns it. A reader may rely on the measurement; nobody should read
+the measurement as the claim.
 
-So this still reads **"implements Level 2; Level 3 in progress"**, and Level 3 remains one
-capability short regardless.
+So this still reads **"implements Level 3"**.
+
+### Why `trust_root_revocation` needed more than a runner flag
+
+Worth recording, because the shape generalises. `advisory_only` was computed from a hardcoded
+`const PROVENANCE_VERIFIED: bool = false`, so **every** decision was advisory-only — and the
+revocation vector EXPECTS `advisory_only: true`. Enabling the capability would therefore have
+turned Level 3 green while proving nothing: the suite could not distinguish a working
+revocation check from a resolver that taints unconditionally.
+
+Two things fixed that, and neither is the vector itself:
+
+1. **A green control.** `directory_listed_unrevoked_key_clears_the_advisory_taint` is the same
+   pack and the same directory with the revocation block removed, and it expects
+   `advisory_only: false`. A one-sided suite cannot fail, so the green control is what makes
+   the revoked vector mean anything.
+2. **Trust resolution in the resolver, where §6 puts it.** Spec §6 says "from `revoked_at`
+   forward *a resolver* MUST treat packs signed by that key as unattested" — listing,
+   revocation and expiry are lexical date comparison, so the resolver does all of it with no
+   new dependency (invariant 9 caps it at serde/toml/std). Signature verification is the half
+   it cannot do and arrives as the caller's explicit assertion. Both halves must hold: a
+   verified signature by a revoked key is precisely the case §6 exists to catch.
+
+Verified by mutation rather than by observing green: disabling the revocation comparison turns
+the revoked vector red, and clearing `provenance_verified` turns the green control red. Each
+vector now fails when the behaviour it names is removed, which is the property a suite needs
+and the one this suite previously lacked.
 
 **`ambiguous_attribution` is implemented as of 2026-10-17**, and it was called out here for
 months as the one gap a reader was most likely to assume closed. Spec §4.1 makes ambiguous

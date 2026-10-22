@@ -33,6 +33,7 @@ const SUPPORTED: &[&str] = &[
   "ieee7012_escalation",
   "rfc4647_negotiation",
   "delta_merge",
+  "trust_root_revocation",
 ];
 
 fn vectors_file(name: &str) -> ::serde_json::Value {
@@ -195,7 +196,23 @@ fn run_suite(name: &str) -> (usize, ::std::vec::Vec<::std::string::String>) {
         .unwrap_or(false),
     };
     let override_ = q["posture_override"].as_str().map(::r14n::Strictness::parse);
-    let adapter = ::r14n::TomlRegulatoryPolicyAdapter::new(tmp.path().to_path_buf(), override_);
+    // Spec §6 trust root. Both halves come from the VECTOR, not the query,
+    // because both are deployment facts: which directory the operator trusts,
+    // and whether that operator verified signatures before calling. Absent
+    // reads "no trust root", which keeps every pre-existing vector on exactly
+    // the advisory-only path it took before this capability landed.
+    let trust = ::r14n::TrustRoot {
+      directory: vector.get("reviewer_directory").map(|d| {
+        ::serde_json::from_value(d.clone()).expect("reviewer_directory shape")
+      }),
+      signatures_verified: vector
+        .get("signatures_verified")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false),
+    };
+    let adapter =
+      ::r14n::TomlRegulatoryPolicyAdapter::new(tmp.path().to_path_buf(), override_)
+        .with_trust_root(trust);
     // Spec §4.2: a vector carrying `jurisdictions` is a CROSS-JURISDICTION query.
     // Routed through the merge door unconditionally — it resolves a single
     // jurisdiction unchanged when the list is empty, so every pre-existing vector
@@ -321,8 +338,8 @@ fn conformance_level_2_configured_supported_subset() {
 #[test]
 fn conformance_level_3_comprehensive_supported_subset() {
   let (ran, skipped) = run_suite("level-3.json");
-  ::std::assert_eq!(ran, 5, "level-3 supported-vector count drifted");
-  ::std::assert_eq!(skipped.len(), 1, "level-3 skip count drifted: {skipped:?}");
+  ::std::assert_eq!(ran, 7, "level-3 supported-vector count drifted");
+  ::std::assert_eq!(skipped.len(), 0, "level-3 skip count drifted: {skipped:?}");
 }
 
 /// The complete capability vocabulary the conformance suite recognizes (spec §9

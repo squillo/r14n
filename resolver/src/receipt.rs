@@ -11,11 +11,11 @@
 //! ⚠ **NOT LEGAL ADVICE.** A receipt proves what was DECIDED and by which pack,
 //! never that the decision was lawful. Decisions carry `advisory_only = true`
 //! (spec §6 trust-root taint) unless provenance was cryptographically verified.
-//! The reference resolver does NOT consult the reviewer-key directory, so
-//! [`PROVENANCE_VERIFIED`] is `false` and **every reference-resolver receipt is
-//! advisory-only** — a self-declared `legal_review.status = "approved"` string
-//! does NOT clear the taint (it never proves *who* attested). `advisory_only`
-//! is therefore `fell_back` OR `status != "approved"` OR `!PROVENANCE_VERIFIED`.
+//! The taint clears only when a deployment supplies a [`crate::TrustRoot`] AND
+//! the pack's signing key resolves `Trusted` against it as of the decision date
+//! — a self-declared `legal_review.status = "approved"` string does NOT clear
+//! it (it never proves *who* attested). `advisory_only` is therefore
+//! `fell_back` OR `status != "approved"` OR `!provenance_verified`.
 //!
 //! Recording/receipt terms (`rlps:ControlDecisionReceipt`,
 //! `rlps:RegulatedActivity`, `rlps:AudioRecording`, …) are minted in the
@@ -48,7 +48,7 @@
 //! - 2026-07-06: authored — roadmap item 3 (27560/DPV receipt + Kantara CR v1.1
 //!   shim + AI-Act §50 disclosure evidence).
 //! - 2026-07-07: council-audit fidelity fixes — advisory taint no longer cleared
-//!   by a self-declared status (`PROVENANCE_VERIFIED`); `@context` coerces minted
+//!   by a self-declared status; `@context` coerces minted
 //!   terms to IRIs; dropped the false dpv-27560-profile lineage claim, the
 //!   fabricated Kantara `consentType: EXPLICIT`, and the hardcoded
 //!   `legal_basis_hint`; explicit sorting canonicalizer for determinism.
@@ -67,12 +67,6 @@ pub const NOT_LEGAL_ADVICE: &str = "NOT LEGAL ADVICE. This receipt records a con
 
 /// Receipt schema identifier carried in `record.schema_version`.
 pub const SCHEMA_VERSION: &str = "rlps-receipt/0.1+iso27560";
-
-/// Whether the reference resolver cryptographically verifies pack provenance
-/// (signature by a directory-listed, non-revoked reviewer key). It does NOT in
-/// v0.1 — directory verification is deferred to registry tooling — so this is
-/// `false` and every reference-resolver decision is advisory-only (spec §6).
-pub const PROVENANCE_VERIFIED: bool = false;
 
 const KANTARA_VERSION: &str = "KI-CR-v1.1.0";
 
@@ -150,13 +144,14 @@ pub struct ReceiptContext {
   pub pack_sha256: ::std::option::Option<::std::string::String>,
 }
 
-/// Spec §6: a decision is advisory-only unless provenance was cryptographically
-/// verified (which the reference resolver never does — [`PROVENANCE_VERIFIED`]).
-/// A self-declared `status = "approved"` string can never clear the taint on its
-/// own; it does not prove *who* attested.
+/// Spec §6: a decision is advisory-only unless provenance was established —
+/// see [`crate::PolicyProvenance::provenance_verified`], which requires BOTH a
+/// caller-asserted signature and a `Trusted` directory status as of the
+/// decision date. A self-declared `status = "approved"` string can never clear
+/// the taint on its own; it does not prove *who* attested.
 fn advisory_only(prov: &crate::PolicyProvenance) -> bool {
   prov.fell_back
-    || !PROVENANCE_VERIFIED
+    || !prov.provenance_verified
     || !::std::matches!(
       prov.legal_review_status.as_deref(),
       ::std::option::Option::Some("approved")
@@ -236,7 +231,7 @@ pub fn dpv_27560(
       "pack_source": decision.provenance.source,
       "legal_review_status": decision.provenance.legal_review_status,
       "fell_back": decision.provenance.fell_back,
-      "provenance_verified": PROVENANCE_VERIFIED,
+      "provenance_verified": decision.provenance.provenance_verified,
       "advisory_only": advisory_only(&decision.provenance),
     },
     "event": events,
@@ -320,7 +315,7 @@ pub fn kantara_cr_v1_1(
       "pack_source": decision.provenance.source,
       "legal_review_status": decision.provenance.legal_review_status,
       "fell_back": decision.provenance.fell_back,
-      "provenance_verified": PROVENANCE_VERIFIED,
+      "provenance_verified": decision.provenance.provenance_verified,
       "advisory_only": advisory_only(&decision.provenance),
       "gpc_signal": ctx.gpc_signal,
       "disclaimer": NOT_LEGAL_ADVICE,
@@ -370,8 +365,21 @@ mod tests {
         legal_review_status: status.map(::std::string::String::from),
         last_reviewed_against_guidance: ::std::option::Option::None,
         fell_back,
+        provenance_verified: false,
+        trust_status: ::std::string::String::from("no_directory"),
       },
     }
+  }
+
+  /// A decision whose provenance WAS established — approved pack, verified
+  /// signature, `Trusted` key. Exists because until trust-root resolution
+  /// landed no input could produce it, so the advisory taint had never been
+  /// tested in the direction that clears it.
+  fn verified_decision() -> crate::ControlDecision {
+    let mut d = decision(false, ::std::option::Option::Some("approved"));
+    d.provenance.provenance_verified = true;
+    d.provenance.trust_status = ::std::string::String::from("trusted");
+    d
   }
 
   fn ctx() -> super::ReceiptContext {
@@ -424,12 +432,59 @@ mod tests {
   fn approved_status_alone_does_not_clear_the_advisory_taint() {
     let v = super::dpv_27560(&decision(false, ::std::option::Option::Some("approved")), &ctx());
     ::std::assert_eq!(v["provenance"]["legal_review_status"], "approved", "claim preserved");
-    ::std::assert_eq!(v["provenance"]["provenance_verified"], false, "resolver verifies nothing");
+    ::std::assert_eq!(
+      v["provenance"]["provenance_verified"], false,
+      "no trust root was configured, so nothing could be attested"
+    );
     ::std::assert_eq!(
       v["provenance"]["advisory_only"], true,
-      "self-declared approved must stay advisory until crypto verification exists"
+      "self-declared approved must stay advisory without an established trust root"
     );
-    const _: () = ::std::assert!(!super::PROVENANCE_VERIFIED, "v0.1 constant guards the above");
+  }
+
+  /// Why: spec §6 — the advisory taint MUST clear when provenance is
+  /// established, and until trust-root resolution landed nothing could ever
+  /// produce that state: `advisory_only` was unconditionally true because it
+  /// read a hardcoded `const false`. A suite that only ever asserted `true`
+  /// could not tell a working taint from a stuck one, so this is the assertion
+  /// that makes every `advisory_only == true` elsewhere mean something.
+  #[test]
+  fn established_provenance_clears_the_advisory_taint() {
+    let v = super::dpv_27560(&verified_decision(), &ctx());
+    ::std::assert_eq!(v["provenance"]["provenance_verified"], true);
+    ::std::assert_eq!(
+      v["provenance"]["advisory_only"], false,
+      "approved + verified signature + trusted key ⇒ not advisory"
+    );
+  }
+
+  /// Why: spec §6 — all three conditions are REQUIRED, so dropping any one
+  /// must re-taint. Guards the boolean from being weakened to an OR, which
+  /// would let a verified signature by a revoked key clear the taint — the
+  /// exact case §6:188 exists to catch.
+  #[test]
+  fn dropping_any_single_condition_restores_the_taint() {
+    let mut no_sig = verified_decision();
+    no_sig.provenance.provenance_verified = false;
+    ::std::assert_eq!(
+      super::dpv_27560(&no_sig, &ctx())["provenance"]["advisory_only"], true,
+      "unverified provenance ⇒ advisory"
+    );
+
+    let mut not_approved = verified_decision();
+    not_approved.provenance.legal_review_status =
+      ::std::option::Option::Some(::std::string::String::from("draft"));
+    ::std::assert_eq!(
+      super::dpv_27560(&not_approved, &ctx())["provenance"]["advisory_only"], true,
+      "draft status ⇒ advisory even with verified provenance"
+    );
+
+    let mut fell_back = verified_decision();
+    fell_back.provenance.fell_back = true;
+    ::std::assert_eq!(
+      super::dpv_27560(&fell_back, &ctx())["provenance"]["advisory_only"], true,
+      "fallback ⇒ advisory even with verified provenance"
+    );
   }
 
   /// Why: council-audit NN4 — the minted terms are the whole point of the

@@ -4,31 +4,70 @@
   "title": "RLPS Conformance Vector File",
   "description": "The format of a /conformance/level-N.json file: a suite of language-neutral test vectors. A harness materializes each vector's packs, runs the query, and asserts `expect` (+ optional receipt pointers). NOT LEGAL ADVICE.",
   "type": "object",
-  "required": ["suite", "level", "vectors"],
+  "required": [
+    "suite",
+    "level",
+    "vectors"
+  ],
   "additionalProperties": true,
   "properties": {
-    "suite": { "const": "rlps-conformance/0.1" },
-    "level": { "enum": [1, 2, 3] },
-    "description": { "type": "string" },
+    "suite": {
+      "const": "rlps-conformance/0.1"
+    },
+    "level": {
+      "enum": [
+        1,
+        2,
+        3
+      ]
+    },
+    "description": {
+      "type": "string"
+    },
     "vectors": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["name", "description", "capabilities", "packs", "query", "expect"],
+        "required": [
+          "name",
+          "description",
+          "capabilities",
+          "packs",
+          "query",
+          "expect"
+        ],
         "additionalProperties": false,
         "properties": {
-          "name": { "type": "string", "pattern": "^[a-z0-9_]+$" },
-          "description": { "type": "string" },
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z0-9_]+$"
+          },
+          "description": {
+            "type": "string"
+          },
           "capabilities": {
             "type": "array",
             "minItems": 1,
             "items": {
               "enum": [
-                "pack_parse", "posture_selection", "fail_closed_fallback",
-                "fail_closed_unknown_subject", "posture_override", "data_minimization_guard",
-                "temporal_envelope", "rfc4647_negotiation", "delta_merge", "most_restrictive_merge",
-                "deontic_conflict", "gpc_escalation", "ieee7012_escalation", "ambiguous_attribution",
-                "per_domain_posture", "trust_root_taint", "receipt_27560", "receipt_kantara",
+                "pack_parse",
+                "posture_selection",
+                "fail_closed_fallback",
+                "fail_closed_unknown_subject",
+                "posture_override",
+                "data_minimization_guard",
+                "temporal_envelope",
+                "rfc4647_negotiation",
+                "delta_merge",
+                "most_restrictive_merge",
+                "deontic_conflict",
+                "gpc_escalation",
+                "ieee7012_escalation",
+                "ambiguous_attribution",
+                "per_domain_posture",
+                "trust_root_taint",
+                "receipt_27560",
+                "receipt_kantara",
                 "trust_root_revocation"
               ]
             }
@@ -36,41 +75,131 @@
           "packs": {
             "type": "object",
             "description": "relative-path -> pack TOML text. Keys MUST be relative and MUST NOT contain '..' (harness rejects traversal).",
-            "propertyNames": { "pattern": "^(?!/)(?!.*\\.\\.).+$" },
-            "additionalProperties": { "type": "string" }
+            "propertyNames": {
+              "pattern": "^(?!/)(?!.*\\.\\.).+$"
+            },
+            "additionalProperties": {
+              "type": "string"
+            }
           },
           "query": {
             "type": "object",
-            "required": ["domain", "profile", "jurisdiction", "subject", "universe"],
-            "additionalProperties": true,
+            "required": [
+              "domain",
+              "profile",
+              "jurisdiction",
+              "subject",
+              "universe"
+            ],
+            "additionalProperties": false,
             "properties": {
-              "domain": { "type": "string" },
-              "profile": { "type": "string" },
-              "jurisdiction": { "type": "string" },
-              "subject": { "type": "string" },
-              "universe": { "type": "array", "items": { "type": "string" } },
-              "posture_override": { "type": ["string", "null"] },
-              "as_of": { "type": "string" }
+              "domain": {
+                "type": "string"
+              },
+              "profile": {
+                "type": "string"
+              },
+              "jurisdiction": {
+                "type": "string"
+              },
+              "subject": {
+                "type": "string"
+              },
+              "universe": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "posture_override": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "as_of": {
+                "type": "string",
+                "description": "ISO YYYY-MM-DD decision date (spec 4 temporal envelope, spec 6 revocation). THE one spelling: a vector that writes `decision_date` now fails this schema instead of resolving with no date."
+              },
+              "jurisdictions": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Spec 4.2 cross-jurisdiction merge: resolve against each and merge most-restrictively."
+              },
+              "attribution_source": {
+                "type": "string",
+                "description": "Spec 4.1: how the caller determined `jurisdiction`. An ambiguous value blocks."
+              },
+              "per_domain_posture_overrides": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "description": "Spec 3: per-domain posture, most specific wins."
+              },
+              "gpc_signal": {
+                "type": "boolean",
+                "description": "Spec 4 step 5: Global Privacy Control escalates the subject."
+              },
+              "ieee7012_no_recording": {
+                "type": "boolean",
+                "description": "Spec 4 step 5: IEEE-7012 no-recording preference escalates the subject."
+              }
             }
           },
           "expect": {
             "type": "object",
             "additionalProperties": false,
             "properties": {
-              "required_controls": { "type": "array", "items": { "type": "string" } },
-              "fell_back": { "type": "boolean" },
-              "legal_review_status": { "type": ["string", "null"] },
-              "verdict": { "enum": ["permit", "block"] }
+              "required_controls": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "fell_back": {
+                "type": "boolean"
+              },
+              "legal_review_status": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "verdict": {
+                "enum": [
+                  "permit",
+                  "block"
+                ]
+              }
             }
           },
-          "reviewer_directory": { "type": "object" },
-          "receipt_context": { "type": "object" },
-          "expect_receipt": { "type": "object" },
-          "expect_kantara": { "type": "object" }
+          "reviewer_directory": {
+            "type": "object"
+          },
+          "receipt_context": {
+            "type": "object"
+          },
+          "expect_receipt": {
+            "type": "object"
+          },
+          "expect_kantara": {
+            "type": "object"
+          },
+          "signatures_verified": {
+            "type": "boolean",
+            "description": "Spec 6: the vector asserts the host cryptographically verified the pack signature. The resolver cannot check this (invariant 9 bars crypto from it), so it is the caller's attestation; with a Trusted directory status it is what clears the advisory-only taint."
+          }
         },
         "dependentRequired": {
-          "expect_receipt": ["receipt_context"],
-          "expect_kantara": ["receipt_context"]
+          "expect_receipt": [
+            "receipt_context"
+          ],
+          "expect_kantara": [
+            "receipt_context"
+          ]
         }
       }
     }

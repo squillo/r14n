@@ -42,6 +42,18 @@ struct WireQuery {
   /// behaviour every existing caller already has.
   #[serde(default)]
   jurisdictions: ::std::vec::Vec<::std::string::String>,
+  /// Spec §6 trust root — the reviewer-key directory this host trusts. Absent
+  /// means no trust root, so decisions stay advisory-only. It crosses the
+  /// boundary because a binding that could not SUPPLY one could never clear
+  /// the taint, and §6 would then exist for Rust callers alone (invariant 4).
+  #[serde(default)]
+  reviewer_directory: ::std::option::Option<crate::ReviewerDirectory>,
+  /// Spec §6 — the host asserts it verified the pack signature. This crate
+  /// cannot check that claim (invariant 9 bars crypto from it), so it is the
+  /// caller's attestation, and a caller that lies here overstates its own
+  /// receipt. Absent reads false, which is the only safe default.
+  #[serde(default)]
+  signatures_verified: bool,
   /// Spec §4.1 — how the caller determined `jurisdiction`. Absent opts out of
   /// the §4.1 check; see the core field's doc for why absence is not assent.
   #[serde(default)]
@@ -94,6 +106,14 @@ struct WireProvenance {
   legal_review_status: ::std::option::Option<::std::string::String>,
   last_reviewed_against_guidance: ::std::option::Option<::std::string::String>,
   fell_back: bool,
+  /// Spec §6 — whether the trust root established provenance. Crosses the
+  /// boundary because the bindings are generated from this core (invariant 4):
+  /// a JS or Python caller that could not see this would have no way to tell an
+  /// attested decision from an advisory one.
+  provenance_verified: bool,
+  /// Spec §6 — WHY provenance failed (`revoked`, `expired`, `no_directory`, …),
+  /// not merely that it did.
+  trust_status: ::std::string::String,
 }
 
 /// The wire form of [`crate::DeonticConflict`] (spec §4.2.3).
@@ -146,6 +166,8 @@ impl WireDecision {
         legal_review_status: d.provenance.legal_review_status.clone(),
         last_reviewed_against_guidance: d.provenance.last_reviewed_against_guidance.clone(),
         fell_back: d.provenance.fell_back,
+        provenance_verified: d.provenance.provenance_verified,
+        trust_status: d.provenance.trust_status.clone(),
       },
       disclaimer: crate::receipt::NOT_LEGAL_ADVICE,
     }
@@ -232,7 +254,12 @@ fn decide(
   let mut query: WireQuery = ::serde_json::from_str(query_json)
     .map_err(|e| ::std::format!("query_json is not a valid RegulatoryQuery: {e}"))?;
   let dial = strictness_override.map(crate::Strictness::parse);
-  let adapter = crate::InMemoryRegulatoryPolicyAdapter::new(packs, dial);
+  let trust = crate::TrustRoot {
+    directory: query.reviewer_directory.take(),
+    signatures_verified: query.signatures_verified,
+  };
+  let adapter =
+    crate::InMemoryRegulatoryPolicyAdapter::new(packs, dial).with_trust_root(trust);
   // ONE door for both shapes. `resolve_across_jurisdictions` resolves `query`
   // unchanged when the list is empty, so a single-jurisdiction caller reaches
   // exactly the same code path it always did and a host never has to branch —
@@ -387,9 +414,49 @@ mod tests {
     );
   }
 
+  /// Why: spec §6 + invariant 4 — a trust root supplied ACROSS the JSON
+  /// boundary must reach the core and clear the taint. Without this, §6 would
+  /// be reachable only from Rust: the JS and Python packages are generated
+  /// from this boundary, so a field they cannot send is a capability they do
+  /// not have. Proves both directions on one pack, so the only variable is the
+  /// directory's revocation block.
+  #[test]
+  fn a_trust_root_crosses_the_json_boundary_in_both_directions() {
+    let packs = "{\"signed/recording_consent.r14n.toml\":\"[meta]\\nstrictness = \\\"as_configured\\\"\\n\\n[meta.legal_review]\\nstatus = \\\"approved\\\"\\nsignature_key_id = \\\"reviewer-1\\\"\\n\\n[subject.telepresence]\\ncontrols = [\\\"signal_notice\\\"]\\n\\n[legally_required]\\ncontrols = [\\\"attestation\\\"]\\n\"}";
+    let q = |revocation: &str| {
+      ::std::format!(
+        "{{\"domain\":\"recording_consent\",\"profile\":\"signed\",\"jurisdiction\":\"all_party\",\"subject\":\"telepresence\",\"universe\":[\"attestation\",\"signal_notice\"],\"as_of\":\"2026-07-01\",\"signatures_verified\":true,\"reviewer_directory\":{{\"keys\":[{{\"key_id\":\"reviewer-1\",\"valid_from\":\"2026-01-01\"{revocation}}}]}}}}"
+      )
+    };
+
+    let live = super::resolve_json(packs, &q(""), ::std::option::Option::None).expect("live");
+    let live: ::serde_json::Value = ::serde_json::from_str(&live).expect("json");
+    ::std::assert_eq!(
+      live["provenance"]["trust_status"], "trusted",
+      "an unrevoked listed key must resolve trusted across the boundary"
+    );
+    ::std::assert_eq!(live["provenance"]["provenance_verified"], true);
+
+    let dead = super::resolve_json(
+      packs,
+      &q(",\"revocation\":{\"revoked_at\":\"2026-06-01\",\"reason\":\"credential_lapsed\"}"),
+      ::std::option::Option::None,
+    )
+    .expect("revoked");
+    let dead: ::serde_json::Value = ::serde_json::from_str(&dead).expect("json");
+    ::std::assert_eq!(
+      dead["provenance"]["trust_status"], "revoked",
+      "spec §6:188 — from revoked_at forward the key is untrusted"
+    );
+    ::std::assert_eq!(
+      dead["provenance"]["provenance_verified"], false,
+      "a verified signature by a REVOKED key must not establish provenance"
+    );
+  }
+
   /// Why: receipts are the auditable artifact (spec §8). Both forms must
-  /// serialize, read the verdict from the decision, and stay advisory-only —
-  /// the reference resolver verifies no provenance (spec §6).
+  /// serialize, read the verdict from the decision, and stay advisory-only
+  /// when no trust root was supplied (spec §6).
   #[test]
   fn resolve_with_receipts_json_emits_both_forms_advisory_only() {
     let out = super::resolve_with_receipts_json(
