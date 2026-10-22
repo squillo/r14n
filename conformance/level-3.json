@@ -6,14 +6,20 @@
     {
       "name": "fallback_decision_is_advisory_only_in_receipt",
       "description": "Spec 5 + 6: a fallen-back decision MUST carry the taint into the receipt.",
-      "capabilities": ["trust_root_taint", "receipt_27560"],
+      "capabilities": [
+        "trust_root_taint",
+        "receipt_27560"
+      ],
       "packs": {},
       "query": {
         "domain": "recording_consent",
         "profile": "nonexistent",
         "jurisdiction": "unknown",
         "subject": "telepresence",
-        "universe": ["attestation", "signal_notice"],
+        "universe": [
+          "attestation",
+          "signal_notice"
+        ],
         "posture_override": null
       },
       "expect": {
@@ -29,7 +35,9 @@
         "policy_url": null,
         "domain": "recording_consent",
         "subject": "telepresence",
-        "operations": ["rlps:AudioRecording"],
+        "operations": [
+          "rlps:AudioRecording"
+        ],
         "jurisdictions": [],
         "attribution_source": "unknown",
         "gpc_signal": false,
@@ -49,7 +57,10 @@
     {
       "name": "self_attested_pack_is_advisory_only_in_receipt",
       "description": "Spec 6: an unattested/self-attested (non-approved) pack renders decisions advisory-only.",
-      "capabilities": ["trust_root_taint", "receipt_27560"],
+      "capabilities": [
+        "trust_root_taint",
+        "receipt_27560"
+      ],
       "packs": {
         "draft_pack/recording_consent.r14n.toml": "[meta]\nstrictness = \"as_configured\"\n\n[meta.legal_review]\nstatus = \"draft\"\n\n[subject.telepresence]\ncontrols = [\"signal_notice\"]\n\n[legally_required]\ncontrols = [\"attestation\"]\n"
       },
@@ -58,11 +69,16 @@
         "profile": "draft_pack",
         "jurisdiction": "all_party",
         "subject": "telepresence",
-        "universe": ["attestation", "signal_notice"],
+        "universe": [
+          "attestation",
+          "signal_notice"
+        ],
         "posture_override": null
       },
       "expect": {
-        "required_controls": ["signal_notice"],
+        "required_controls": [
+          "signal_notice"
+        ],
         "fell_back": false,
         "legal_review_status": "draft"
       },
@@ -76,8 +92,12 @@
         "policy_url": null,
         "domain": "recording_consent",
         "subject": "telepresence",
-        "operations": ["rlps:AudioRecording"],
-        "jurisdictions": ["US-CA"],
+        "operations": [
+          "rlps:AudioRecording"
+        ],
+        "jurisdictions": [
+          "US-CA"
+        ],
         "attribution_source": "operator_declared",
         "gpc_signal": false,
         "ieee7012_no_recording": false,
@@ -95,7 +115,10 @@
     {
       "name": "approved_pack_receipt_carries_posture_sha_and_controls",
       "description": "Spec 2.7 + 6: the receipt records the posture value (never collapsed), the pack SHA, and the required set. A self-declared status=approved does NOT clear the advisory taint (council-audit NN1) - only cryptographically verified provenance does, which the reference resolver does not perform.",
-      "capabilities": ["trust_root_taint", "receipt_27560"],
+      "capabilities": [
+        "trust_root_taint",
+        "receipt_27560"
+      ],
       "packs": {
         "approved_pack/recording_consent.r14n.toml": "[meta]\nstrictness = \"as_configured\"\n\n[meta.legal_review]\nstatus = \"approved\"\n\n[subject.telepresence]\ncontrols = [\"signal_notice\"]\n\n[legally_required]\ncontrols = [\"attestation\"]\n"
       },
@@ -104,11 +127,16 @@
         "profile": "approved_pack",
         "jurisdiction": "all_party",
         "subject": "telepresence",
-        "universe": ["attestation", "signal_notice"],
+        "universe": [
+          "attestation",
+          "signal_notice"
+        ],
         "posture_override": null
       },
       "expect": {
-        "required_controls": ["signal_notice"],
+        "required_controls": [
+          "signal_notice"
+        ],
         "fell_back": false,
         "legal_review_status": "approved"
       },
@@ -122,8 +150,12 @@
         "policy_url": "https://example.invalid/privacy",
         "domain": "recording_consent",
         "subject": "telepresence",
-        "operations": ["rlps:AudioRecording"],
-        "jurisdictions": ["US-CA"],
+        "operations": [
+          "rlps:AudioRecording"
+        ],
+        "jurisdictions": [
+          "US-CA"
+        ],
         "attribution_source": "operator_declared",
         "gpc_signal": false,
         "ieee7012_no_recording": false,
@@ -138,13 +170,17 @@
         "/provenance/legal_review_status": "approved",
         "/provenance/pack_sha256": "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
         "/decision/posture": "as_configured",
-        "/decision/required_controls": ["signal_notice"]
+        "/decision/required_controls": [
+          "signal_notice"
+        ]
       }
     },
     {
       "name": "ai_act_50_disclosure_logged_with_timestamp_and_method",
       "description": "Spec 8 (EU AI Act Art. 50): the receipt MUST log disclosure timestamp + method for AI-notetaker sessions.",
-      "capabilities": ["receipt_27560"],
+      "capabilities": [
+        "receipt_27560"
+      ],
       "packs": {
         "aggressive/recording_consent.r14n.toml": "[meta]\nstrictness = \"aggressive\"\n\n[meta.legal_review]\nstatus = \"not_required\"\n\n[legally_required]\ncontrols = [\"attestation\"]\n"
       },
@@ -153,11 +189,19 @@
         "profile": "aggressive",
         "jurisdiction": "all_party",
         "subject": "twin_attend",
-        "universe": ["attestation", "announcement", "ai_disclosure"],
+        "universe": [
+          "attestation",
+          "announcement",
+          "ai_disclosure"
+        ],
         "posture_override": null
       },
       "expect": {
-        "required_controls": ["ai_disclosure", "announcement", "attestation"],
+        "required_controls": [
+          "ai_disclosure",
+          "announcement",
+          "attestation"
+        ],
         "fell_back": false
       },
       "receipt_context": {
@@ -170,14 +214,22 @@
         "policy_url": null,
         "domain": "recording_consent",
         "subject": "twin_attend",
-        "operations": ["rlps:AudioRecording", "rlps:VoiceRecording"],
-        "jurisdictions": ["DE"],
+        "operations": [
+          "rlps:AudioRecording",
+          "rlps:VoiceRecording"
+        ],
+        "jurisdictions": [
+          "DE"
+        ],
         "attribution_source": "operator_declared",
         "gpc_signal": false,
         "ieee7012_no_recording": false,
         "sensitive": false,
         "spi_cat": [],
-        "ai_disclosure": { "disclosed_at": "2026-08-02T08:59:00Z", "method": "in_meeting_announcement" },
+        "ai_disclosure": {
+          "disclosed_at": "2026-08-02T08:59:00Z",
+          "method": "in_meeting_announcement"
+        },
         "pack_sha256": null
       },
       "expect_receipt": {
@@ -189,7 +241,9 @@
     {
       "name": "kantara_cr_v1_1_shim_shape",
       "description": "Spec 8: the flat Kantara CR v1.1 shim carries the record id, epoch timestamp, service/purpose mapping, and the RLPS extension block.",
-      "capabilities": ["receipt_kantara"],
+      "capabilities": [
+        "receipt_kantara"
+      ],
       "packs": {
         "draft_pack/recording_consent.r14n.toml": "[meta]\nstrictness = \"as_configured\"\n\n[meta.legal_review]\nstatus = \"draft\"\n\n[subject.telepresence]\ncontrols = [\"signal_notice\"]\n\n[legally_required]\ncontrols = [\"attestation\"]\n"
       },
@@ -198,11 +252,16 @@
         "profile": "draft_pack",
         "jurisdiction": "all_party",
         "subject": "telepresence",
-        "universe": ["attestation", "signal_notice"],
+        "universe": [
+          "attestation",
+          "signal_notice"
+        ],
         "posture_override": null
       },
       "expect": {
-        "required_controls": ["signal_notice"]
+        "required_controls": [
+          "signal_notice"
+        ]
       },
       "receipt_context": {
         "record_id": "vec-l3-kantara",
@@ -214,8 +273,12 @@
         "policy_url": null,
         "domain": "recording_consent",
         "subject": "telepresence",
-        "operations": ["rlps:AudioRecording"],
-        "jurisdictions": ["US-CA"],
+        "operations": [
+          "rlps:AudioRecording"
+        ],
+        "jurisdictions": [
+          "US-CA"
+        ],
         "attribution_source": "operator_declared",
         "gpc_signal": false,
         "ieee7012_no_recording": false,
@@ -237,8 +300,10 @@
     },
     {
       "name": "revoked_reviewer_key_taints_decision_advisory_only",
-      "description": "Spec 6 revocation semantics: from revoked_at forward, packs signed by the revoked key are unattested - decisions advisory-only.",
-      "capabilities": ["trust_root_revocation"],
+      "description": "Spec 6 revocation semantics: from revoked_at forward, packs signed by the revoked key are unattested - decisions advisory-only. The signature IS verified here, so revocation is the ONLY cause of the taint.",
+      "capabilities": [
+        "trust_root_revocation"
+      ],
       "reviewer_directory": {
         "directory_version": "1",
         "keys": [
@@ -250,7 +315,10 @@
             "credential_type": "bar_license",
             "credential_id": "0000000",
             "valid_from": "2026-01-01",
-            "revocation": { "revoked_at": "2026-06-01", "reason": "credential_lapsed" }
+            "revocation": {
+              "revoked_at": "2026-06-01",
+              "reason": "credential_lapsed"
+            }
           }
         ]
       },
@@ -262,12 +330,17 @@
         "profile": "signed_pack",
         "jurisdiction": "all_party",
         "subject": "telepresence",
-        "universe": ["attestation", "signal_notice"],
+        "universe": [
+          "attestation",
+          "signal_notice"
+        ],
         "posture_override": null,
-        "decision_date": "2026-07-01"
+        "as_of": "2026-07-01"
       },
       "expect": {
-        "required_controls": ["signal_notice"]
+        "required_controls": [
+          "signal_notice"
+        ]
       },
       "receipt_context": {
         "record_id": "vec-l3-revoked",
@@ -279,8 +352,12 @@
         "policy_url": null,
         "domain": "recording_consent",
         "subject": "telepresence",
-        "operations": ["rlps:AudioRecording"],
-        "jurisdictions": ["US-CA"],
+        "operations": [
+          "rlps:AudioRecording"
+        ],
+        "jurisdictions": [
+          "US-CA"
+        ],
         "attribution_source": "operator_declared",
         "gpc_signal": false,
         "ieee7012_no_recording": false,
@@ -291,6 +368,76 @@
       },
       "expect_receipt": {
         "/provenance/advisory_only": true
+      },
+      "signatures_verified": true
+    },
+    {
+      "name": "directory_listed_unrevoked_key_clears_the_advisory_taint",
+      "description": "GREEN CONTROL for revocation (spec 6). Identical in every respect to the revoked vector except the key carries no revocation block. Without this vector the revoked one proves nothing: advisory_only is true for EVERY decision, so a suite containing only the revoked case passes whether or not revocation is implemented at all.",
+      "capabilities": [
+        "trust_root_revocation"
+      ],
+      "signatures_verified": true,
+      "reviewer_directory": {
+        "directory_version": "1",
+        "keys": [
+          {
+            "key_id": "reviewer-1",
+            "public_key_ed25519": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+            "reviewer_identity": "Example Counsel LLP",
+            "jurisdiction": "US-CA",
+            "credential_type": "bar_license",
+            "credential_id": "0000000",
+            "valid_from": "2026-01-01"
+          }
+        ]
+      },
+      "packs": {
+        "signed_pack/recording_consent.r14n.toml": "[meta]\nstrictness = \"as_configured\"\n\n[meta.legal_review]\nstatus = \"approved\"\nreviewing_attorney_of_record = \"Example Counsel LLP\"\njurisdiction = \"US-CA\"\nbar_credential = \"0000000\"\nreview_date = \"2026-02-01\"\nsignature_key_id = \"reviewer-1\"\n\n[subject.telepresence]\ncontrols = [\"signal_notice\"]\n\n[legally_required]\ncontrols = [\"attestation\"]\n"
+      },
+      "query": {
+        "domain": "recording_consent",
+        "profile": "signed_pack",
+        "jurisdiction": "all_party",
+        "subject": "telepresence",
+        "universe": [
+          "attestation",
+          "signal_notice"
+        ],
+        "posture_override": null,
+        "as_of": "2026-03-01"
+      },
+      "expect": {
+        "required_controls": [
+          "signal_notice"
+        ]
+      },
+      "receipt_context": {
+        "record_id": "vec-l3-unrevoked",
+        "issued_at": "2026-07-06T00:00:00Z",
+        "issued_at_unix": 1783296000,
+        "language": "en",
+        "pii_principal_id": "principal-7",
+        "pii_controller": "Vector Operator",
+        "policy_url": null,
+        "domain": "recording_consent",
+        "subject": "telepresence",
+        "operations": [
+          "rlps:AudioRecording"
+        ],
+        "jurisdictions": [
+          "US-CA"
+        ],
+        "attribution_source": "operator_declared",
+        "gpc_signal": false,
+        "ieee7012_no_recording": false,
+        "sensitive": false,
+        "spi_cat": [],
+        "ai_disclosure": null,
+        "pack_sha256": null
+      },
+      "expect_receipt": {
+        "/provenance/advisory_only": false
       }
     }
   ]
