@@ -233,6 +233,102 @@ fn shipped_packs_for(domain: &str) -> ::std::vec::Vec<::std::string::String> {
   rels
 }
 
+/// Every `controls = [...]` list in an emitted Snapp bundle, as
+/// (bundle-relative JSON pointer, keys). Reads the ARTIFACT rather than scraping
+/// the `.n.md` source: the emitter's bytes are the contract, and a string scan of
+/// literate markdown would also pick up prose and `legal_review` values (it does —
+/// `requires_signoff` is a status, not a control).
+fn snapp_control_lists() -> ::std::vec::Vec<(::std::string::String, ::std::vec::Vec<::std::string::String>)> {
+  fn walk(
+    v: &::serde_json::Value,
+    path: &str,
+    out: &mut ::std::vec::Vec<(::std::string::String, ::std::vec::Vec<::std::string::String>)>,
+  ) {
+    match v {
+      ::serde_json::Value::Object(map) => {
+        if let ::std::option::Option::Some(::serde_json::Value::Array(list)) = map.get("controls") {
+          let keys: ::std::vec::Vec<::std::string::String> = list
+            .iter()
+            .filter_map(|k| k.as_str().map(::std::string::String::from))
+            .collect();
+          out.push((::std::string::String::from(path), keys));
+        }
+        for (k, child) in map {
+          walk(child, &::std::format!("{path}/{k}"), out);
+        }
+      }
+      ::serde_json::Value::Array(items) => {
+        for (i, child) in items.iter().enumerate() {
+          walk(child, &::std::format!("{path}[{i}]"), out);
+        }
+      }
+      _ => {}
+    }
+  }
+
+  let dir = root().join("snapp");
+  let mut out = ::std::vec::Vec::new();
+  for entry in ::std::fs::read_dir(&dir).expect("read snapp/") {
+    let path = entry.expect("dir entry").path();
+    let name = match path.file_name().and_then(|n| n.to_str()) {
+      ::std::option::Option::Some(n) if n.ends_with(".json") => ::std::string::String::from(n),
+      _ => continue,
+    };
+    let raw = ::std::fs::read_to_string(&path).expect("read bundle");
+    let doc: ::serde_json::Value = ::serde_json::from_str(&raw)
+      .unwrap_or_else(|e| ::std::panic!("snapp/{name} is not valid JSON: {e}"));
+    walk(&doc, &::std::format!("snapp/{name}"), &mut out);
+  }
+  out
+}
+
+/// Why: invariant 11 — "a new pack needs a catalog for its domain (CI globs both
+/// directions)". That glob covers `packs/*.r14n.toml`, and the N Lang baselines
+/// ship their packs as Snapp NODES, not published TOML — so they were never in its
+/// scope. `baselines/1.0.0`'s `HEALTH_AGGRESSIVE` pack consequently shipped with
+/// five control keys (`consent_prompt`, `usage_description`, `on_device_only`,
+/// `read_scope_limit`, `audit_log`) that NO catalog declared, and nothing reported
+/// it. This closes the other half of the glob.
+///
+/// Checks UNION membership across all catalogs rather than per-domain, deliberately.
+/// Deriving a pack's domain from its node name (`HEALTH_AGGRESSIVE` -> `health`)
+/// would be string-matching on an identifier (BOOK §1), and the post-rename pack
+/// type no longer carries a `domain` prop to read instead — the key IS the domain in
+/// the published form. Union membership is the honest check available, and it still
+/// catches the defect that shipped: a key declared nowhere at all.
+#[test]
+fn every_control_key_in_an_emitted_snapp_bundle_is_declared_by_some_catalog() {
+  let declared: ::std::collections::BTreeSet<::std::string::String> = catalogs()
+    .iter()
+    .flat_map(|(_, cat, _)| controls(cat).keys().cloned().collect::<::std::vec::Vec<_>>())
+    .collect();
+  ::std::assert!(!declared.is_empty(), "no catalog keys loaded — the glob is broken");
+
+  let lists = snapp_control_lists();
+  ::std::assert!(
+    !lists.is_empty(),
+    "no control list found in any snapp/ bundle — this test would pass vacuously, \
+     which is the defect it exists to prevent"
+  );
+
+  let mut undeclared: ::std::vec::Vec<::std::string::String> = ::std::vec::Vec::new();
+  for (pointer, keys) in &lists {
+    for key in keys {
+      if !declared.contains(key) {
+        undeclared.push(::std::format!("{key} (at {pointer})"));
+      }
+    }
+  }
+  undeclared.sort();
+  undeclared.dedup();
+  ::std::assert!(
+    undeclared.is_empty(),
+    "emitted Snapp packs reference {} control key(s) no catalog declares, so they ship \
+     with an undeclared vocabulary (invariant 11): {undeclared:#?}",
+    undeclared.len()
+  );
+}
+
 /// Why: invariant 10 — renames and removals are DEPRECATIONS because a control
 /// key is long-lived audit evidence, and a receipt already issued names the key
 /// in its old domain. A deprecated control that does not name its successor
