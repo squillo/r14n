@@ -1,0 +1,74 @@
+# RLPS Control Catalog — domain: health
+#
+# The canonical, jurisdiction-neutral declaration of the control keys a health
+# pack may reference, each with a deontic KIND and a title. Packs reference these
+# keys; they do NOT redefine them. NOT LEGAL ADVICE — a control is a stable
+# identifier for a required action, not a statement of any jurisdiction's law, and
+# satisfying every control here is not a finding that any health-data access is
+# lawful. See /docs/not-legal-advice.md.
+#
+# kind ∈ { permit | obligation | prohibition }
+#
+# ── WHY THIS CATALOG EXISTS ─────────────────────────────────────────────────
+#
+# `baselines/1.0.0` ships a `HEALTH_AGGRESSIVE` pack, and until this file existed
+# its five control keys were declared by NO catalog in this repository. The
+# invariant-11 check that should have caught that globs `packs/*.r14n.toml` in both
+# directions — and the baselines pack is a Snapp node, not a published TOML pack, so
+# it was never in that glob's scope at all. The pack shipped with its vocabulary
+# undeclared and nothing noticed.
+#
+# That hole is now closed from both ends: this catalog declares the keys, and
+# `tools/tests/catalog_integrity.rs` asserts that EVERY control key in every emitted
+# Snapp bundle is declared by some catalog — so a sixth key added to a Snapp pack
+# tomorrow fails the build instead of shipping undeclared.
+#
+# ── THESE ARE PLATFORM MECHANICS, NOT A REGULATORY REGIME ───────────────────
+#
+# The shipped pack declares `legal_review { status = "not_required" }`, and that is
+# correct rather than an omission: every control below names a platform permission
+# mechanism (a consent prompt, a usage-description string, an on-device constraint, a
+# scope limit, an audit record), not an obligation drawn from any health-privacy
+# regime. A pack claiming such a regime would need a named attorney of record
+# (invariant 2) and this is not one.
+#
+# ⚠ So nothing here should be read as a health-privacy control set. The real regimes
+# are counsel-gated and deliberately absent, and a deployment subject to one needs
+# more than these keys.
+#
+# ⚠ `kind` is DOCUMENTATION today — nothing enforces it; `r14n validate` keys off
+# catalog MEMBERSHIP alone. See the data_residency catalog's header for the full
+# derivation note. All five below are obligations: each names a state the enforcing
+# gate must bring about before access, and none is a grant the actor holds or a state
+# that must never obtain.
+
+[domain]
+name = "health"
+description = "Controls governing access to platform health data — the consent, declaration, locality, scope and audit obligations an access must satisfy before it proceeds."
+
+# ── Obligations — a state the enforcing gate must bring about ────────────────
+
+[control.consent_prompt]
+kind = "obligation"
+title = "Consent prompt cleared"
+description = "The subject was prompted for health-data access and consented before the access proceeded. The control asserts the prompt was shown and cleared; it does not name which tier of prompt, because a key per tier would put policy in the vocabulary."
+
+[control.usage_description]
+kind = "obligation"
+title = "Usage description declared"
+description = "The application declares, in the platform's own usage-description surface, why it accesses health data. Distinct from the consent prompt: the description is what the subject READS when deciding, so an access with a cleared prompt and no declaration obtained consent to something unstated."
+
+[control.on_device_only]
+kind = "obligation"
+title = "Health data stays on device"
+description = "Health data is processed on the device and not sent off it. Expressed as an obligation rather than a prohibition because the shipped pack places it in requirement tables, and a prohibition key must never appear there (see the credential_use catalog's rule 1). A deployment wanting it subtracted under every posture would need a separate prohibition key."
+
+[control.read_scope_limit]
+kind = "obligation"
+title = "Read limited to the declared scope"
+description = "A read is confined to the health data types the application declared, and a read outside that scope is refused rather than trimmed. Required on the read subject; the write and background subjects require the audit record instead, because a scope limit on a write is the write's own declaration."
+
+[control.audit_log]
+kind = "obligation"
+title = "Access recorded in an audit log"
+description = "The access is recorded durably enough to be reviewed afterwards. Required on write and background delivery, where the subject is not present to observe the access happening — which is the whole reason those two subjects carry it and a foreground read does not."
