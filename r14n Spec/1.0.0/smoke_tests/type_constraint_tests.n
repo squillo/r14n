@@ -140,4 +140,129 @@ mod type_constraint_tests {
       controls: ["signal_notice", 7]
     }
   }
+
+  // ══ Control Catalog types (added 2026-10-26) ═══════════════════════════════
+  //
+  // The catalog was the last published r14n artifact with no type. These arms test the
+  // two things the hand-written TOML could not enforce from inside itself.
+
+  #[test]
+  control_def_resolves {
+    def: <ControlDef> {
+      kind: "obligation"
+      title: "Recording-consent attestation"
+      description: "The subject attested before capture."
+      trigger: "before_capture"
+      mechanism: "attestation_record"
+    }
+  }
+
+  // `kind` inverts a control's meaning rather than degrading it: a prohibition read as an
+  // obligation turns a control that must never hold into one that must. Closed set, paired.
+  #[test(should_fail = true)]
+  control_def_rejects_a_kind_outside_the_closed_set {
+    def: <ControlDef> {
+      kind: "advisory"
+      title: "Something"
+    }
+  }
+
+  #[test(should_fail = true)]
+  control_def_requires_a_title {
+    def: <ControlDef> {
+      kind: "obligation"
+    }
+  }
+
+  // Invariant 10's deprecation shape: a retired key stays readable, and says what replaced
+  // it. Cross-domain successors are `<domain>::<key>` because a key is namespaced by its
+  // owning domain.
+  #[test]
+  control_def_can_record_a_deprecation_with_its_successor {
+    def: <ControlDef> {
+      kind: "obligation"
+      title: "Usage analytics opt-in held (DEPRECATED)"
+      deprecated: 2026-10-21
+      superseded_by: ["analytics_consent::usage_analytics_opt_in"]
+    }
+  }
+
+  #[test]
+  catalog_domain_resolves {
+    dom: <CatalogDomain> {
+      name: "recording_consent"
+      description: "Controls governing whether a session may be recorded."
+    }
+  }
+
+  // ⚠ THE ARM THAT TESTS THE DESIGN CLAIM, not just the shape.
+  //
+  // `[control.<key>]` is a KEYED table, so a control key is a PROP NAME, and `ControlTable`
+  // constrains it with a REGEX PROP PATTERN rather than a `format` facet — declaring no
+  // wildcard arm, so a key outside `^[a-z][a-z0-9_]{0,63}$` has nothing to match.
+  //
+  // This matters because a `format` facet on a scalar prop is measurably NOT enforced here
+  // (see `subject_key_format` arms and the baselines tripwires). If a regex PROP PATTERN is
+  // enforced where a `format` FACET is not, then the catalog's key shape is the first control
+  // key format this project actually checks. These two arms are the whole evidence for that,
+  // so if the negative stops failing, the claim in
+  // R14N_SPEC_KEYWORD_CATALOG_1_0_0.n.md is false and the prose must be corrected.
+  #[test]
+  control_table_accepts_a_conforming_key {
+    table: <ControlTable> {
+      signal_notice: {
+        kind: "obligation"
+        title: "Recording signal active"
+      }
+    }
+  }
+
+  // ⚠ INVERTED TRIPWIRE — green while the regex prop pattern goes UNENFORCED.
+  //
+  // MEASURED 2026-10-26: this was authored as `should_fail = true` on the reasoning above,
+  // and it FAILED — `SignalNotice` compiled into a `ControlTable` despite not matching
+  // `^[a-z][a-z0-9_]{0,63}$`, with no wildcard arm declared. So a regex PROP PATTERN is no
+  // more enforced than a `format` FACET, and the design claim it was testing was false.
+  // Correcting the claim rather than deleting the evidence.
+  //
+  // When this reddens, the compiler enforces prop patterns: restore
+  // `#[test(should_fail = true)]`, and drop the key-format assertion from
+  // `tools/tests/catalog_integrity.rs` that currently stands in for it.
+  #[test]
+  tripwire_control_table_key_regex_is_unenforced {
+    table: <ControlTable> {
+      SignalNotice: {
+        kind: "obligation"
+        title: "Recording signal active"
+      }
+    }
+  }
+
+  #[test]
+  control_catalog_resolves_whole {
+    cat: <ControlCatalog> {
+      domain: {
+        name: "recording_consent"
+        description: "Controls governing whether a session may be recorded."
+      }
+      control: {
+        attestation: {
+          kind: "obligation"
+          title: "Recording-consent attestation"
+        }
+      }
+    }
+  }
+
+  #[test(should_fail = true)]
+  control_catalog_requires_its_domain {
+    cat: <ControlCatalog> {
+      control: {
+        attestation: {
+          kind: "obligation"
+          title: "Recording-consent attestation"
+        }
+      }
+    }
+  }
 }

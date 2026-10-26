@@ -27,6 +27,7 @@ r14n block predicate keywords express regulatory policy packs — a `(profile ×
 
 ```nlang
 mod R14N_SPEC_KEYWORD_POLICIES_1_0_0 {};
+mod R14N_SPEC_KEYWORD_CATALOG_1_0_0 {};
 ```
 
 ## Public Re-exports
@@ -34,6 +35,7 @@ mod R14N_SPEC_KEYWORD_POLICIES_1_0_0 {};
 ```nlang
 mod * {
   pub @use R14N_SPEC_KEYWORD_POLICIES_1_0_0 {}
+  pub @use R14N_SPEC_KEYWORD_CATALOG_1_0_0 {}
 }
 ```
 
