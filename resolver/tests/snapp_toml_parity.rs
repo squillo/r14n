@@ -50,13 +50,19 @@ fn toml_pack(profile: &str) -> ::toml::Value {
   raw.parse::<::toml::Value>().expect("published pack is not valid TOML")
 }
 
-fn sorted_strings(v: ::std::option::Option<&::serde_json::Value>) -> ::std::vec::Vec<::std::string::String> {
-  let mut out: ::std::vec::Vec<::std::string::String> = v
-    .and_then(|x| x.as_array())
+/// A control list in AUTHORED ORDER. Deliberately does NOT sort.
+///
+/// It used to. Sorting made this a set comparison, which could not see two copies of one
+/// baseline listing the same controls in different sequences — and as of the N Lang Book's
+/// `--format toml` definition (authoring Book, Binary Format §Export: `toml` emits the same
+/// document as `json`, "rendered as TOML 1.0 in the `json` order"), that sequence is the
+/// published artifact's byte order. Once a Toml exporter exists, an order divergence here is
+/// a byte divergence in a shipped pack. Measured 2026-10-26: both pairs already agree in
+/// sequence, so pinning order costs nothing and buys the guarantee.
+fn ordered_strings(v: ::std::option::Option<&::serde_json::Value>) -> ::std::vec::Vec<::std::string::String> {
+  v.and_then(|x| x.as_array())
     .map(|a| a.iter().filter_map(|s| s.as_str().map(::std::string::String::from)).collect())
-    .unwrap_or_default();
-  out.sort();
-  out
+    .unwrap_or_default()
 }
 
 /// N Lang emits a list either as a JSON array or as a `~N`-indexed object, depending on the
@@ -77,23 +83,25 @@ fn denumber_values(v: &::serde_json::Value) -> ::std::vec::Vec<::serde_json::Val
   ::std::vec::Vec::new()
 }
 
-/// `denumber_values` narrowed to a sorted list of strings.
+/// `denumber_values` narrowed to strings, in authored order.
+///
+/// The ENCODING normalization in `denumber_values` stays — array vs `~N`-indexed object is a
+/// representation neither side chose, and it restores order by index rather than discarding
+/// it. What is gone is the alphabetical sort layered on top, which is an ORDER normalization
+/// and a different claim entirely. See `ordered_strings`.
 fn denumber(v: &::serde_json::Value) -> ::std::vec::Vec<::std::string::String> {
-  let mut out: ::std::vec::Vec<::std::string::String> = denumber_values(v)
+  denumber_values(v)
     .iter()
     .filter_map(|x| x.as_str().map(::std::string::String::from))
-    .collect();
-  out.sort();
-  out
+    .collect()
 }
 
-fn sorted_toml_strings(v: ::std::option::Option<&::toml::Value>) -> ::std::vec::Vec<::std::string::String> {
-  let mut out: ::std::vec::Vec<::std::string::String> = v
-    .and_then(|x| x.as_array())
+/// The published TOML side of `ordered_strings`. TOML arrays are ordered, so this reads the
+/// sequence as written.
+fn ordered_toml_strings(v: ::std::option::Option<&::toml::Value>) -> ::std::vec::Vec<::std::string::String> {
+  v.and_then(|x| x.as_array())
     .map(|a| a.iter().filter_map(|s| s.as_str().map(::std::string::String::from)).collect())
-    .unwrap_or_default();
-  out.sort();
-  out
+    .unwrap_or_default()
 }
 
 /// Compare one (snapp pack, published profile) pair on everything that changes a
@@ -136,8 +144,8 @@ fn assert_parity(pack_key: &str, profile: &str) {
   // is gone because the difference is gone: the only normalization left is sort order, which
   // neither side chose.
   ::std::assert_eq!(
-    sorted_strings(s.get("legally_required").and_then(|v| v.get("controls"))),
-    sorted_toml_strings(t.get("legally_required").and_then(|v| v.get("controls"))),
+    ordered_strings(s.get("legally_required").and_then(|v| v.get("controls"))),
+    ordered_toml_strings(t.get("legally_required").and_then(|v| v.get("controls"))),
     "{pack_key}: the legally_required floor disagrees with packs/{profile}/"
   );
 
@@ -163,8 +171,8 @@ fn assert_parity(pack_key: &str, profile: &str) {
 
   for name in s_names {
     ::std::assert_eq!(
-      sorted_strings(s_subjects[name].get("controls")),
-      sorted_toml_strings(t_subjects[name].get("controls")),
+      ordered_strings(s_subjects[name].get("controls")),
+      ordered_toml_strings(t_subjects[name].get("controls")),
       "{pack_key}: subject `{name}` has different controls than packs/{profile}/"
     );
   }
@@ -252,7 +260,7 @@ fn the_two_in_repo_copies_of_health_aggressive_agree() {
 #[test]
 fn the_typed_minimal_floor_is_not_empty() {
   let packs = snapp_packs();
-  let floor = sorted_strings(packs["RECORDING_CONSENT_MINIMAL"].get("legally_required").and_then(|v| v.get("controls")));
+  let floor = ordered_strings(packs["RECORDING_CONSENT_MINIMAL"].get("legally_required").and_then(|v| v.get("controls")));
   ::std::assert!(
     !floor.is_empty(),
     "a minimal pack with an empty floor does not require nothing — it fails closed to the \
