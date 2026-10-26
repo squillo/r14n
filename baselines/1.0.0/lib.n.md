@@ -84,4 +84,10 @@ policies "RECORDING_CONSENT_MINIMAL" {
   }
   legally_required { controls = ["attestation"] }
 }
+
+// Node-validation suite. Declared LAST so load order of everything above is unchanged —
+// declaration order IS load order, and an undeclared sibling file never loads at all, so
+// without this line `policy_pack_tests.n` would sit in the tree compiled by nothing.
+#[cfg(test)]
+mod policy_pack_tests {};
 ```

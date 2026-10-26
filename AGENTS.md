@@ -59,10 +59,11 @@ nlang export -r "r14n Spec/1.0.0" -f json     # writes snapp/r14n@<ver>.json
 # INVALIDATES the integrity pin in baselines/1.0.0/lib.n.md. Refresh it in the same change:
 #   shasum -a 256 "snapp/r14n@0.1.0-alpha.1.json"   -> paste as sha256-<hex>
 nlang check  -r baselines/1.0.0
+nlang test   -r baselines/1.0.0     # 23-arm node-validation suite; see rule 5
 nlang export -r baselines/1.0.0 -f json
 ```
 
-Four rules, each one something that has already gone wrong here:
+Five rules, each one something that has already gone wrong here:
 
 1. **Never run `nlang` unguarded.** An unmonitored build can consume unbounded memory.
    Run it under a memory/time watchdog.
@@ -97,6 +98,40 @@ Four rules, each one something that has already gone wrong here:
    content change. Re-emit before committing, and record the epoch in the commit message when
    it matters — the property this buys is that a NO-OP re-export is free, not that the date is
    derivable from nothing.
+
+5. **Run `nlang test`, and read what it tells you about the TYPES.** `baselines/1.0.0`
+   carries a node-validation suite (`policy_pack_tests.n`, 23 arms) in which the compiler is
+   the assertion engine. Two things about it are load-bearing:
+
+   **Every asserted type carries BOTH a positive and a negative arm.** An unresolvable
+   `<Type>` makes a positive node test pass UNCONDITIONALLY, so a suite of positives alone
+   cannot distinguish "this shape is valid" from "this type no longer resolves and nothing is
+   being checked". The negative arm is the only thing that makes the positives mean anything.
+   Keep the pairing when you add a type.
+
+   **Three declared constraints are enforced by NOTHING, measured 2026-10-26**, and the suite
+   pins each as a tripwire rather than pretending otherwise:
+
+   - `Subject.key`'s `format` regex — not applied across `@deps`, and the published
+     `schema/pack.schema.json` has no `propertyNames` pattern either, so a malformed subject
+     key validates in every layer. A key is matched verbatim by a resolver, so a case
+     mismatch is a row no query finds — and under `as_configured` that fails closed to the
+     caller's whole universe, surfacing as silent over-requiring rather than an error.
+   - `PolicyPack.subject`'s `min_items = 1` — unenforced, and whether it SHOULD be enforced
+     is genuinely open: it is right under `as_configured` and wrong under `minimal`, where
+     subject tables are ignored and a floor-only pack is coherent. The constraint is declared
+     per-type but its correctness depends on the posture, which the type cannot see.
+   - `Subject.controls`'s `min_items = 1` — ⚠ here the DECLARATION is the defect, not the
+     missing enforcement. Four shipped packs require an empty subject control list:
+     `minimal/skill_egress` (approved 2026-09-30) and the three opt-out `analytics_consent`
+     packs. Under `as_configured` an ABSENT subject fails closed to the caller's whole
+     universe, so an empty control list is the only way to say "contemplated, requires
+     nothing" — omitting the subject says the opposite. If a compiler ever enforces this,
+     remove `min_items = 1` from the type; do not change those packs.
+
+   Scalar atom kind is likewise enforced where a type is DECLARED and not across `@deps`; two
+   further tripwires pin that. When a tripwire reddens, the compiler got stricter: delete it
+   and restore the real assertion named in its comment.
 
 There is **no rustfmt gate** — the tree follows a documented hand-rolled house style
 (fully-qualified paths, two-space indent). Match the surrounding code; do not reformat it.

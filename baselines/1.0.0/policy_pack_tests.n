@@ -1,0 +1,323 @@
+// Node-validation suite for r14n's OWN baseline policy packs (`baselines/1.0.0`).
+// The compiler is the assertion engine: a `#[test]` arm asserts a node is admissible,
+// a `#[test(should_fail = true)]` arm asserts it is not.
+//
+// ⚠ WHY EVERY TYPE CARRIES BOTH ARMS, and why a positive-only suite would be worthless:
+// an unresolvable `<Type>` makes a positive node test pass UNCONDITIONALLY. So a suite of
+// positives alone cannot tell "this shape is valid" from "this type no longer resolves and
+// nothing is being checked." The negative arm is what proves the type is still there and
+// still enforcing. Pairing is not thoroughness here; it is the only thing that makes the
+// positives mean anything.
+//
+// Every `should_fail` arm flips a VALUE — a closed-set member, a required field's
+// presence, or an atom kind — never a declaration (RU-127b). Flipping a declaration would
+// prove the compiler rejects malformed syntax, which was never in doubt.
+//
+// The positives track THIS Snapp's AUTHORED shapes, not the whole type surface: the three
+// packs in `lib.n.md` declare `strictness` of "aggressive" (twice) and "minimal" (once),
+// and `legal_review.status` of "not_required" (twice) and "requires_signoff" with a
+// `counsel` of "TBD" (once). Those are the shapes that must stay admissible, because a
+// baseline that drifted to an unimplemented posture, or claimed a review state no process
+// produces, is the quietest possible regression in this repository.
+//
+// ⚠ COVERAGE BOUNDARY, measured rather than assumed. These types arrive across `@deps`
+// from the r14n framework Snapp, and scalar atom kind is enforced where a type is DECLARED
+// and NOT across a dep boundary. The two inverted tripwires at the tail pin that: they are
+// GREEN while the weakness stands and go RED the moment it is fixed, at which point they
+// should be deleted and replaced with the real assertions they hold the place for.
+//
+// NOT LEGAL ADVICE — these arms assert SHAPE, never that any control set is lawful.
+#[cfg(test)]
+mod policy_pack_tests {
+
+  // ── PackMeta — the strictness dial, at this Snapp's three authored settings ──
+
+  #[test]
+  pack_meta_aggressive_posture {
+    meta: <PackMeta> {
+      strictness: "aggressive"
+      description: "Fail-closed baseline — the full control universe."
+      legal_review: { status: "not_required" }
+    }
+  }
+
+  #[test]
+  pack_meta_minimal_posture {
+    meta: <PackMeta> {
+      strictness: "minimal"
+      description: "Least-restrictive floor — only legally-required controls are enforced."
+      legal_review: { status: "requires_signoff" counsel: "TBD" }
+    }
+  }
+
+  // `as_configured` is in the closed set but NO baseline authors it. Asserted anyway: the
+  // set is the contract, and a posture the published schema allows must stay expressible
+  // here or an author needing it drops back to hand-written artifacts to say it.
+  #[test]
+  pack_meta_as_configured_is_expressible_though_unused_here {
+    meta: <PackMeta> {
+      strictness: "as_configured"
+      legal_review: { status: "not_required" }
+    }
+  }
+
+  // The paired negative. `aggressive` is the DEFAULT, so a posture outside the set must be
+  // refused rather than silently defaulting — a pack that meant to say "off" and was read
+  // as "require everything" is a different pack.
+  #[test(should_fail = true)]
+  pack_meta_rejects_a_posture_outside_the_closed_set {
+    meta: <PackMeta> {
+      strictness: "permissive"
+      legal_review: { status: "not_required" }
+    }
+  }
+
+  // `legal_review` is REQUIRED on PackMeta. A pack with a posture and no review provenance
+  // asserts a control set with nobody standing behind it.
+  #[test(should_fail = true)]
+  pack_meta_requires_its_review_provenance {
+    meta: <PackMeta> {
+      strictness: "aggressive"
+    }
+  }
+
+  // ── LegalReview — the four states, and the two this Snapp claims ─────────────
+
+  #[test]
+  legal_review_not_required_is_the_baseline_claim {
+    review: <LegalReview> { status: "not_required" }
+  }
+
+  #[test]
+  legal_review_requires_signoff_carries_its_counsel {
+    review: <LegalReview> { status: "requires_signoff" counsel: "TBD" }
+  }
+
+  // `approved` was ABSENT from this closed set until 2026-10-15, which meant a typed pack
+  // could not say the one thing a counsel gate recognises. Asserted so it cannot silently
+  // go missing again.
+  #[test]
+  legal_review_approved_is_expressible {
+    review: <LegalReview> { status: "approved" counsel: "Example Counsel LLP" }
+  }
+
+  #[test(should_fail = true)]
+  legal_review_rejects_a_status_outside_the_closed_set {
+    review: <LegalReview> { status: "self_certified" }
+  }
+
+  // ── Subject — the per-rail control table ────────────────────────────────────
+
+  #[test]
+  subject_row_with_populated_controls {
+    row: <Subject> {
+      key: "telepresence"
+      controls: ["signal_notice", "indicator_mount"]
+    }
+  }
+
+  // ⚠ NOT A TRIPWIRE — THE DECLARATION IS THE DEFECT.
+  //
+  // `Subject.controls` declares `min_items = 1` in the framework type. That declaration is
+  // WRONG and it is unenforced, which is the only reason nothing has broken. FOUR shipped
+  // packs require an empty subject control list: `minimal/skill_egress` (APPROVED by Scott
+  // 2026-09-30) and the three opt-out `analytics_consent` packs that implement ruling KC-1.
+  //
+  // It is not cosmetic. Under `as_configured` a subject ABSENT from the table fails closed
+  // to the caller's entire universe, so an empty control list is the ONLY way a pack can
+  // say "this subject is contemplated and requires nothing." Omitting the subject says the
+  // opposite. `min_items = 1` therefore forbids the only correct spelling of an opt-out.
+  //
+  // So this arm is a POSITIVE: the shape must stay admissible. If a future compiler starts
+  // enforcing `min_items`, this arm reddens and the fix is to REMOVE `min_items = 1` from
+  // `Subject.controls` in the framework type — never to change these four packs.
+  #[test]
+  subject_permits_an_empty_control_list_which_min_items_wrongly_forbids {
+    row: <Subject> {
+      key: "telepresence"
+      controls: []
+    }
+  }
+
+  // ⚠ INVERTED TRIPWIRE — green while `format` goes unenforced, red when it is enforced.
+  //
+  // `Subject.key` declares `format = "^[a-z][a-z0-9_]{0,63}$"` and MEASURED 2026-10-26 the
+  // compiler does not apply it across `@deps`. Unlike `min_items` above, enforcement here
+  // would be CORRECT and welcome: a subject key is matched verbatim by a resolver, so a key
+  // differing by case or punctuation is a row no query will ever find — and under
+  // `as_configured` an unmatched subject fails closed to the caller's whole universe, so the
+  // drift surfaces as silent over-requiring rather than as an error anyone sees.
+  //
+  // The published schema does not catch it either: `subject` is an object with
+  // `additionalProperties` and NO `propertyNames` pattern, so a malformed key validates
+  // there too. Nothing in the stack enforces this today.
+  //
+  // When this reddens, DELETE it and restore the real negative:
+  //   #[test(should_fail = true)] subject_rejects_a_key_outside_the_declared_format
+  #[test]
+  tripwire_key_format_is_unenforced_in_every_layer {
+    row: <Subject> {
+      key: "TelePresence"
+      controls: ["signal_notice"]
+    }
+  }
+
+  // ── ControlList — the wrapper that makes the emitted bytes match the schema ──
+
+  #[test]
+  control_list_wraps_a_populated_table {
+    floor: <ControlList> { controls: ["attestation"] }
+  }
+
+  // An EMPTY floor is admissible SHAPE and a fail-closed hazard at RESOLVE time, and those
+  // are different layers. Asserted positive deliberately, with the hazard named: a
+  // `minimal` pack whose floor is empty does not resolve to "nothing required" — it
+  // degrades to the caller's entire universe with `fell_back = true`, discarding the pack
+  // whole. The type cannot catch that, so `minimal_pack_empty_floor_fails_closed` in the
+  // Rust resolver does. This arm exists so nobody "fixes" the shape and believes the
+  // resolver hazard went with it.
+  #[test]
+  control_list_permits_an_empty_table_the_resolver_then_fails_closed_on {
+    floor: <ControlList> { controls: [] }
+  }
+
+  #[test(should_fail = true)]
+  control_list_requires_its_controls_prop {
+    floor: <ControlList> { }
+  }
+
+  // ── PolicyPack — the whole pack, in this Snapp's authored shape ──────────────
+
+  #[test]
+  policy_pack_in_the_shape_the_baselines_author {
+    pack: <PolicyPack> {
+      meta: {
+        strictness: "minimal"
+        description: "Least-restrictive floor — only legally-required controls are enforced."
+        legal_review: { status: "requires_signoff" counsel: "TBD" }
+      }
+      subject: [
+        { key: "local_piggyback", controls: ["attestation"] },
+        { key: "telepresence", controls: ["signal_notice"] }
+      ]
+      legally_required: { controls: ["attestation"] }
+    }
+  }
+
+  // `prohibited?` is OPTIONAL and NO baseline pack uses it. Asserted anyway, because it is
+  // the data-minimization guard's only input and §4.2.3's conflict detector cannot name a
+  // deontic conflict without it. A typed path that could not express it would push any
+  // author who needs a prohibition off the typed path entirely.
+  #[test]
+  policy_pack_can_express_a_prohibition_though_no_baseline_does {
+    pack: <PolicyPack> {
+      meta: {
+        strictness: "aggressive"
+        legal_review: { status: "not_required" }
+      }
+      subject: [
+        { key: "telepresence", controls: ["signal_notice"] }
+      ]
+      legally_required: { controls: ["signal_notice"] }
+      prohibited: { controls: ["secret_value_in_agent_context"] }
+    }
+  }
+
+  // ⚠ INVERTED TRIPWIRE, and an OPEN QUESTION I am not answering by assertion.
+  //
+  // `PolicyPack.subject` declares `min_items = 1` and the compiler does not enforce it
+  // (measured 2026-10-26). Whether it SHOULD is genuinely unsettled, which is why this is a
+  // tripwire and not a verdict:
+  //   - Under `as_configured`, a pack with no subject row makes EVERY query fail closed to
+  //     the caller's whole universe — a pack that over-requires everywhere while looking
+  //     authored. That argues for enforcing it.
+  //   - Under `minimal`, subject tables are IGNORED and only the floor resolves, so a
+  //     floor-only pack with no subjects is perfectly coherent. That argues against.
+  // The constraint is declared per-type, but its correctness depends on the POSTURE, which
+  // the type cannot see. No shipped pack has an empty subject table, so nothing forces the
+  // question today.
+  //
+  // When this reddens, decide the question before deleting it: either restore the negative
+  // arm, or remove `min_items = 1` from `PolicyPack.subject`.
+  #[test]
+  tripwire_empty_subject_table_is_unenforced_and_its_correctness_is_open {
+    pack: <PolicyPack> {
+      meta: {
+        strictness: "aggressive"
+        legal_review: { status: "not_required" }
+      }
+      subject: []
+      legally_required: { controls: ["attestation"] }
+    }
+  }
+
+  // `meta` is REQUIRED. Without it a pack declares controls with no posture and no review
+  // provenance, and the resolver would have no strictness to apply.
+  #[test(should_fail = true)]
+  policy_pack_requires_its_meta {
+    pack: <PolicyPack> {
+      subject: [
+        { key: "telepresence", controls: ["signal_notice"] }
+      ]
+      legally_required: { controls: ["signal_notice"] }
+    }
+  }
+
+  // ⚠ THE ONE-LETTER RENAME, pinned. `subject` was `subjects` until 2026-10-16, and that
+  // single letter was the whole reason a consumer had to PROJECT the emitted bundle before
+  // anything could validate it against the published pack schema. This arm flips a required
+  // field's PRESENCE (writing `subjects` leaves `subject` absent), so it is a value flip,
+  // not a declaration flip. It goes red if the rename is ever reverted.
+  #[test(should_fail = true)]
+  policy_pack_rejects_the_pre_rename_plural_subjects {
+    pack: <PolicyPack> {
+      meta: {
+        strictness: "aggressive"
+        legal_review: { status: "not_required" }
+      }
+      subjects: [
+        { key: "telepresence", controls: ["signal_notice"] }
+      ]
+      legally_required: { controls: ["signal_notice"] }
+    }
+  }
+
+  // ── The temporal envelope — absent means UNBOUNDED, never expired ────────────
+
+  #[test]
+  pack_meta_accepts_a_bounded_effective_window {
+    meta: <PackMeta> {
+      strictness: "aggressive"
+      legal_review: { status: "not_required" }
+      effective_from: 2026-01-01
+      effective_until: 2026-12-31
+      last_reviewed_against_guidance: 2026-10-15
+    }
+  }
+
+  // ── INVERTED TRIPWIRES — green while a known weakness stands ─────────────────
+  //
+  // Measured: scalar atom kind is enforced where a type is DECLARED and NOT across a
+  // `@deps` boundary. These two arms assert the WEAKNESS, so they are green today and go
+  // RED the moment the compiler tightens. When one reddens, DELETE it and replace it with
+  // the real assertion named in its comment — do not "fix" it by loosening the arm.
+
+  // Holds the place for: `subject.key` rejects a non-string.
+  #[test]
+  tripwire_atom_kind_on_key_is_unenforced_across_deps {
+    row: <Subject> {
+      key: 7
+      controls: ["attestation"]
+    }
+  }
+
+  // Holds the place for: `last_reviewed_against_guidance` rejects a non-date.
+  #[test]
+  tripwire_atom_kind_on_a_date_is_unenforced_across_deps {
+    meta: <PackMeta> {
+      strictness: "aggressive"
+      legal_review: { status: "not_required" }
+      last_reviewed_against_guidance: "not-a-date"
+    }
+  }
+}
