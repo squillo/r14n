@@ -1,0 +1,67 @@
+# RLPS Control Catalog — domain: nfc
+#
+# The canonical, jurisdiction-neutral declaration of the control keys a nfc pack
+# may reference, each with a deontic KIND and a title. Packs reference these keys; they do
+# NOT redefine them. NOT LEGAL ADVICE — a control is a stable identifier for a required
+# action, not a statement of any jurisdiction's law. See /docs/not-legal-advice.md.
+#
+# kind ∈ { permit | obligation | prohibition }
+#
+# ── WHY THIS CATALOG EXISTS ─────────────────────────────────────────────────
+#
+# `r14n Spec/1.0.0/smoke_tests` ships typed `nfc` packs, and their control keys were
+# declared by NO catalog until this file. Two guards both missed it, and the overlap of
+# their blind spots is exactly this file's shape: the CI pack lint globs
+# `packs/*.r14n.toml` (these are Snapp nodes, not published TOML), and
+# `catalog_integrity.rs`'s Snapp cross-check reads EMITTED bundles (these packs are
+# `#[cfg(test)]` and never emitted). Scott ruled 2026-10-26 that these are real domains
+# rather than fixtures, so they get catalogs.
+#
+# ── THESE ARE PLATFORM MECHANICS, NOT A REGULATORY REGIME ───────────────────
+#
+# The aggressive pack declares `legal_review { status = "not_required" }` and the minimal
+# one `requires_signoff`; both are correct rather than omissions. Every key below names a
+# platform permission mechanism, not an obligation drawn from any privacy regime. A pack
+# claiming such a regime needs a named attorney of record (invariant 2) and these are not
+# those packs. ⚠ Nothing here is a privacy control set for nfc data.
+#
+# ── ON THE SHARED SPELLINGS ─────────────────────────────────────────────────
+#
+# `consent_prompt` and `usage_description` also appear in other platform catalogs. That is
+# not duplication to be factored out: spec §2 (line 40) makes a control key "unique within
+# — and namespaced by — its owning `domain`", so each is a DIFFERENT key that shares a
+# spelling, and its meaning is the one its own domain gives it. A consent prompt for
+# nfc is not the consent prompt for anything else, and a receipt naming one must not
+# be readable as the other.
+#
+# ⚠ `kind` is DOCUMENTATION today — nothing enforces it. See the data_residency catalog's
+# header for the derivation note.
+
+[domain]
+name = "nfc"
+description = "Controls governing near-field tag access — the consent, declaration, session-scoping and write obligations an NFC interaction must satisfy."
+
+[control.consent_prompt]
+kind = "obligation"
+title = "NFC consent prompt cleared"
+description = "The subject was prompted for tag access and consented before the scan proceeded."
+
+[control.usage_description]
+kind = "obligation"
+title = "NFC usage description declared"
+description = "The application declares why it reads tags in the platform's usage-description surface — what the subject reads when deciding."
+
+[control.session_scoped]
+kind = "obligation"
+title = "Scan confined to an explicit session"
+description = "Tag reading happens inside a session the subject initiated and can see, never as ambient polling. The control that separates a scan the subject asked for from a device that reads every tag it passes."
+
+[control.read_only]
+kind = "obligation"
+title = "Interaction limited to reading"
+description = "The interaction reads tag payloads and does not modify them. Reads like a prohibition; an obligation here for the rule-1 reason given for `no_write`."
+
+[control.no_write]
+kind = "obligation"
+title = "Tag writes not performed"
+description = "No tag is written or re-provisioned. Distinct from `read_only`: that one scopes what the interaction DOES, this one is asserted on the write subject specifically, so a pack can contemplate the write rail and still refuse it. Reads like a prohibition and is an obligation here because the shipped packs place it in requirement tables (credential_use catalog, rule 1)."

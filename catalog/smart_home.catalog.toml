@@ -1,0 +1,67 @@
+# RLPS Control Catalog — domain: smart_home
+#
+# The canonical, jurisdiction-neutral declaration of the control keys a smart_home pack
+# may reference, each with a deontic KIND and a title. Packs reference these keys; they do
+# NOT redefine them. NOT LEGAL ADVICE — a control is a stable identifier for a required
+# action, not a statement of any jurisdiction's law. See /docs/not-legal-advice.md.
+#
+# kind ∈ { permit | obligation | prohibition }
+#
+# ── WHY THIS CATALOG EXISTS ─────────────────────────────────────────────────
+#
+# `r14n Spec/1.0.0/smoke_tests` ships typed `smart_home` packs, and their control keys were
+# declared by NO catalog until this file. Two guards both missed it, and the overlap of
+# their blind spots is exactly this file's shape: the CI pack lint globs
+# `packs/*.r14n.toml` (these are Snapp nodes, not published TOML), and
+# `catalog_integrity.rs`'s Snapp cross-check reads EMITTED bundles (these packs are
+# `#[cfg(test)]` and never emitted). Scott ruled 2026-10-26 that these are real domains
+# rather than fixtures, so they get catalogs.
+#
+# ── THESE ARE PLATFORM MECHANICS, NOT A REGULATORY REGIME ───────────────────
+#
+# The aggressive pack declares `legal_review { status = "not_required" }` and the minimal
+# one `requires_signoff`; both are correct rather than omissions. Every key below names a
+# platform permission mechanism, not an obligation drawn from any privacy regime. A pack
+# claiming such a regime needs a named attorney of record (invariant 2) and these are not
+# those packs. ⚠ Nothing here is a privacy control set for smart_home data.
+#
+# ── ON THE SHARED SPELLINGS ─────────────────────────────────────────────────
+#
+# `consent_prompt` and `usage_description` also appear in other platform catalogs. That is
+# not duplication to be factored out: spec §2 (line 40) makes a control key "unique within
+# — and namespaced by — its owning `domain`", so each is a DIFFERENT key that shares a
+# spelling, and its meaning is the one its own domain gives it. A consent prompt for
+# smart_home is not the consent prompt for anything else, and a receipt naming one must not
+# be readable as the other.
+#
+# ⚠ `kind` is DOCUMENTATION today — nothing enforces it. See the data_residency catalog's
+# header for the derivation note.
+
+[domain]
+name = "smart_home"
+description = "Controls governing smart-home accessory access — the consent, declaration, network-locality, confirmation and audit obligations an accessory interaction must satisfy."
+
+[control.consent_prompt]
+kind = "obligation"
+title = "Smart-home consent prompt cleared"
+description = "The subject was prompted for accessory access and consented before the interaction proceeded."
+
+[control.usage_description]
+kind = "obligation"
+title = "Smart-home usage description declared"
+description = "The application declares why it reaches accessories in the platform's usage-description surface."
+
+[control.local_network_only]
+kind = "obligation"
+title = "Accessory traffic stays on the local network"
+description = "Accessory enumeration, state reads and control stay on the local network rather than traversing a remote relay. Reads like a prohibition; an obligation here for the rule-1 reason (shipped packs place it in requirement tables)."
+
+[control.confirmation_token]
+kind = "obligation"
+title = "State-changing control carries a confirmation"
+description = "An interaction that CHANGES accessory state carries a confirmation distinguishing it from a read. Required on the control subject alone: enumeration and state reads are observations, while actuation moves something in a physical space the subject lives in, and conflating the two is how an accidental read becomes an unlocked door."
+
+[control.audit_log]
+kind = "obligation"
+title = "Accessory control recorded in an audit log"
+description = "A state-changing interaction is recorded durably enough to be reviewed afterwards. Required on control, where the effect outlasts the interaction."

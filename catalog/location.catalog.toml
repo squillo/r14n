@@ -1,0 +1,72 @@
+# RLPS Control Catalog — domain: location
+#
+# The canonical, jurisdiction-neutral declaration of the control keys a location pack
+# may reference, each with a deontic KIND and a title. Packs reference these keys; they do
+# NOT redefine them. NOT LEGAL ADVICE — a control is a stable identifier for a required
+# action, not a statement of any jurisdiction's law. See /docs/not-legal-advice.md.
+#
+# kind ∈ { permit | obligation | prohibition }
+#
+# ── WHY THIS CATALOG EXISTS ─────────────────────────────────────────────────
+#
+# `r14n Spec/1.0.0/smoke_tests` ships typed `location` packs, and their control keys were
+# declared by NO catalog until this file. Two guards both missed it, and the overlap of
+# their blind spots is exactly this file's shape: the CI pack lint globs
+# `packs/*.r14n.toml` (these are Snapp nodes, not published TOML), and
+# `catalog_integrity.rs`'s Snapp cross-check reads EMITTED bundles (these packs are
+# `#[cfg(test)]` and never emitted). Scott ruled 2026-10-26 that these are real domains
+# rather than fixtures, so they get catalogs.
+#
+# ── THESE ARE PLATFORM MECHANICS, NOT A REGULATORY REGIME ───────────────────
+#
+# The aggressive pack declares `legal_review { status = "not_required" }` and the minimal
+# one `requires_signoff`; both are correct rather than omissions. Every key below names a
+# platform permission mechanism, not an obligation drawn from any privacy regime. A pack
+# claiming such a regime needs a named attorney of record (invariant 2) and these are not
+# those packs. ⚠ Nothing here is a privacy control set for location data.
+#
+# ── ON THE SHARED SPELLINGS ─────────────────────────────────────────────────
+#
+# `consent_prompt` and `usage_description` also appear in other platform catalogs. That is
+# not duplication to be factored out: spec §2 (line 40) makes a control key "unique within
+# — and namespaced by — its owning `domain`", so each is a DIFFERENT key that shares a
+# spelling, and its meaning is the one its own domain gives it. A consent prompt for
+# location is not the consent prompt for anything else, and a receipt naming one must not
+# be readable as the other.
+#
+# ⚠ `kind` is DOCUMENTATION today — nothing enforces it. See the data_residency catalog's
+# header for the derivation note.
+
+[domain]
+name = "location"
+description = "Controls governing access to device location — the consent, declaration, accuracy, duration and audit obligations a location read must satisfy."
+
+[control.consent_prompt]
+kind = "obligation"
+title = "Location consent prompt cleared"
+description = "The subject was prompted for location access and consented before the read proceeded."
+
+[control.usage_description]
+kind = "obligation"
+title = "Location usage description declared"
+description = "The application declares, in the platform's usage-description surface, why it reads location. What the subject READS when deciding — a cleared prompt with no declaration obtained consent to something unstated."
+
+[control.when_in_use_only]
+kind = "obligation"
+title = "Authorization limited to foreground use"
+description = "Location authorization is limited to while-in-use; always-authorization is not requested or relied on. Required on the current-location subject, where the distinction between foreground and ambient tracking actually lands."
+
+[control.precise_opt_in]
+kind = "obligation"
+title = "Precise accuracy is opt-in"
+description = "Full-accuracy location is used only where the subject opted in to it; reduced accuracy is the default the application functions on. A separate key from the consent prompt because granting location and granting PRECISE location are two decisions on most platforms."
+
+[control.no_background]
+kind = "obligation"
+title = "Background delivery not used"
+description = "Location is not delivered while the application is backgrounded. Reads like a prohibition and is an obligation HERE because the shipped packs place it in requirement tables, and a prohibition key must never appear there (credential_use catalog, rule 1). A deployment needing it subtracted under every posture would want a separate prohibition key."
+
+[control.audit_log]
+kind = "obligation"
+title = "Location access recorded in an audit log"
+description = "The access is recorded durably enough to be reviewed afterwards. Required on the background subject, where the subject is not present to observe the read happening."

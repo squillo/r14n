@@ -329,6 +329,124 @@ fn every_control_key_in_an_emitted_snapp_bundle_is_declared_by_some_catalog() {
   );
 }
 
+/// Why: the Snapp cross-check above reads EMITTED bundles, and the smoke-test packs
+/// under `r14n Spec/1.0.0/smoke_tests/` are `#[cfg(test)]` — never emitted, so that
+/// check cannot see them. Four domains (`location`, `nfc`, `photo_library`,
+/// `smart_home`) consequently shipped with TEN control keys no catalog declared, and
+/// BOTH existing guards missed them for complementary reasons: the CI pack lint globs
+/// `packs/*.r14n.toml` (these are Snapp nodes), and the bundle check globs `snapp/`
+/// (these are never emitted). The overlap of two blind spots is where this sat.
+///
+/// Scott ruled 2026-10-26 that these are real domains rather than fixtures, so their
+/// vocabulary is held to the same standard as a published pack's.
+///
+/// This check is PER-DOMAIN, not union, and that is possible because these packs
+/// declare an `id` prop — a data contract to read, rather than a node name to split
+/// (BOOK §1). The emitted-bundle check upstream has no `id` to read and stays union.
+///
+/// ⚠ LIMITATION, stated rather than hidden: this reads N Lang SOURCE with a regex,
+/// which the bundle check deliberately avoids. It is tolerable only because these are
+/// plain `.n` files (not literate markdown, where prose polluted the same approach) and
+/// because the pattern is anchored to `controls:` arrays after line comments are
+/// stripped. If smoke packs ever become emitted, delete this and extend the bundle
+/// check instead — reading the artifact beats scraping the source.
+#[test]
+fn every_control_key_in_a_smoke_test_pack_is_declared_by_its_own_domains_catalog() {
+  let dir = root().join("r14n Spec/1.0.0/smoke_tests");
+  let mut packs_checked = 0usize;
+  let mut undeclared: ::std::vec::Vec<::std::string::String> = ::std::vec::Vec::new();
+
+  for entry in ::std::fs::read_dir(&dir).expect("read smoke_tests/") {
+    let path = entry.expect("dir entry").path();
+    let name = match path.file_name().and_then(|n| n.to_str()) {
+      ::std::option::Option::Some(n) if n.starts_with("policies__") && n.ends_with(".n") => {
+        ::std::string::String::from(n)
+      }
+      _ => continue,
+    };
+    let raw = ::std::fs::read_to_string(&path).expect("read smoke pack");
+    // Strip line comments first: a commented-out `controls:` array would otherwise be
+    // read as live vocabulary.
+    let code: ::std::string::String = raw
+      .lines()
+      .map(|l| match l.find("//") {
+        ::std::option::Option::Some(i) => &l[..i],
+        ::std::option::Option::None => l,
+      })
+      .collect::<::std::vec::Vec<&str>>()
+      .join("\n");
+
+    // The pack's declared domain. Read from the `id` PROP, never from the node name.
+    let domain = match code.split("id:").nth(1).and_then(|rest| {
+      let rest = rest.trim_start();
+      let rest = rest.strip_prefix('"')?;
+      rest.find('"').map(|end| ::std::string::String::from(&rest[..end]))
+    }) {
+      ::std::option::Option::Some(d) => d,
+      ::std::option::Option::None => {
+        ::std::panic!("{name}: no `id:` prop — cannot attribute its keys to a domain")
+      }
+    };
+
+    let cat_path = root().join(::std::format!("catalog/{domain}.catalog.toml"));
+    ::std::assert!(
+      cat_path.is_file(),
+      "{name} declares domain {domain:?} and catalog/{domain}.catalog.toml does not exist \
+       — a pack whose domain has no catalog ships an undeclared vocabulary (invariant 11)"
+    );
+    let cat: ::toml::Value = ::std::fs::read_to_string(&cat_path)
+      .expect("read catalog")
+      .parse()
+      .expect("catalog TOML");
+    let declared: ::std::collections::BTreeSet<::std::string::String> =
+      controls(&cat).keys().cloned().collect();
+
+    packs_checked += 1;
+    let mut rest = code.as_str();
+    let mut found_a_list = false;
+    while let ::std::option::Option::Some(i) = rest.find("controls:") {
+      rest = &rest[i + "controls:".len()..];
+      let open = match rest.find('[') {
+        ::std::option::Option::Some(o) => o,
+        ::std::option::Option::None => break,
+      };
+      let close = match rest[open..].find(']') {
+        ::std::option::Option::Some(c) => open + c,
+        ::std::option::Option::None => break,
+      };
+      found_a_list = true;
+      for key in rest[open + 1..close].split(',') {
+        let key = key.trim().trim_matches('"').trim();
+        if key.is_empty() {
+          continue;
+        }
+        if !declared.contains(key) {
+          undeclared.push(::std::format!("{key} (in {name}, domain {domain})"));
+        }
+      }
+      rest = &rest[close..];
+    }
+    ::std::assert!(
+      found_a_list,
+      "{name}: no `controls:` array parsed — the scrape silently matched nothing, which \
+       would let this pack's vocabulary go unchecked"
+    );
+  }
+
+  ::std::assert!(
+    packs_checked > 0,
+    "no smoke-test pack was checked — this test would pass vacuously"
+  );
+  undeclared.sort();
+  undeclared.dedup();
+  ::std::assert!(
+    undeclared.is_empty(),
+    "smoke-test packs reference {} control key(s) their own domain's catalog does not \
+     declare: {undeclared:#?}",
+    undeclared.len()
+  );
+}
+
 /// Why: invariant 10 — renames and removals are DEPRECATIONS because a control
 /// key is long-lived audit evidence, and a receipt already issued names the key
 /// in its old domain. A deprecated control that does not name its successor
