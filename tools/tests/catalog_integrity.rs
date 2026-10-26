@@ -101,6 +101,55 @@ fn every_control_declares_a_kind_from_the_closed_set() {
   }
 }
 
+/// Why: spec §2 gives a control key the shape `^[a-z][a-z0-9_]{0,63}$`, and NOTHING
+/// enforced it until this test. Two attempts failed first, both measured:
+/// a `format` facet on a scalar prop is not applied (pinned by tripwires in
+/// `baselines/1.0.0/policy_pack_tests.n`), and a REGEX PROP PATTERN on the catalog's
+/// keyed `control` table is not applied either — `tripwire_control_table_key_regex_is_unenforced`
+/// in the framework smoke suite puts `SignalNotice` in a `ControlTable` and it compiles.
+///
+/// So the check lives here, in the layer that can do it. A control key is matched
+/// VERBATIM by a resolver and is long-lived audit evidence in a receipt, so a key
+/// differing by case or punctuation is a row no query finds — and under `as_configured`
+/// an unmatched subject fails closed to the caller's whole universe, surfacing as silent
+/// over-requiring rather than an error anyone sees.
+///
+/// Delete this when the compiler enforces either mechanism and the corresponding tripwire
+/// reddens; until then it is the only thing holding the shape.
+#[test]
+fn every_control_key_matches_the_shape_the_spec_gives_a_control_key() {
+  fn conforms(key: &str) -> bool {
+    // ^[a-z][a-z0-9_]{0,63}$ — hand-checked rather than pulling a regex crate into a
+    // dependency-lean tree for one pattern.
+    if key.is_empty() || key.len() > 64 {
+      return false;
+    }
+    let mut chars = key.chars();
+    match chars.next() {
+      ::std::option::Option::Some(c) if c.is_ascii_lowercase() => {}
+      _ => return false,
+    }
+    chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
+  }
+
+  let mut bad: ::std::vec::Vec<::std::string::String> = ::std::vec::Vec::new();
+  let mut checked = 0usize;
+  for (_domain, cat, rel) in catalogs() {
+    for key in controls(&cat).keys() {
+      checked += 1;
+      if !conforms(key) {
+        bad.push(::std::format!("{key:?} in {rel}"));
+      }
+    }
+  }
+  ::std::assert!(checked > 0, "no control key checked — this test would pass vacuously");
+  ::std::assert!(
+    bad.is_empty(),
+    "{} control key(s) do not match ^[a-z][a-z0-9_]{{0,63}}$ (spec §2): {bad:#?}",
+    bad.len()
+  );
+}
+
 /// Why: spec §2.2 ties a domain to its filename on disk, and every consumer
 /// resolves a catalog by globbing `catalog/<domain>.catalog.toml` and trusting
 /// the name. A catalog whose `[domain] name` disagreed with its filename would

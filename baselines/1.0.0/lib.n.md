@@ -16,7 +16,7 @@ packs are counsel-gated and held out.
 @deps "r14n@0.1.0-alpha.1" {
   use { $::* }
   from      = "../../snapp/r14n@0.1.0-alpha.1.json"
-  integrity = "sha256-04507edd9f1f1daeff0b17cc83cbbab2872b7f97cc3a77f6bccbc7e6882db01b"
+  integrity = "sha256-6d11342a0c9e6cc16978a598ca0b9487e7c076fd318bf6e61165ad8c8a49e14d"
 }
 
 policies "HEALTH_AGGRESSIVE" {
