@@ -15,6 +15,10 @@ duplicate it.
 
 - `spec/RLPS-v0.1.md` — the normative specification (RFC 2119).
 - `catalog/`, `packs/`, `schema/`, `conformance/`, `registry/`, `ns/` — the published artifacts.
+  `schema/` carries three contracts: `pack.schema.json`, `catalog.schema.json` (added
+  2026-10-27 — the catalog was the last published artifact with none) and
+  `receipt.schema.json`. Each is validated, and every shipped artifact is validated
+  against its own, by `tools/tests/schema_conformance.rs`.
 - `resolver/` — the Rust reference resolver (crate `r14n`); `src/wire.rs` is the JSON boundary.
 - `tools/` — the `r14n` CLI (crate `r14n-tools`).
 - `bindings/` — generated JS/TS (`bindings/wasm` → `@squillo/r14n`) and Python
@@ -112,11 +116,14 @@ Five rules, each one something that has already gone wrong here:
    **Three declared constraints are enforced by NOTHING, measured 2026-10-26**, and the suite
    pins each as a tripwire rather than pretending otherwise:
 
-   - `Subject.key`'s `format` regex — not applied across `@deps`, and the published
-     `schema/pack.schema.json` has no `propertyNames` pattern either, so a malformed subject
-     key validates in every layer. A key is matched verbatim by a resolver, so a case
-     mismatch is a row no query finds — and under `as_configured` that fails closed to the
-     caller's whole universe, surfacing as silent over-requiring rather than an error.
+   - `Subject.key`'s `format` regex — still not applied across `@deps`, so the TYPE does not
+     hold it. ✅ **The published schema now does**: `schema/pack.schema.json`'s `subject`
+     gained a `propertyNames` pattern on 2026-10-27, so a malformed subject key no longer
+     validates in every layer. The tripwire stays because the type-level gap is unchanged; it
+     records that the enforcement moved, not that it arrived. A key is matched verbatim by a
+     resolver, so a case mismatch is a row no query finds — and under `as_configured` that
+     fails closed to the caller's whole universe, surfacing as silent over-requiring rather
+     than an error.
    - `PolicyPack.subject`'s `min_items = 1` — unenforced, and whether it SHOULD be enforced
      is genuinely open: it is right under `as_configured` and wrong under `minimal`, where
      subject tables are ignored and a floor-only pack is coherent. The constraint is declared

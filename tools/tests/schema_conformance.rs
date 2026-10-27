@@ -7,7 +7,8 @@
 //! (TOML → JSON) conform to `schema/pack.schema.json`; each conformance
 //! `level-*.json` conforms to `conformance/vector.schema.json`; reviewer-key
 //! directory fixtures conform to `registry/reviewer-key.schema.json`; and the
-//! worked example receipt conforms to `schema/receipt.schema.json`.
+//! worked example receipt conforms to `schema/receipt.schema.json`; and every shipped
+//! Control Catalog conforms to `schema/catalog.schema.json`.
 //!
 //! Revision History
 //! - 2026-07-08: authored — de-Python: port scripts/check-schemas.py to Rust.
@@ -83,6 +84,50 @@ fn shipped_packs_conform_to_pack_schema() {
   let packs = shipped_packs();
   ::std::assert!(packs.len() >= 3, "expected the baseline + example packs, found {packs:?}");
   for rel in packs {
+    let errs = errors(&v, &toml_as_json(&rel));
+    ::std::assert!(errs.is_empty(), "{rel}: {errs:?}");
+  }
+}
+
+/// Every shipped Control Catalog, repo-relative. Globbed, never listed: invariant 11 is
+/// explicit that adding a published file must not require editing a list somewhere else.
+fn shipped_catalogs() -> ::std::vec::Vec<::std::string::String> {
+  let mut out: ::std::vec::Vec<::std::string::String> = ::std::vec::Vec::new();
+  for entry in ::std::fs::read_dir(root().join("catalog")).expect("read catalog/").flatten() {
+    let p = entry.path();
+    if let ::std::option::Option::Some(name) = p.file_name().and_then(|n| n.to_str()) {
+      if name.ends_with(".catalog.toml") {
+        out.push(::std::format!("catalog/{name}"));
+      }
+    }
+  }
+  out.sort();
+  out
+}
+
+/// Why: the catalog is the only published r14n artifact that had no schema. Packs,
+/// conformance vectors, reviewer directories and receipts all had one and were all
+/// validated; the catalog — the jurisdiction-neutral vocabulary EVERY pack references —
+/// had neither. That asymmetry matters more than it looks on a published standard: a
+/// third party authoring a catalog for its own domain had no machine-readable contract to
+/// check it against, while this repository enforced eight rules on its own catalogs in a
+/// Rust test nobody outside can run.
+///
+/// The schema also carries two rules no layer above it could. `propertyNames` enforces the
+/// control-key shape, which neither a `format` facet nor a regex prop pattern does
+/// (measured 2026-10-26, both pinned as tripwires in the Snapp suites); and
+/// `dependentRequired` makes `superseded_by` mandatory once `deprecated` is present, which
+/// is invariant 10's deprecation contract stated declaratively rather than asserted in
+/// Rust.
+#[test]
+fn shipped_catalogs_conform_to_catalog_schema() {
+  let v = validator("schema/catalog.schema.json");
+  let catalogs = shipped_catalogs();
+  ::std::assert!(
+    catalogs.len() >= 2,
+    "expected the shipped catalogs, found {catalogs:?} — a broken glob would pass vacuously"
+  );
+  for rel in catalogs {
     let errs = errors(&v, &toml_as_json(&rel));
     ::std::assert!(errs.is_empty(), "{rel}: {errs:?}");
   }

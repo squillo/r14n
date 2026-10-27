@@ -4,22 +4,34 @@
   "title": "RLPS Pack (.r14n.toml)",
   "description": "A Regulatory Localization Pack: (profile x jurisdiction) -> required compliance controls for one domain. NOT LEGAL ADVICE.",
   "type": "object",
-  "required": ["meta"],
+  "required": [
+    "meta"
+  ],
   "additionalProperties": false,
   "$defs": {
     "control_list": {
       "type": "object",
-      "required": ["controls"],
+      "required": [
+        "controls"
+      ],
       "additionalProperties": false,
       "properties": {
-        "controls": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+        "controls": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        }
       }
     }
   },
   "properties": {
     "meta": {
       "type": "object",
-      "required": ["strictness"],
+      "required": [
+        "strictness"
+      ],
       "additionalProperties": true,
       "allOf": [
         {
@@ -27,28 +39,52 @@
           "if": {
             "properties": {
               "legal_review": {
-                "properties": { "status": { "const": "approved" } },
-                "required": ["status"]
+                "properties": {
+                  "status": {
+                    "const": "approved"
+                  }
+                },
+                "required": [
+                  "status"
+                ]
               }
             },
-            "required": ["legal_review"]
+            "required": [
+              "legal_review"
+            ]
           },
-          "then": { "required": ["last_reviewed_against_guidance"] }
+          "then": {
+            "required": [
+              "last_reviewed_against_guidance"
+            ]
+          }
         }
       ],
       "properties": {
         "strictness": {
           "type": "string",
-          "enum": ["aggressive", "as_configured", "minimal"],
+          "enum": [
+            "aggressive",
+            "as_configured",
+            "minimal"
+          ],
           "description": "The posture selector (wire field name: 'strictness'). Fail-closed; NOT a legal ordering; 'aggressive' != 'compliant'."
         },
-        "description": { "type": "string" },
+        "description": {
+          "type": "string"
+        },
         "inherits": {
           "type": "string",
           "description": "Parent profile tag (RFC-4647 hierarchical, e.g. 'gdpr/eu') for delta-only inheritance."
         },
-        "effective_from": { "type": "string", "format": "date" },
-        "effective_until": { "type": "string", "format": "date" },
+        "effective_from": {
+          "type": "string",
+          "format": "date"
+        },
+        "effective_until": {
+          "type": "string",
+          "format": "date"
+        },
         "last_reviewed_against_guidance": {
           "type": "string",
           "format": "date",
@@ -60,25 +96,54 @@
           "properties": {
             "status": {
               "type": "string",
-              "enum": ["not_required", "draft", "requires_signoff", "approved"]
+              "enum": [
+                "not_required",
+                "draft",
+                "requires_signoff",
+                "approved"
+              ]
             },
-            "reviewing_attorney_of_record": { "type": "string" },
-            "jurisdiction": { "type": "string" },
-            "bar_credential": { "type": "string" },
-            "review_date": { "type": "string", "format": "date" },
-            "regulation_article": { "type": "string" },
-            "signature_ed25519": { "type": "string" },
+            "reviewing_attorney_of_record": {
+              "type": "string"
+            },
+            "jurisdiction": {
+              "type": "string"
+            },
+            "bar_credential": {
+              "type": "string"
+            },
+            "review_date": {
+              "type": "string",
+              "format": "date"
+            },
+            "regulation_article": {
+              "type": "string"
+            },
+            "signature_ed25519": {
+              "type": "string"
+            },
             "authorities": {
               "type": "array",
-              "description": "OPTIONAL review record: the statutes, cases, and secondary sources the reviewer relied on. Audit metadata for the attestation only — resolvers MUST NOT vary decisions on it, and listing an authority is NOT a representation of what that authority requires (spec §6; docs/not-legal-advice.md).",
+              "description": "OPTIONAL review record: the statutes, cases, and secondary sources the reviewer relied on. Audit metadata for the attestation only \u2014 resolvers MUST NOT vary decisions on it, and listing an authority is NOT a representation of what that authority requires (spec \u00a76; docs/not-legal-advice.md).",
               "items": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["citation"],
+                "required": [
+                  "citation"
+                ],
                 "properties": {
-                  "citation": { "type": "string", "description": "Full citation, e.g. 'Kearney v. Salomon Smith Barney, 137 P.3d 914 (Cal. 2006)'." },
-                  "url": { "type": "string", "format": "uri" },
-                  "note": { "type": "string", "description": "What the reviewer relied on it for." }
+                  "citation": {
+                    "type": "string",
+                    "description": "Full citation, e.g. 'Kearney v. Salomon Smith Barney, 137 P.3d 914 (Cal. 2006)'."
+                  },
+                  "url": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "note": {
+                    "type": "string",
+                    "description": "What the reviewer relied on it for."
+                  }
                 }
               }
             }
@@ -86,8 +151,21 @@
           "allOf": [
             {
               "$comment": "Any pack claiming a real jurisdiction (inherits a non-root regime) MUST name a reviewing attorney of record + bar credential. Enforced by the linter, not expressible in pure JSON Schema across files.",
-              "if": { "properties": { "status": { "const": "approved" } } },
-              "then": { "required": ["reviewing_attorney_of_record", "jurisdiction", "bar_credential", "review_date"] }
+              "if": {
+                "properties": {
+                  "status": {
+                    "const": "approved"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "reviewing_attorney_of_record",
+                  "jurisdiction",
+                  "bar_credential",
+                  "review_date"
+                ]
+              }
             }
           ]
         }
@@ -96,7 +174,14 @@
     "subject": {
       "type": "object",
       "description": "Per-subject required-control tables (governs under 'as_configured').",
-      "additionalProperties": { "$ref": "#/$defs/control_list" }
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]{0,63}$",
+        "description": "A subject key, per spec 2. Added 2026-10-27, closing a gap this schema carried: a subject key is matched VERBATIM by a resolver, so one differing by case or punctuation is a row no query finds - and under as_configured an unmatched subject fails closed to the caller's ENTIRE universe, surfacing as silent over-requiring rather than an error anyone sees. The typed source declares the same shape as a `format` facet and the N Lang compiler does not apply it (measured, pinned as a tripwire), so this layer is where it becomes real."
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/control_list"
+      }
     },
     "legally_required": {
       "$ref": "#/$defs/control_list",
@@ -104,7 +189,7 @@
     },
     "prohibited": {
       "$ref": "#/$defs/control_list",
-      "description": "Controls this profile FORBIDS — the data-minimization guard input (spec section 3): no posture may ADD a control listed here; resolvers subtract it from every resolved set. Must not intersect legally_required (linter rule)."
+      "description": "Controls this profile FORBIDS \u2014 the data-minimization guard input (spec section 3): no posture may ADD a control listed here; resolvers subtract it from every resolved set. Must not intersect legally_required (linter rule)."
     }
   }
 }
