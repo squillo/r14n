@@ -101,6 +101,55 @@ fn every_control_declares_a_kind_from_the_closed_set() {
   }
 }
 
+/// Why: the data-protection domain's obligations must ALL be satisfiable with no human
+/// prompt, and that is a property of the vocabulary rather than of any pack.
+///
+/// A fail-closed fallback binds the caller's ENTIRE declared universe (invariant 1), so
+/// the all-on state is what an unconfigured install is made to do. Reading a sealed body
+/// is an automatic act — opening a file, indexing, syncing, a headless sweep — so a
+/// presence obligation in this domain would make the fallback unusable and lock a
+/// headless agent out of its own data. The presence question belongs to an explicit
+/// reveal, which `credential_use` governs.
+///
+/// ⚠ This is the testable form of a check the consuming lane proposed as
+/// "every key in the universe is kind=obligation". That one cannot live here: a universe
+/// is the CALLER's declaration, constructed in a consumer's process and invisible to this
+/// repo — and it would contradict the domain's one deliberate prohibition. Scoped to
+/// catalog CONTENT, which is what this repo can actually see.
+#[test]
+fn the_data_protection_domain_is_obligations_plus_one_prohibition_and_no_presence_gate() {
+  let (_domain, cat, rel) = catalogs()
+    .into_iter()
+    .find(|(d, _, _)| d == "data_protection")
+    .expect("data_protection catalog is shipped");
+
+  let mut obligations = 0usize;
+  let mut prohibitions: ::std::vec::Vec<::std::string::String> = ::std::vec::Vec::new();
+  for (key, def) in controls(&cat) {
+    match def.get("kind").and_then(|k| k.as_str()) {
+      ::std::option::Option::Some("obligation") => obligations += 1,
+      ::std::option::Option::Some("prohibition") => prohibitions.push(key.clone()),
+      other => ::std::panic!("{rel}: {key:?} has kind {other:?}; this domain declares no permits"),
+    }
+    // A presence gate would be satisfiable only with a human in the loop, which the
+    // fallback cannot provide. Checked on the MECHANISM, because that is where an
+    // enforcement path is named — `credential_use`'s presence control reaches its gate
+    // through `interactive_resolve_gate`.
+    let mech = def.get("mechanism").and_then(|m| m.as_str()).unwrap_or("");
+    ::std::assert!(
+      !mech.contains("interactive") && !mech.contains("presence"),
+      "{rel}: {key:?} names mechanism {mech:?}, which implies a human prompt — a \
+       fail-closed fallback cannot satisfy it and a headless read would be refused"
+    );
+  }
+  ::std::assert!(obligations > 0, "{rel}: no obligations — the domain would require nothing");
+  ::std::assert_eq!(
+    prohibitions.len(), 1,
+    "{rel}: expected exactly the one documented prohibition, found {prohibitions:?} — \
+     adding another needs the header's invisibility caveat read first"
+  );
+}
+
 /// Why: spec §2 gives a control key the shape `^[a-z][a-z0-9_]{0,63}$`, and NOTHING
 /// enforced it until this test. Two attempts failed first, both measured:
 /// a `format` facet on a scalar prop is not applied (pinned by tripwires in

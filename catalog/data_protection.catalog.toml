@@ -1,0 +1,101 @@
+# RLPS Control Catalog — domain: data_protection
+#
+# The canonical, jurisdiction-neutral declaration of the control keys a data-protection
+# pack may reference, each with a deontic KIND and a title. Packs reference these keys;
+# they do NOT redefine them. NOT LEGAL ADVICE — a control is a stable identifier for a
+# required (or forbidden) action, not a statement of any jurisdiction's law, and sealing
+# data at rest is not a finding that holding it is lawful. See /docs/not-legal-advice.md.
+#
+# kind ∈ { permit | obligation | prohibition }
+#
+# ── WHY THIS IS ITS OWN DOMAIN, AND NOT A RESIDENCY OR RETENTION KEY ────────
+#
+# Three questions with three different satisfiers: residency answers WHERE data may sit,
+# retention answers HOW LONG it may be kept, and this domain answers IN WHAT STATE it
+# rests. Domains that share a domain share a FLOOR, and that is exactly what forced the
+# collection-basis keys out of `data_retention` in the first place (see that catalog's
+# header). **Sealing does not discharge residency.** `vfs_pii_fetch_permitted`,
+# `backup_region_permitted` and `credential_vault_residency_permitted` remain residency
+# controls, and a pack satisfying everything here has said nothing about where the bytes
+# are.
+#
+# ── ⚠ THE PROHIBITION BELOW IS INVISIBLE TO A RESOLVED DECISION ─────────────
+#
+# This is the most important line in the file. A resolver intersects the prohibited set
+# with the CALLER'S UNIVERSE, so that the prohibited and required sets share one frame. A
+# prohibition key the caller never declares therefore resolves to an EMPTY prohibited set
+# — not on fallback only, but on every path, including a perfectly healthy resolve
+# against an approved pack.
+#
+# And it must never be declared: the credential_use catalog's rule 2 explains why. Every
+# fail-closed fallback resolves to the caller's entire universe and has no pack to read
+# `[prohibited]` from, so a prohibition key placed in the universe becomes REQUIRED at
+# exactly the moment resolution fails.
+#
+# So `vault_plaintext_cloud_copy` can be declared here, and listed in a pack's
+# `[prohibited]` table, and still never reach a gate. **It is documentation and a slot,
+# not a signal.** A deployment that must prevent a plaintext cloud copy has to make that
+# structural in the enforcing layer; consulting r14n for it will always return nothing.
+#
+# ── WHY EVERY OBLIGATION HERE IS SATISFIABLE WITHOUT A HUMAN PROMPT ─────────
+#
+# A fail-closed fallback binds the caller's whole declared universe (invariant 1), so the
+# all-on state is what an unconfigured install is made to do. Reading a sealed body is an
+# AUTOMATIC act — opening a file, indexing, syncing, a headless sweep — so an obligation
+# here that required confirmed human presence would make the fallback unusable and lock a
+# headless agent out of its own data. There is deliberately NO presence control in this
+# domain, and one must not be added: the presence question belongs to an explicit reveal,
+# which is what `credential_use` governs.
+#
+# ⚠ `kind` is DOCUMENTATION today — nothing enforces it; `r14n validate` keys off catalog
+# MEMBERSHIP alone. See the data_residency catalog's header for the derivation note.
+#
+# ── ON THE SHARED MECHANISM ─────────────────────────────────────────────────
+#
+# `vault_body_sealed_at_rest` and `vault_foreign_plaintext_sealed_on_sight` share the
+# mechanism `vault_seal_engine`, because they discharge through the same engine. Sharing
+# is correct and has precedent: `authorization_grant` is shared by three controls in the
+# recording_consent catalog. A mechanism is a correlation hint for a reader tracing a
+# decision to an enforcement path, never a contract — and it is not what distinguishes
+# two controls, because a receipt records the control KEY. What differs between those two
+# is WHEN, which is the `trigger` facet's job.
+
+[domain]
+name = "data_protection"
+description = "Controls governing the STATE data rests in — whether a stored body is sealed, under what custody assurance its key is held, and what plaintext copies must never exist."
+
+# ── Obligations — a state the enforcing gate must bring about ────────────────
+
+[control.vault_body_sealed_at_rest]
+kind = "obligation"
+title = "Vault body sealed at rest"
+description = "A vault file's body is sealed before it comes to rest, and the on-device cache copy of it is sealed too. Deliberately encodes NO cipher, no key length and no custody tier: a control key is opaque, so a key per algorithm would put policy in the vocabulary and would need a new key every time the engine changed. The floor and its ordering live in the enforcing layer; this control asserts a body was sealed, not how strongly."
+trigger = "before_write"
+mechanism = "vault_seal_engine"
+
+[control.vault_foreign_plaintext_sealed_on_sight]
+kind = "obligation"
+title = "Foreign plaintext sealed on sight"
+description = "A plaintext body that arrives from outside the vault's own write path — imported, synced in, restored, or found already present — is sealed when it is first observed rather than when it is next written. Separate from the write-path obligation because the dangerous case is the file nobody writes: a body that is only ever READ would satisfy a write-time obligation forever while sitting in plaintext. Same engine, different moment, which is why the trigger differs and the mechanism does not."
+trigger = "on_discovery"
+mechanism = "vault_seal_engine"
+
+[control.vault_key_assurance_floor]
+kind = "obligation"
+title = "Vault key custody assurance floor met"
+description = "The key that unwraps a vault's per-file keys is held at or above the required custody assurance for its class. Asserts the floor was CONSULTED and met, and deliberately does not encode a level — the same reasoning, and the same mechanism, as credential_use's `secret_assurance_floor`. This attaches to the KEY rather than the body on purpose: a hardware floor costs one unwrap per unlock, where the same floor on every body read would cost one per file."
+trigger = "before_unwrap"
+mechanism = "field_policy_assurance_floor"
+
+# ── Prohibition — a state that must never obtain ─────────────────────────────
+#
+# ⚠ Read the header before relying on this. It is invisible to a resolved decision unless
+# the caller declares it in the universe, and declaring it in the universe inverts it on
+# fallback. Neither option delivers it to a gate. Make it structural.
+
+[control.vault_plaintext_cloud_copy]
+kind = "prohibition"
+title = "Plaintext body copied to a cloud surface"
+description = "A vault body's plaintext written to any surface outside the device's own trust boundary — a sync backend, an object store, a backup target, a crash report. Expressed as a prohibition rather than as a requirement that copies be sealed, because a requirement can be satisfied on one path while another path copies plaintext anyway; a prohibition names the state that must never obtain. Irreversible once it happens: a plaintext body that has reached a replicated store cannot be withdrawn from it."
+trigger = "always"
+mechanism = "cloud_copy_exclusion"
