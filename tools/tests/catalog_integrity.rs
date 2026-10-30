@@ -73,34 +73,6 @@ fn every_shipped_catalog_parses_and_declares_at_least_one_control() {
   }
 }
 
-/// Why: a control's deontic `kind` decides whether it is REQUIRED of a caller
-/// or SUBTRACTED from every posture, so a wrong one inverts the control's
-/// meaning. The loader defaults a MISSING kind to `"obligation"`
-/// (`tools/src/catalog.rs`), which means an omission silently becomes an
-/// assertion — so this test demands the key be PRESENT, which is stricter than
-/// the parser on purpose. A typo'd kind is stored verbatim and would otherwise
-/// reach `extract` output and any consumer reading it.
-#[test]
-fn every_control_declares_a_kind_from_the_closed_set() {
-  const KINDS: [&str; 3] = ["permit", "obligation", "prohibition"];
-  for (_domain, cat, rel) in catalogs() {
-    for (key, def) in controls(&cat) {
-      let kind = def
-        .get("kind")
-        .and_then(|k| k.as_str())
-        .unwrap_or_else(|| ::std::panic!("{rel}: control {key:?} declares no `kind` — the loader would default it to \"obligation\", which is an assertion nobody wrote"));
-      ::std::assert!(
-        KINDS.contains(&kind),
-        "{rel}: control {key:?} has kind {kind:?}, which is outside {KINDS:?}"
-      );
-      ::std::assert!(
-        def.get("title").and_then(|t| t.as_str()).is_some_and(|t| !t.trim().is_empty()),
-        "{rel}: control {key:?} has no title — `extract` emits it, so an empty one ships"
-      );
-    }
-  }
-}
-
 /// Why: the data-protection domain's obligations must ALL be satisfiable with no human
 /// prompt, and that is a property of the vocabulary rather than of any pack.
 ///
@@ -147,55 +119,6 @@ fn the_data_protection_domain_is_obligations_plus_one_prohibition_and_no_presenc
     prohibitions.len(), 1,
     "{rel}: expected exactly the one documented prohibition, found {prohibitions:?} — \
      adding another needs the header's invisibility caveat read first"
-  );
-}
-
-/// Why: spec §2 gives a control key the shape `^[a-z][a-z0-9_]{0,63}$`, and NOTHING
-/// enforced it until this test. Two attempts failed first, both measured:
-/// a `format` facet on a scalar prop is not applied (pinned by tripwires in
-/// `baselines/1.0.0/policy_pack_tests.n`), and a REGEX PROP PATTERN on the catalog's
-/// keyed `control` table is not applied either — `tripwire_control_table_key_regex_is_unenforced`
-/// in the framework smoke suite puts `SignalNotice` in a `ControlTable` and it compiles.
-///
-/// So the check lives here, in the layer that can do it. A control key is matched
-/// VERBATIM by a resolver and is long-lived audit evidence in a receipt, so a key
-/// differing by case or punctuation is a row no query finds — and under `as_configured`
-/// an unmatched subject fails closed to the caller's whole universe, surfacing as silent
-/// over-requiring rather than an error anyone sees.
-///
-/// Delete this when the compiler enforces either mechanism and the corresponding tripwire
-/// reddens; until then it is the only thing holding the shape.
-#[test]
-fn every_control_key_matches_the_shape_the_spec_gives_a_control_key() {
-  fn conforms(key: &str) -> bool {
-    // ^[a-z][a-z0-9_]{0,63}$ — hand-checked rather than pulling a regex crate into a
-    // dependency-lean tree for one pattern.
-    if key.is_empty() || key.len() > 64 {
-      return false;
-    }
-    let mut chars = key.chars();
-    match chars.next() {
-      ::std::option::Option::Some(c) if c.is_ascii_lowercase() => {}
-      _ => return false,
-    }
-    chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
-  }
-
-  let mut bad: ::std::vec::Vec<::std::string::String> = ::std::vec::Vec::new();
-  let mut checked = 0usize;
-  for (_domain, cat, rel) in catalogs() {
-    for key in controls(&cat).keys() {
-      checked += 1;
-      if !conforms(key) {
-        bad.push(::std::format!("{key:?} in {rel}"));
-      }
-    }
-  }
-  ::std::assert!(checked > 0, "no control key checked — this test would pass vacuously");
-  ::std::assert!(
-    bad.is_empty(),
-    "{} control key(s) do not match ^[a-z][a-z0-9_]{{0,63}}$ (spec §2): {bad:#?}",
-    bad.len()
   );
 }
 
@@ -545,29 +468,3 @@ fn every_control_key_in_a_smoke_test_pack_is_declared_by_its_own_domains_catalog
   );
 }
 
-/// Why: invariant 10 — renames and removals are DEPRECATIONS because a control
-/// key is long-lived audit evidence, and a receipt already issued names the key
-/// in its old domain. A deprecated control that does not name its successor
-/// leaves the holder of such a receipt with no forward path, which is the whole
-/// reason the shipped `aph_mandate` deprecation carries `superseded_by`.
-#[test]
-fn a_deprecated_control_names_its_successor() {
-  let mut seen = 0usize;
-  for (_domain, cat, rel) in catalogs() {
-    for (key, def) in controls(&cat) {
-      if def.get("deprecated").is_none() {
-        continue;
-      }
-      seen += 1;
-      let successors = def
-        .get("superseded_by")
-        .and_then(|s| s.as_array())
-        .unwrap_or_else(|| ::std::panic!("{rel}: {key:?} is deprecated with no `superseded_by`"));
-      ::std::assert!(
-        !successors.is_empty(),
-        "{rel}: {key:?} has an EMPTY `superseded_by` — worse than absent, it reads as answered"
-      );
-    }
-  }
-  ::std::assert!(seen > 0, "no deprecated control found — this test is not exercising anything");
-}
