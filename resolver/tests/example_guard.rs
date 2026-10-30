@@ -10,6 +10,8 @@
 //! Revision History
 //! - 2026-07-07: authored — council-audit E4 (doc-example regeneration guard).
 
+mod common;
+
 /// Rebuild the exact receipt document the `ai_act_50` example emits. Keep this
 /// in lockstep with `resolver/examples/ai_act_50.rs`.
 fn rebuild_example() -> ::std::string::String {
@@ -73,9 +75,7 @@ fn rebuild_example() -> ::std::string::String {
 /// `cargo run --example ai_act_50 > docs/examples/receipt-ai-act-50.json`).
 #[test]
 fn checked_in_example_receipt_matches_current_serializer() {
-  let path = ::std::path::Path::new(::std::env!("CARGO_MANIFEST_DIR"))
-    .join("..")
-    .join("docs/examples/receipt-ai-act-50.json");
+  let path = common::repo_root().join("docs/examples/receipt-ai-act-50.json");
   let on_disk = ::std::fs::read_to_string(&path).expect("read example");
   ::std::assert_eq!(
     on_disk.trim_end(),

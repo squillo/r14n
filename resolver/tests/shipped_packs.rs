@@ -16,12 +16,12 @@
 //! Revision History
 //! - 2026-10-15: authored with the `credential_use` baselines.
 
+mod common;
+
 /// `/packs` as the adapter root: `pack_path` joins `<root>/<profile>/<domain>.r14n.toml`,
 /// which is exactly the shipped layout, so no fixture is copied anywhere.
 fn packs_root() -> ::std::path::PathBuf {
-  ::std::path::Path::new(::std::env!("CARGO_MANIFEST_DIR"))
-    .join("..")
-    .join("packs")
+  common::repo_root().join("packs")
 }
 
 fn query(

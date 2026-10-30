@@ -23,15 +23,12 @@
 //!
 //! NOT LEGAL ADVICE.
 
-/// Repo root (the tools crate's parent).
-fn root() -> ::std::path::PathBuf {
-  ::std::path::Path::new(::std::env!("CARGO_MANIFEST_DIR")).join("..")
-}
+mod common;
 
 /// Every shipped catalog as (domain-from-filename, parsed TOML, relative path).
 /// Globbed, never listed.
 fn catalogs() -> ::std::vec::Vec<(::std::string::String, ::toml::Value, ::std::string::String)> {
-  let dir = root().join("catalog");
+  let dir = common::root().join("catalog");
   let mut out = ::std::vec::Vec::new();
   for entry in ::std::fs::read_dir(&dir).expect("read catalog/") {
     let path = entry.expect("dir entry").path();
@@ -145,7 +142,7 @@ fn a_catalogs_declared_domain_matches_its_filename() {
 #[test]
 fn the_not_legal_advice_disclaimer_travels_with_every_catalog() {
   for (_domain, _cat, rel) in catalogs() {
-    let raw = ::std::fs::read_to_string(root().join(&rel)).expect("read catalog");
+    let raw = ::std::fs::read_to_string(common::root().join(&rel)).expect("read catalog");
     ::std::assert!(
       raw.contains("NOT LEGAL ADVICE"),
       "{rel}: no NOT-LEGAL-ADVICE disclaimer (invariant 3)"
@@ -176,7 +173,7 @@ fn no_prohibition_key_appears_in_any_requirement_table() {
     }
     for pack_rel in shipped_packs_for(&domain) {
       pairs_checked += 1;
-      let raw = ::std::fs::read_to_string(root().join(&pack_rel)).expect("read pack");
+      let raw = ::std::fs::read_to_string(common::root().join(&pack_rel)).expect("read pack");
       let pack: ::toml::Value = raw.parse().unwrap_or_else(|e| ::std::panic!("{pack_rel}: {e}"));
 
       let mut required: ::std::vec::Vec<(::std::string::String, ::std::string::String)> =
@@ -237,7 +234,7 @@ fn shipped_packs_for(domain: &str) -> ::std::vec::Vec<::std::string::String> {
       }
     }
   }
-  let base = root().join("packs");
+  let base = common::root().join("packs");
   let want = ::std::format!("{domain}.r14n.toml");
   let mut hits = ::std::vec::Vec::new();
   walk(&base, &want, &mut hits);
@@ -287,7 +284,7 @@ fn snapp_control_lists() -> ::std::vec::Vec<(::std::string::String, ::std::vec::
     }
   }
 
-  let dir = root().join("snapp");
+  let dir = common::root().join("snapp");
   let mut out = ::std::vec::Vec::new();
   for entry in ::std::fs::read_dir(&dir).expect("read snapp/") {
     let path = entry.expect("dir entry").path();
@@ -373,7 +370,7 @@ fn every_control_key_in_an_emitted_snapp_bundle_is_declared_by_some_catalog() {
 /// check instead — reading the artifact beats scraping the source.
 #[test]
 fn every_control_key_in_a_smoke_test_pack_is_declared_by_its_own_domains_catalog() {
-  let dir = root().join("r14n Spec/1.0.0/smoke_tests");
+  let dir = common::root().join("r14n Spec/1.0.0/smoke_tests");
   let mut packs_checked = 0usize;
   let mut undeclared: ::std::vec::Vec<::std::string::String> = ::std::vec::Vec::new();
 
@@ -409,7 +406,7 @@ fn every_control_key_in_a_smoke_test_pack_is_declared_by_its_own_domains_catalog
       }
     };
 
-    let cat_path = root().join(::std::format!("catalog/{domain}.catalog.toml"));
+    let cat_path = common::root().join(::std::format!("catalog/{domain}.catalog.toml"));
     ::std::assert!(
       cat_path.is_file(),
       "{name} declares domain {domain:?} and catalog/{domain}.catalog.toml does not exist \

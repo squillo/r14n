@@ -14,14 +14,7 @@
 //!
 //! Style note: FQ paths, no module-top `use` — the house style of this tree.
 
-fn root() -> ::std::path::PathBuf {
-  ::std::path::Path::new(::std::env!("CARGO_MANIFEST_DIR")).join("..")
-}
-
-fn read(rel: &str) -> ::std::string::String {
-  let p = root().join(rel);
-  ::std::fs::read_to_string(&p).unwrap_or_else(|e| ::std::panic!("read {}: {e}", p.display()))
-}
+mod common;
 
 /// The published pack with every comment and every run of blank lines removed — the exact
 /// transformation `docs/evidence/toml-export/expected/` is defined as.
@@ -72,8 +65,8 @@ const PROFILES: [&str; 2] = ["aggressive", "minimal"];
 #[test]
 fn every_expected_fixture_is_its_published_packs_non_comment_body() {
   for profile in PROFILES {
-    let published = read(&::std::format!("packs/{profile}/recording_consent.r14n.toml"));
-    let fixture = read(&::std::format!(
+    let published = common::read(&::std::format!("packs/{profile}/recording_consent.r14n.toml"));
+    let fixture = common::read(&::std::format!(
       "docs/evidence/toml-export/expected/recording_consent.{profile}.toml"
     ));
     ::std::assert_eq!(
@@ -95,8 +88,8 @@ fn every_expected_fixture_is_its_published_packs_non_comment_body() {
 #[test]
 fn stripping_comments_changes_no_value_in_any_published_pack() {
   for profile in PROFILES {
-    let published = read(&::std::format!("packs/{profile}/recording_consent.r14n.toml"));
-    let fixture = read(&::std::format!(
+    let published = common::read(&::std::format!("packs/{profile}/recording_consent.r14n.toml"));
+    let fixture = common::read(&::std::format!(
       "docs/evidence/toml-export/expected/recording_consent.{profile}.toml"
     ));
     let a: ::toml::Value = ::toml::from_str(&published)
@@ -127,10 +120,10 @@ fn stripping_comments_changes_no_value_in_any_published_pack() {
 #[test]
 fn every_emitted_keyword_pack_validates_against_the_published_schema() {
   let bundle: ::serde_json::Value =
-    ::serde_json::from_str(&read("snapp/r14n_baselines@1.0.0.json"))
+    ::serde_json::from_str(&common::read("snapp/r14n_baselines@1.0.0.json"))
       .expect("baselines bundle is not valid JSON");
   let schema: ::serde_json::Value =
-    ::serde_json::from_str(&read("schema/pack.schema.json")).expect("pack schema");
+    ::serde_json::from_str(&common::read("schema/pack.schema.json")).expect("pack schema");
   let validator = ::jsonschema::draft202012::options()
     .build(&schema)
     .expect("schema/pack.schema.json is not a valid Draft 2020-12 schema");
@@ -161,7 +154,7 @@ fn every_emitted_keyword_pack_validates_against_the_published_schema() {
 #[test]
 fn the_emitted_shape_needs_no_rename_and_no_wrapping() {
   let bundle: ::serde_json::Value =
-    ::serde_json::from_str(&read("snapp/r14n_baselines@1.0.0.json"))
+    ::serde_json::from_str(&common::read("snapp/r14n_baselines@1.0.0.json"))
       .expect("baselines bundle is not valid JSON");
   for (name, pack) in bundle["policies"].as_object().expect("policies") {
     ::std::assert!(

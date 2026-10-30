@@ -265,4 +265,708 @@ mod type_constraint_tests {
       }
     }
   }
+
+  // ══ Framework links (added 2026-10-30) ═════════════════════════════════════
+  //
+  // A control may carry an OPTIONAL `frameworks` block: typed links to the compliance-framework
+  // EDITIONS it relates to. Every fixture is fictional — the criterion placeholder is `EXAMPLE-1`,
+  // never a real identifier of any framework (licensing is uncleared; invariant 2). Each type has
+  // a positive arm that proves it resolves and negative arms that each flip ONE value of it.
+  //
+  // MEASURED 2026-10-30 on nlang 0.1.0-dev (167513cb1 2026-10-26): every negative below was also
+  // run alone as a plain positive test to read the diagnostic that refused it (COMP-438 unknown
+  // prop, COMP-540 missing required, COMP-543 too few, COMP-545 duplicate, COMP-546 off the
+  // closed set), so none of them passes for an accidental reason.
+  //
+  // NOT LEGAL ADVICE — these are shape assertions. A link relates a control to an edition; it
+  // never says a control is sufficient for, or satisfies, any criterion.
+
+  /// Why: the review of a framework link is its own closed set (spec 2, invariant 10); the type
+  /// must resolve for the negative arms below to mean anything.
+  #[test]
+  framework_review_resolves {
+    review: <FrameworkReview> {
+      status: "approved"
+      counsel: "Example counsel"
+    }
+  }
+
+  /// Why: `status` is closed, and a typo that widened it would let an unreviewed link read as
+  /// reviewed.
+  #[test(should_fail = true)]
+  framework_review_rejects_a_status_outside_the_closed_set {
+    review: <FrameworkReview> {
+      status: "rubber_stamped"
+    }
+  }
+
+  /// Why: `not_required` is a valid LegalReview status and has no meaning for a link (somebody has
+  /// looked or they have not). Borrowing it must not compile, which also proves this is NOT
+  /// LegalReview under another name.
+  #[test(should_fail = true)]
+  framework_review_rejects_not_required_which_legal_review_allows {
+    review: <FrameworkReview> {
+      status: "not_required"
+    }
+  }
+
+  /// Why: a review with no status says nothing about where it stands; `status` is required.
+  #[test(should_fail = true)]
+  framework_review_requires_a_status {
+    review: <FrameworkReview> {
+      counsel: "Example counsel"
+    }
+  }
+
+  /// Why: the type is closed. `reviewed` belongs to LegalReview; leaking it here must not compile,
+  /// or a link would quietly grow a second, unspecified review contract.
+  #[test(should_fail = true)]
+  framework_review_rejects_a_prop_it_does_not_declare {
+    review: <FrameworkReview> {
+      status: "draft"
+      reviewed: "2026-07-19"
+    }
+  }
+
+  /// Why: only `relation` is required, so the smallest link must resolve — the link is a pointer,
+  /// and criteria and review are optional.
+  #[test]
+  framework_link_minimal_resolves {
+    link: <FrameworkLink> {
+      relation: "informs"
+    }
+  }
+
+  /// Why: every optional prop of a link resolves together, including the nested review.
+  #[test]
+  framework_link_full_resolves {
+    link: <FrameworkLink> {
+      relation: "contributes"
+      criteria: ["EXAMPLE-1"]
+      review: { status: "draft" counsel: "Example counsel" }
+    }
+  }
+
+  /// Why: there is deliberately NO `satisfies` relation. No control is sufficient for a framework
+  /// criterion, and a closed set makes that unsayable here rather than merely discouraged. If
+  /// this ever compiles, the closed set has been widened into a compliance claim.
+  #[test(should_fail = true)]
+  framework_link_rejects_satisfies_as_a_relation {
+    link: <FrameworkLink> {
+      relation: "satisfies"
+    }
+  }
+
+  /// Why: the relation set matches by exact string, so a wire value that differs only by case is a
+  /// value no reader's closed-set check recognizes.
+  #[test(should_fail = true)]
+  framework_link_rejects_a_relation_in_the_wrong_case {
+    link: <FrameworkLink> {
+      relation: "Informs"
+    }
+  }
+
+  /// Why: a link with no relation says nothing about HOW the control relates. It is required, and
+  /// a loader must not default it into an assertion nobody wrote.
+  #[test(should_fail = true)]
+  framework_link_requires_a_relation {
+    link: <FrameworkLink> {
+      criteria: ["EXAMPLE-1"]
+    }
+  }
+
+  /// Why: the type is closed. A `confidence` or `status` prop would be an unreviewed claim
+  /// attached to a link, so an undeclared prop must not compile.
+  #[test(should_fail = true)]
+  framework_link_rejects_a_prop_it_does_not_declare {
+    link: <FrameworkLink> {
+      relation: "informs"
+      confidence: "high"
+    }
+  }
+
+  /// Why: the review closed set holds when the review is reached THROUGH a link, not only when
+  /// the review type is instantiated directly.
+  #[test(should_fail = true)]
+  framework_link_rejects_a_review_status_outside_the_closed_set {
+    link: <FrameworkLink> {
+      relation: "informs"
+      review: { status: "rubber_stamped" }
+    }
+  }
+
+  /// Why: an EMPTY criteria list reads as answered, which is worse than absent (the catalog
+  /// schema refuses it with minItems; `min_items` is what carries it here).
+  #[test(should_fail = true)]
+  framework_link_rejects_an_empty_criteria_list {
+    link: <FrameworkLink> {
+      relation: "informs"
+      criteria: []
+    }
+  }
+
+  /// Why: a duplicated criterion is a drafting slip that makes a link look like it bears on more
+  /// than it does (`unique_items`, mirroring the schema's uniqueItems).
+  #[test(should_fail = true)]
+  framework_link_rejects_a_duplicate_criterion {
+    link: <FrameworkLink> {
+      relation: "informs"
+      criteria: ["EXAMPLE-1", "EXAMPLE-1"]
+    }
+  }
+
+  /// Why: all four editions are direct props of the closed edition set; if one stopped resolving,
+  /// a link to it would fail while its siblings still passed.
+  #[test]
+  framework_links_resolve_for_all_four_editions {
+    links: <FrameworkLinks> {
+      soc2_tsc_2017: { relation: "informs" }
+      iso27001_2022_a1_2024: { relation: "contributes" }
+      hipaa_45cfr164_2013: { relation: "informs" review: { status: "draft" } }
+      hecvat_4_1_6: { relation: "informs" }
+    }
+  }
+
+  /// Why: the edition set is CLOSED (invariant 10). An edition id outlives the control that cites
+  /// it, so an undeclared one must not compile — adding an edition is a last-position add to the
+  /// type, never an ad-hoc prop.
+  #[test(should_fail = true)]
+  framework_links_reject_an_unknown_edition {
+    links: <FrameworkLinks> {
+      soc2_tsc_2099: { relation: "informs" }
+    }
+  }
+
+  /// Why: the wire spelling is the snake_case edition id everywhere, with no alias table in code.
+  /// A hyphenated spelling is an informal alias for prose only, and must be refused.
+  #[test(should_fail = true)]
+  framework_links_reject_a_hyphenated_alias {
+    links: <FrameworkLinks> {
+      "soc2-tsc-2017": { relation: "informs" }
+    }
+  }
+
+  /// Why: an edition maps to a LINK, not to a bare relation string; a value that is not an object
+  /// would otherwise let a one-word claim stand in for a reviewed link.
+  #[test(should_fail = true)]
+  framework_links_reject_an_edition_given_a_bare_string {
+    links: <FrameworkLinks> {
+      soc2_tsc_2017: "informs"
+    }
+  }
+
+  /// Why: the relation closed set holds when reached through an edition, so the two-level typed
+  /// reference (edition -> link) is really enforcing, not just resolving.
+  #[test(should_fail = true)]
+  framework_links_reject_a_bad_relation_under_an_edition {
+    links: <FrameworkLinks> {
+      soc2_tsc_2017: { relation: "satisfies" }
+    }
+  }
+
+  /// Why: a `frameworks` table with no edition says nothing and reads as answered
+  /// (`min_props = 1`, mirroring the schema's minProperties). Enforced when instantiated
+  /// directly; see the tripwire below for the nested case.
+  #[test(should_fail = true)]
+  framework_links_reject_an_empty_table {
+    links: <FrameworkLinks> {
+    }
+  }
+
+  /// Why: ADDITIVE (invariant 10). `frameworks` is a new OPTIONAL prop on ControlDef, and the
+  /// unchanged `control_def_resolves` arm above (no `frameworks`) proves existing controls are
+  /// untouched. This arm proves the new prop resolves ACROSS the doc boundary: the type lives in
+  /// the frameworks doc and ControlDef lives in the catalog doc.
+  #[test]
+  control_def_with_frameworks_resolves {
+    def: <ControlDef> {
+      kind: "obligation"
+      title: "Recording-consent attestation"
+      frameworks: {
+        soc2_tsc_2017: {
+          relation: "contributes"
+          criteria: ["EXAMPLE-1"]
+          review: { status: "draft" }
+        }
+      }
+    }
+  }
+
+  /// Why: the paired negative for the cross-doc reference. An unresolvable `<FrameworkLinks>`
+  /// would make the positive above pass vacuously; this fails only if the type is really there
+  /// and really enforcing its relation closed set.
+  #[test(should_fail = true)]
+  control_def_rejects_a_bad_relation_inside_frameworks {
+    def: <ControlDef> {
+      kind: "obligation"
+      title: "Recording-consent attestation"
+      frameworks: { soc2_tsc_2017: { relation: "satisfies" } }
+    }
+  }
+
+  /// Why: the closed edition set holds through ControlDef, where a typo'd edition id would
+  /// otherwise be a link no reader and no resolver ever matches.
+  #[test(should_fail = true)]
+  control_def_rejects_an_unknown_edition_inside_frameworks {
+    def: <ControlDef> {
+      kind: "obligation"
+      title: "Recording-consent attestation"
+      frameworks: { soc2_tsc_2099: { relation: "informs" } }
+    }
+  }
+
+  /// Why: the whole-catalog path reaches a ControlDef through a keyed table, which is a different
+  /// resolution path from a direct ControlDef. A catalog entry carrying a link must resolve.
+  #[test]
+  control_catalog_with_frameworks_resolves_whole {
+    cat: <ControlCatalog> {
+      domain: {
+        name: "recording_consent"
+        description: "Controls governing whether a session may be recorded."
+      }
+      control: {
+        attestation: {
+          kind: "obligation"
+          title: "Recording-consent attestation"
+          frameworks: { soc2_tsc_2017: { relation: "informs" } }
+        }
+      }
+    }
+  }
+
+  /// Why: the relation closed set is enforced at the depth a published catalog actually reaches
+  /// it (catalog -> keyed entry -> frameworks -> edition -> relation), not only on a bare type.
+  #[test(should_fail = true)]
+  control_catalog_rejects_a_bad_relation_inside_an_entry {
+    cat: <ControlCatalog> {
+      domain: {
+        name: "recording_consent"
+        description: "Controls governing whether a session may be recorded."
+      }
+      control: {
+        attestation: {
+          kind: "obligation"
+          title: "Recording-consent attestation"
+          frameworks: { soc2_tsc_2017: { relation: "satisfies" } }
+        }
+      }
+    }
+  }
+
+  /// Why: `kind` inverts a control's meaning, so its closed set must hold for an entry reached
+  /// through a catalog and not only for a bare ControlDef (the arms above test the latter).
+  #[test(should_fail = true)]
+  control_catalog_rejects_a_kind_outside_the_set_inside_an_entry {
+    cat: <ControlCatalog> {
+      domain: {
+        name: "recording_consent"
+        description: "Controls governing whether a session may be recorded."
+      }
+      control: {
+        attestation: {
+          kind: "advisory"
+          title: "Recording-consent attestation"
+        }
+      }
+    }
+  }
+
+  // ⚠ INVERTED TRIPWIRE — green while this rule goes UNENFORCED by the types.
+  //
+  // MEASURED 2026-10-30: `relation = "necessary"` REQUIRES a `review` with status `approved`,
+  // and no N type here can say so. A rule conditioned on the VALUE of another prop needs a union
+  // that discriminates, and unions do not discriminate in this toolchain. The node below compiles.
+  // The rule is carried by `schema/catalog.schema.json`, not by these types — do not read it as
+  // enforced here.
+  //
+  // When this reddens, the compiler enforces it: restore `#[test(should_fail = true)]` and delete
+  // this header.
+  /// Why: pins that the `necessary` rule is NOT enforced by the type, so the schema is not
+  /// mistaken for redundant and the claim in the frameworks doc stays true.
+  #[test]
+  tripwire_necessary_relation_without_a_review_is_unenforced {
+    link: <FrameworkLink> {
+      relation: "necessary"
+    }
+  }
+
+  // ⚠ INVERTED TRIPWIRE — the second half of the same rule: `necessary` needs an APPROVED review,
+  // and a `draft` one compiles. Same cause, same fix when it reddens.
+  /// Why: pins that the `approved` half of the `necessary` rule is NOT enforced by the type.
+  #[test]
+  tripwire_necessary_relation_with_an_unapproved_review_is_unenforced {
+    link: <FrameworkLink> {
+      relation: "necessary"
+      review: { status: "draft" }
+    }
+  }
+
+  // ⚠ INVERTED TRIPWIRE — the third cross-field rule: an `approved` review must name its reviewer
+  // (`counsel`). Same cause as the two above: it is conditioned on the VALUE of another prop, which
+  // needs a union that discriminates. The node below compiles; the rule is carried by
+  // `schema/catalog.schema.json`. When this reddens, restore `#[test(should_fail = true)]`.
+  /// Why: pins that "approved needs counsel" is NOT enforced by the type, so the schema is not
+  /// mistaken for redundant and the claim in the frameworks doc stays true.
+  #[test]
+  tripwire_approved_review_without_counsel_is_unenforced {
+    link: <FrameworkLink> {
+      relation: "informs"
+      review: { status: "approved" }
+    }
+  }
+
+  // ⚠ INVERTED TRIPWIRE — green while this rule goes UNENFORCED by the types.
+  //
+  // MEASURED 2026-10-30: a link to the LEGAL-TEXT edition `hipaa_45cfr164_2013` REQUIRES a `review`
+  // block, and every edition prop shares the type `FrameworkLink`, whose `review` is optional.
+  // The node below compiles. The rule is carried by `schema/catalog.schema.json`.
+  //
+  // A dedicated link type with a REQUIRED `review` would make this enforceable (measured: a type
+  // whose `review` is not optional refuses the node), at the price of breaking the one-type-per-
+  // edition shape. That is a decision for a maintainer, not a thing this arm does. When this
+  // reddens, restore `#[test(should_fail = true)]`.
+  /// Why: pins that the legal-text-edition review rule is NOT enforced by the type, so a hipaa link
+  /// with no review is caught by the schema and not assumed caught here.
+  #[test]
+  tripwire_hipaa_edition_without_a_review_is_unenforced {
+    links: <FrameworkLinks> {
+      hipaa_45cfr164_2013: { relation: "informs" }
+    }
+  }
+
+  // ⚠ INVERTED TRIPWIRE — green while `min_props` goes UNENFORCED on a NESTED empty table.
+  //
+  // MEASURED 2026-10-30: `min_props = 1` on `FrameworkLinks` refuses an empty table instantiated
+  // directly (`framework_links_reject_an_empty_table`), and does NOT refuse `frameworks: {}`
+  // nested inside a ControlDef. The schema's minProperties carries the nested case.
+  //
+  // When this reddens, restore `#[test(should_fail = true)]`.
+  /// Why: pins that an empty nested `frameworks` table is NOT refused by the type, so a reader
+  /// does not assume the direct-instance arm above covers the shape a published catalog has.
+  #[test]
+  tripwire_empty_frameworks_nested_in_a_control_def_is_unenforced {
+    def: <ControlDef> {
+      kind: "obligation"
+      title: "Recording-consent attestation"
+      frameworks: { }
+    }
+  }
+
+  // ══ Snapp compliance declaration (added 2026-10-30) ═══════════════════════
+  //
+  // A Snapp states the `(domain, subject)` pairs it exercises and the data classes it handles.
+  // `exercises` is a KEYED table (domain -> subjects) because list ITEMS do not enforce required
+  // props. Data classes are SUBJECT tokens, never profiles. The fictional profile tag
+  // `example/region` and the fictional data class `example_class` are the only fixtures.
+  //
+  // NOT LEGAL ADVICE — a declaration is not a determination.
+
+  /// Why: the entry type must resolve for the negative arms below to mean anything.
+  #[test]
+  exercised_domain_resolves {
+    entry: <ExercisedDomain> {
+      subjects: ["read", "write"]
+    }
+  }
+
+  /// Why: an entry with no subjects exercises nothing; `subjects` is a required direct prop, which
+  /// IS enforced (unlike a required prop inside a list item).
+  #[test(should_fail = true)]
+  exercised_domain_requires_subjects {
+    entry: <ExercisedDomain> {
+    }
+  }
+
+  /// Why: an EMPTY subject list reads as answered ("exercises this domain, no subject"), which is
+  /// worse than absent. `min_items = 1`.
+  #[test(should_fail = true)]
+  exercised_domain_rejects_an_empty_subject_list {
+    entry: <ExercisedDomain> {
+      subjects: []
+    }
+  }
+
+  /// Why: a duplicated subject is a drafting slip that inflates the declared surface
+  /// (`unique_items`).
+  #[test(should_fail = true)]
+  exercised_domain_rejects_a_duplicate_subject {
+    entry: <ExercisedDomain> {
+      subjects: ["read", "read"]
+    }
+  }
+
+  /// Why: the type is closed, so a later field is an ADDITIVE, reviewed change and not something a
+  /// Snapp can smuggle in.
+  #[test(should_fail = true)]
+  exercised_domain_rejects_a_prop_it_does_not_declare {
+    entry: <ExercisedDomain> {
+      subjects: ["read"]
+      note: "free text"
+    }
+  }
+
+  /// Why: the keyed table resolves with several domains, each key a domain and each value an
+  /// entry.
+  #[test]
+  exercised_domains_resolve_for_two_domains {
+    table: <ExercisedDomains> {
+      recording_consent: { subjects: ["telepresence"] }
+      health: { subjects: ["read", "write"] }
+    }
+  }
+
+  /// Why: the entry type is enforced INSIDE the keyed table. An entry missing `subjects` must not
+  /// compile when reached by key, not only when the entry type is instantiated directly.
+  #[test(should_fail = true)]
+  exercised_domains_reject_an_entry_without_subjects {
+    table: <ExercisedDomains> {
+      health: { }
+    }
+  }
+
+  /// Why: an entry is an object, not a bare list (`health: ["read"]`). An array cannot grow a
+  /// prop, so the object shape is the additive one. Refused via the entry's `subjects` rules.
+  #[test(should_fail = true)]
+  exercised_domains_reject_a_bare_list_entry {
+    table: <ExercisedDomains> {
+      health: ["read"]
+    }
+  }
+
+  /// Why: a table with no domain exercises nothing (`min_props = 1`). Enforced when instantiated
+  /// directly; see the tripwire below for the nested case.
+  #[test(should_fail = true)]
+  exercised_domains_reject_an_empty_table {
+    table: <ExercisedDomains> {
+    }
+  }
+
+  /// Why: the whole declaration resolves, and proves both of its typed props resolve.
+  #[test]
+  snapp_compliance_resolves {
+    declaration: <SnappCompliance> {
+      exercises: { recording_consent: { subjects: ["telepresence"] } }
+      data_classes: ["example_class"]
+    }
+  }
+
+  /// Why: EMPTY IS MEANINGFUL. An empty `data_classes` declares the Snapp handles none, where an
+  /// absent one declares nothing; the empty list must stay expressible.
+  #[test]
+  snapp_compliance_resolves_with_no_data_classes {
+    declaration: <SnappCompliance> {
+      exercises: { recording_consent: { subjects: ["telepresence"] } }
+      data_classes: []
+    }
+  }
+
+  /// Why: absence must not read as an answer. A declaration with no `exercises` is refused.
+  #[test(should_fail = true)]
+  snapp_compliance_requires_exercises {
+    declaration: <SnappCompliance> {
+      data_classes: ["example_class"]
+    }
+  }
+
+  /// Why: absence must not read as "handles none". `data_classes` is required, so declaring none
+  /// takes an explicit empty list.
+  #[test(should_fail = true)]
+  snapp_compliance_requires_data_classes {
+    declaration: <SnappCompliance> {
+      exercises: { recording_consent: { subjects: ["telepresence"] } }
+    }
+  }
+
+  /// Why: the declaration is minimal and closed. A Snapp does not restate packs, controls or
+  /// postures here, so a prop that tries to must not compile.
+  #[test(should_fail = true)]
+  snapp_compliance_rejects_a_prop_it_does_not_declare {
+    declaration: <SnappCompliance> {
+      exercises: { recording_consent: { subjects: ["telepresence"] } }
+      data_classes: ["example_class"]
+      controls: ["signal_notice"]
+    }
+  }
+
+  /// Why: a duplicated data class is a drafting slip that inflates the declared surface
+  /// (`unique_items`).
+  #[test(should_fail = true)]
+  snapp_compliance_rejects_a_duplicate_data_class {
+    declaration: <SnappCompliance> {
+      exercises: { recording_consent: { subjects: ["telepresence"] } }
+      data_classes: ["example_class", "example_class"]
+    }
+  }
+
+  /// Why: the entry rules hold at the depth a declaration actually reaches them
+  /// (declaration -> exercises -> keyed entry -> subjects), not only on a bare entry.
+  #[test(should_fail = true)]
+  snapp_compliance_rejects_an_entry_without_subjects {
+    declaration: <SnappCompliance> {
+      exercises: { recording_consent: { } }
+      data_classes: ["example_class"]
+    }
+  }
+
+  /// Why: `snapp_compliance` is the keyword collection block. A Snapp declares itself through it,
+  /// so the keyword must resolve with a member of the declared type.
+  #[test]
+  snapp_compliance_keyword_form_resolves {
+    snapp_compliance "EXAMPLE_SNAPP" {
+      exercises {
+        recording_consent { subjects = ["telepresence"] }
+      }
+      data_classes = ["example_class"]
+    }
+  }
+
+  /// Why: the paired negative for the keyword. The collection's members are typed
+  /// (`blocks * { type = <SnappCompliance> }`), so a member with an entry missing `subjects` must
+  /// not compile; an untyped collection would let any shape through.
+  #[test(should_fail = true)]
+  snapp_compliance_keyword_form_rejects_an_entry_without_subjects {
+    snapp_compliance "EXAMPLE_SNAPP" {
+      exercises {
+        recording_consent { }
+      }
+      data_classes = ["example_class"]
+    }
+  }
+
+  // ⚠ INVERTED TRIPWIRE — green while `min_props` goes UNENFORCED on a NESTED empty table.
+  //
+  // MEASURED 2026-10-30: `min_props = 1` on `ExercisedDomains` refuses an empty table
+  // instantiated directly (`exercised_domains_reject_an_empty_table`) and does NOT refuse
+  // `exercises: {}` nested inside a SnappCompliance. A schema's minProperties carries the nested
+  // case. When this reddens, restore `#[test(should_fail = true)]`.
+  /// Why: pins that an empty nested `exercises` table is NOT refused by the type, so the
+  /// direct-instance arm is not mistaken for coverage of the shape a Snapp actually writes.
+  #[test]
+  tripwire_empty_exercises_nested_in_snapp_compliance_is_unenforced {
+    declaration: <SnappCompliance> {
+      exercises: { }
+      data_classes: []
+    }
+  }
+
+  // ⚠ INVERTED TRIPWIRE — green while a domain KEY outside `^[a-z][a-z0-9_]{0,63}$` goes
+  // UNENFORCED. MEASURED 2026-10-30: the keyed table accepts `Health` under a wildcard arm, and
+  // the catalog's own tripwire pins the same for a regex arm. The key format is documented in the
+  // type and carried by a schema's propertyNames. When this reddens, restore
+  // `#[test(should_fail = true)]`.
+  /// Why: pins that the domain key format is NOT enforced by the type, so no reader assumes a
+  /// declared domain is a well-formed catalog domain name.
+  #[test]
+  tripwire_exercises_key_outside_the_domain_pattern_is_unenforced {
+    table: <ExercisedDomains> {
+      Health: { subjects: ["read"] }
+    }
+  }
+
+  // ⚠ INVERTED TRIPWIRE — green while a PROFILE-shaped token in `data_classes` goes UNENFORCED.
+  //
+  // MEASURED 2026-10-30: a `/`-delimited profile tag (the fictional `example/region`) compiles as a
+  // data class. Data classes are SUBJECT tokens and never profiles — a profile names WHOSE law, a
+  // subject names WHAT THE ACTIVITY IS — but a `format` facet is not applied by the compiler and
+  // list items do not enforce. The token grammar cannot contain a `/`; a schema's pattern carries
+  // that. When this reddens, restore `#[test(should_fail = true)]`.
+  /// Why: pins that "data classes are subject tokens, never profiles" is NOT enforced by the type,
+  /// so the rule is not assumed to hold on the strength of this declaration alone.
+  #[test]
+  tripwire_profile_shaped_data_class_is_unenforced {
+    declaration: <SnappCompliance> {
+      exercises: { recording_consent: { subjects: ["telepresence"] } }
+      data_classes: ["example/region"]
+    }
+  }
+
+  // ⚠ INVERTED TRIPWIRE — green while a NON-STRING `data_classes` item goes UNENFORCED. The same
+  // list-ITEM gap `list_item_atom_kind_is_unenforced_today` pins for `Subject.controls`: scalar
+  // atom kind is enforced, list items are not. When this reddens, restore
+  // `#[test(should_fail = true)]`.
+  /// Why: pins that the atom kind of a `data_classes` item is NOT enforced by the type.
+  #[test]
+  tripwire_non_string_data_class_is_unenforced {
+    declaration: <SnappCompliance> {
+      exercises: { recording_consent: { subjects: ["telepresence"] } }
+      data_classes: [7]
+    }
+  }
+
+  // ⚠ INVERTED TRIPWIRE — green while a NON-STRING `subjects` item goes UNENFORCED (same cause
+  // as above). When this reddens, restore `#[test(should_fail = true)]`.
+  /// Why: pins that the atom kind of an `ExercisedDomain.subjects` item is NOT enforced.
+  #[test]
+  tripwire_non_string_subject_is_unenforced {
+    entry: <ExercisedDomain> {
+      subjects: ["telepresence", 7]
+    }
+  }
+
+  // ── ControlDef: the four facets the shipped catalogs use (added 2026-10-31) ──────────────────
+  //
+  // These were in the PUBLISHED schema and in the shipped recording_consent catalog but NOT in
+  // this type. An undeclared prop is REFUSED by default (COMP-438), so a catalog carrying them
+  // could not be authored through the typed path: the type was narrower than the artifact it
+  // claims to be the source of. The arms below keep the two from drifting apart again.
+
+  /// Why: a ControlDef using EVERY facet the shipped catalogs use must resolve; if the typed
+  /// path is narrower than the published artifact, the typed source is not a source.
+  #[test]
+  control_def_with_every_shipped_facet_resolves {
+    def: <ControlDef> {
+      kind: "permit"
+      title: "Delegate mandate, principal-signed"
+      description: "A delegate mandate the principal signed."
+      trigger: "before_capture"
+      mechanism: "authorization_grant"
+      verified_by: "example-spec:1.0#8.3"
+      attestation_mode: "ExampleSigned"
+      subject_rights: ["withdraw"]
+      legal_basis_hint: "example_consent_model"
+    }
+  }
+
+  /// Why: `subject_rights` is a list of rights; an EMPTY list reads as answered ("this control
+  /// bears on no right") when the honest reading is absent. min_items guards it.
+  #[test(should_fail = true)]
+  control_def_rejects_an_empty_subject_rights_list {
+    def: <ControlDef> {
+      kind: "obligation"
+      title: "Example"
+      subject_rights: []
+    }
+  }
+
+  /// Why: a duplicated right adds nothing and hides a copy-paste slip; unique_items guards it.
+  #[test(should_fail = true)]
+  control_def_rejects_a_duplicate_subject_right {
+    def: <ControlDef> {
+      kind: "obligation"
+      title: "Example"
+      subject_rights: ["withdraw", "withdraw"]
+    }
+  }
+
+  /// Why: ControlDef is CLOSED. A facet nobody declared (here a plausible misspelling of
+  /// `legal_basis_hint`) must be refused, not silently carried into a published catalog.
+  #[test(should_fail = true)]
+  control_def_rejects_an_undeclared_facet {
+    def: <ControlDef> {
+      kind: "obligation"
+      title: "Example"
+      legal_basis: "example_consent_model"
+    }
+  }
+
+  /// Why: `verified_by` is a pointer string; an integer there is a mis-typed value and must be
+  /// refused where the type is declared.
+  #[test(should_fail = true)]
+  control_def_rejects_a_non_string_verified_by {
+    def: <ControlDef> {
+      kind: "obligation"
+      title: "Example"
+      verified_by: 7
+    }
+  }
 }

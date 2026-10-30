@@ -298,7 +298,9 @@ regulatory-policy engine — the live first consumer.
   carry PII), [`docs/secondary-sources.md`](docs/secondary-sources.md) (the 28-source annotated
   evidence annex: fragmentation cost + AI-era amplification + policy-as-code lineage),
   [`docs/wiretap-us-dossier.md`](docs/wiretap-us-dossier.md) (secondary-source research memo for
-  the counsel-gated `wiretap/us` engagement — no pack, no legal conclusions), and
+  the counsel-gated `wiretap/us` engagement — no pack, no legal conclusions),
+  [`docs/framework-links.md`](docs/framework-links.md) (optional typed links from a control to
+  compliance-framework editions — the contract only, nothing populated; NOT LEGAL ADVICE), and
   [`docs/audits/`](docs/audits/) (the standing council-audit reports).
 - CI: [`.github/workflows/gates.yml`](.github/workflows/gates.yml) runs both test suites (which
   include the schema-vs-producers conformance tests in

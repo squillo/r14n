@@ -55,6 +55,36 @@
 #      rules; requiring both may be intended (assert that each was considered) or may be
 #      a modelling slip. A control key is opaque and carries no value, so this file
 #      cannot tell the difference.
+#
+# ── THE APPROVED-REGION SET IS THE GATE'S INPUT, NOT THIS CATALOG'S ─────────
+#
+# Every key below is an opaque obligation. It says a check against the approved
+# region(s) must happen; it holds no region value, on purpose. The SET of approved
+# regions belongs to the consuming application — for a hosted product, the
+# organization's own configuration — and the enforcing gate is where it is consulted.
+#
+# GUIDANCE for an author of a residency gate. This is advice, NOT normative text:
+# promoting any of it to a requirement is a change to catalog semantics and goes through
+# the RFC process in GOVERNANCE.md.
+#
+#   1. Consult the application's own approved-region set. Do not infer it from the pack,
+#      the profile tag or the jurisdiction: a pack is selected by profile, and the
+#      resolver does not select controls by jurisdiction at all.
+#   2. An EMPTY or ABSENT set is not "no restriction". Treat it as "no region is
+#      approved" and refuse, which is invariant 1 applied to the gate's own input, and
+#      reject it where the configuration is parsed so the gate never meets it.
+#   3. A region identifier is the application's own closed set. It is NOT an r14n
+#      profile tag: a region says where data sits, a profile says whose law applies, and
+#      the two are not 1:1 (an organization hosted in one region can have people in
+#      another). Map region to profile explicitly in configuration and pass the PROFILE
+#      to the resolver. Adding a region to such a set is a last-position addition, never
+#      a reorder or rename.
+#   4. A region is DATA handed to the check, never a branch in code. A
+#      `matches!(region, …)` bolted onto a surface is the scattered private rule the
+#      resolver exists to replace; ask the resolver instead.
+#   5. Record what was consulted. "No approved set was configured" and "a set was
+#      consulted and the region was a member" are different facts, and a receipt or log
+#      that cannot tell them apart makes a gate that never ran look like one that passed.
 
 [domain]
 name = "data_residency"

@@ -136,6 +136,137 @@
           "type": "string",
           "minLength": 1,
           "description": "A HINT at the consent or processing model a control is usually associated with. The name hedges on purpose and the hedge is load-bearing: a catalog is jurisdiction-neutral and NOT LEGAL ADVICE, so this is a pointer for a human reviewer deciding which packs to author - never a determination, never a basis a resolver may act on, and never evidence that any basis is available anywhere. A resolver MUST NOT vary its decision on this field."
+        },
+        "frameworks": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {
+            "$ref": "#/$defs/framework_edition"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/framework_link"
+          },
+          "allOf": [
+            {
+              "description": "A link to the regulatory edition hipaa_45cfr164_2013 REQUIRES a review block. Unlike a voluntary framework, an edition that names a regulation makes a link read as a claim about the law, and an unreviewed claim of that kind must not ship. Written as `properties` + `required` rather than if/then because `properties` only constrains a key that is PRESENT: a catalog with no hipaa link is untouched, and one with a hipaa link and no review is refused.",
+              "properties": {
+                "hipaa_45cfr164_2013": {
+                  "type": "object",
+                  "required": [
+                    "review"
+                  ]
+                }
+              }
+            }
+          ],
+          "description": "OPTIONAL typed links from this control to the compliance-framework EDITIONS it relates to, keyed by the snake_case edition id (a CLOSED set - see framework_edition). A link records that a reviewer considers the control RELATED to an edition. It is a pointer for a human, never a determination: it does not say the control meets, satisfies or complies with anything, does not say what any law or framework requires, and is NOT LEGAL ADVICE. A resolver MUST NOT vary a decision on this field. Absent means no link has been made, which is not the same as no relationship existing. ADDITIVE: a control without this property validates exactly as before. The contract ships AHEAD of its content - no shipped catalog populates it, because the framework criterion identifiers are not yet cleared for publication. The wire spelling is the snake_case id everywhere (N Lang prop name = schema key = TOML key), with no alias table in code; a hyphenated spelling is an informal alias for prose only and is refused here."
+        }
+      }
+    },
+    "framework_edition": {
+      "enum": [
+        "soc2_tsc_2017",
+        "iso27001_2022_a1_2024",
+        "hipaa_45cfr164_2013",
+        "hecvat_4_1_6"
+      ],
+      "description": "A compliance-framework edition a control may be linked to. CLOSED, and the ORDER is part of the contract: adding an edition is a LAST-POSITION add to this list, never a reorder, a rename or a removal, because an edition id outlives the control that cites it as audit evidence (the same reasoning as a control key). One id names one published edition - a new edition of the same framework is a NEW id rather than a mutation of the old one, so a link keeps pointing at the text it was reviewed against. Listing an edition here is a vocabulary entry, not a claim about anyone's certification scope. NOT LEGAL ADVICE."
+    },
+    "framework_link": {
+      "type": "object",
+      "description": "One control's link to one framework edition: HOW it relates (relation), WHERE (criteria, optional) and who has looked (review, optional - required in two cases below). There is deliberately NO 'satisfies' relation: no control is sufficient for a framework criterion, and a closed relation set makes that unsayable here rather than merely discouraged. A pointer for a human reviewer, never a determination and never a basis a resolver may act on. NOT LEGAL ADVICE.",
+      "required": [
+        "relation"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "relation": {
+          "enum": [
+            "informs",
+            "contributes",
+            "necessary"
+          ],
+          "description": "How the control relates to the edition. 'informs' - background a reviewer may find useful. 'contributes' - one part of what an organization might do about a criterion. 'necessary' - a reviewer has recorded that the criterion cannot be addressed without it; a recorded claim, which this schema does not verify. 'necessary' is NOT 'sufficient': nothing here says carrying out the control discharges a criterion. It is the one relation that reads as a claim about someone else's compliance posture, so it REQUIRES an approved review (see the if/then on this definition). Closed, and deliberately without 'satisfies', 'meets' or 'complies'."
+        },
+        "criteria": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "description": "Identifiers of the edition's criteria this link bears on, spelled as the framework's own publisher spells them. Optional, and an EMPTY list is refused by minItems: it reads as answered, which is worse than absent. Free-form strings rather than an enum because the identifier space belongs to the publisher, not to this vocabulary. Ships EMPTY OF REAL IDENTIFIERS until licensing for them is cleared; fixtures use obviously fictional placeholders."
+        },
+        "review": {
+          "type": "object",
+          "required": [
+            "status"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "enum": [
+                "draft",
+                "requires_signoff",
+                "approved"
+              ],
+              "description": "Where the review stands. 'draft' - being written. 'requires_signoff' - awaiting a named reviewer. 'approved' - a named reviewer has signed off, and counsel names them. 'approved' records that a review HAPPENED; it is not a finding that the link, or anything it names, is lawful, sufficient or current."
+            },
+            "counsel": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S",
+              "description": "Who reviewed, as a free-form string with at least one non-space character. REQUIRED when status is 'approved'. Not verified by this schema, not a legal credential (nothing checks that it names a lawyer, a firm or a person), and not an attorney-of-record claim: that contract belongs to a pack's legal_review block, which this field neither replaces nor mirrors."
+            }
+          },
+          "description": "Who has looked at this link, and where it stands. Optional in general; when status is 'approved' a named reviewer (counsel) is REQUIRED, because an approval with nobody standing behind it is the hazard a pack's legal_review block already refuses; REQUIRED when relation is 'necessary' (and status must then be 'approved'), and REQUIRED for any link to the regulatory edition hipaa_45cfr164_2013 (see the frameworks property).",
+          "if": {
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "const": "approved"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "counsel"
+            ]
+          }
+        }
+      },
+      "if": {
+        "type": "object",
+        "required": [
+          "relation"
+        ],
+        "properties": {
+          "relation": {
+            "const": "necessary"
+          }
+        }
+      },
+      "then": {
+        "type": "object",
+        "required": [
+          "review"
+        ],
+        "properties": {
+          "review": {
+            "type": "object",
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "const": "approved"
+              }
+            }
+          }
         }
       }
     }
