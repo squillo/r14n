@@ -72,10 +72,10 @@
             "description": "Bar number / registration identifier for the credential."
           },
           "credential_note": { "type": "string" },
-          "valid_from": { "type": "string", "format": "date" },
+          "valid_from": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
           "valid_until": {
             "type": "string",
-            "format": "date",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
             "description": "Expiry. Past this date the key is treated as revoked for new decisions."
           },
           "revocation": {
@@ -83,7 +83,7 @@
             "required": ["revoked_at", "reason"],
             "additionalProperties": false,
             "properties": {
-              "revoked_at": { "type": "string", "format": "date" },
+              "revoked_at": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
               "reason": {
                 "type": "string",
                 "enum": [

@@ -12,6 +12,58 @@ History banner in the spec for normative changes), rather than forking a version
 
 ## [0.1.0-draft]
 
+### Fixed (revision 2026-10-31 — three fail-opens in the resolver, found by audit)
+
+All three fell open on input that should have resolved most-restrictive (spec §5). Each was
+reproduced through the wasm boundary with a control, and re-run there after the fix.
+
+- **A malformed date in a reviewer-key entry left a revoked key trusted.** Dates were compared as
+  raw strings, which is only sound for zero-padded ISO `YYYY-MM-DD`. A `revoked_at` of `"2026-9-01"`,
+  `""` or `"soon"`, or a `valid_until` of `"2026-9-1"`, resolved `trusted` with
+  `provenance_verified = true` — a malformed revocation record RESTORED trust in a revoked key,
+  against §6:188. `key_status` now validates every date (calendar-aware) and returns a new
+  `KeyStatus::InvalidDate { field }` (wire tag `invalid_date`), which is never trusted. Introduced
+  in the 2026-10-21 trust-root revision below.
+- **A malformed effective-window bound kept an expired pack in force.** `effective_until` of
+  `"2026-9-1"` or `"never"` was treated as an open window (`fell_back = false`). A malformed bound
+  or a malformed `as_of` now fails closed, with `<invalid-effective-envelope:…>` or
+  `<invalid-decision-date:…>` in provenance. Pre-existing.
+- **Inheritance cycles and missing parents did not fail closed.** §4.3 says a cycle "MUST fail
+  closed (§5)". The 2026-10-19 revision did the opposite — it stopped at the cycle and let the
+  packs resolved so far govern, with a test asserting that — and a child whose parent did not exist
+  resolved with `fell_back = false` and the parent's `[prohibited]` silently dropped. A cycle, an
+  unresolved parent and an unreadable pack in the chain now all fail closed, named in provenance
+  (`<inherits-cycle:…>`, `<inherits-unresolved:…>`, `<unreadable:…>`). An unreadable pack is
+  deliberately NOT treated as absent: truncation would let a less specific pack govern in its
+  place. The test that asserted the old behaviour is removed; another test's fixture had omitted
+  the parent it declared and passed only because of this bug.
+
+Also: the chain walk — including its cycle guard — was written twice, once per adapter, and both
+copies had the same deviation. It is now one function.
+
+The published schemas no longer rely on `"format": "date"`, which the validator does not assert
+(measured: `deprecated = "not-a-date"` validated). Eight date fields across `pack.schema.json`,
+`catalog.schema.json` and `registry/reviewer-key.schema.json` now carry a `pattern`. This
+TIGHTENS published schemas: a pack or directory with a malformed date that used to validate is now
+rejected. The pattern checks shape, not the calendar; the resolver checks the calendar.
+
+### Added (recorded retroactively — shipped 2026-10-20 to 2026-10-30 without a CHANGELOG entry)
+
+These landed on `main` without an entry, an RFC issue, or a second maintainer approval, which
+`GOVERNANCE.md` requires for catalog changes. They are listed so the omission is visible, and so
+that a maintainer can ratify or revert each one deliberately.
+
+- **Eleven Control Catalogs** (was two): `data_residency`, `data_retention`, `analytics_consent`,
+  `data_protection`, `health`, `location`, `nfc`, `photo_library`, `smart_home` added. No real
+  jurisdiction is named in any of them; none ships a pack (invariant 2). In `data_retention`,
+  `usage_analytics_opt_in` and `external_agent_harvest_permitted` are DEPRECATED, not removed,
+  with `superseded_by` into `analytics_consent` (invariant 10).
+- **`schema/catalog.schema.json`** — the catalog was the only published artifact with no schema.
+- **`schema/pack.schema.json`**: `subject` gained a `propertyNames` pattern. TIGHTENING.
+- **A `catalog` keyword and `ControlDef` type** in the r14n framework Snapp, and a node-validation
+  suite for the baselines Snapp.
+- The Snapp/TOML parity test now pins authored ORDER rather than comparing sets.
+
 ### Added (revision 2026-10-21 — spec §6 trust-root resolution; Level 3 complete)
 
 - **`trust_root_revocation` is implemented** (spec §6:188-192). **Every vector in all three

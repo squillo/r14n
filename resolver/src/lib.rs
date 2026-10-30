@@ -301,6 +301,41 @@ impl Verdict {
   }
 }
 
+/// Is `s` a real, zero-padded ISO `YYYY-MM-DD` calendar date?
+///
+/// Every date this resolver compares — a pack's effective window, a reviewer key's validity and
+/// revocation, the caller's decision date — is compared as a STRING, which is only sound when
+/// both operands are zero-padded ISO dates. `"2026-9-01" < "2026-10-01"` is false, so a
+/// malformed date silently lands on the wrong side of a boundary: before this validator a
+/// revocation dated `"2026-9-01"` left the key trusted and a window ending `"never"` stayed in
+/// force. Callers fail CLOSED on `false`; this function never tries to repair a date.
+///
+/// Calendar-aware (month lengths, leap years) because `2026-02-30` is the same hazard as
+/// `2026-9-01`. Hand-rolled to keep the resolver dependency-lean (invariant 9). ASCII digits
+/// only, which also makes the slicing below char-boundary safe.
+pub(crate) fn is_iso_date(s: &str) -> bool {
+  let b = s.as_bytes();
+  if b.len() != 10 || b[4] != b'-' || b[7] != b'-' {
+    return false;
+  }
+  let digits = |r: ::std::ops::Range<usize>| b[r].iter().all(|c| c.is_ascii_digit());
+  if !(digits(0..4) && digits(5..7) && digits(8..10)) {
+    return false;
+  }
+  let year: u32 = s[0..4].parse().unwrap_or(0);
+  let month: u32 = s[5..7].parse().unwrap_or(0);
+  let day: u32 = s[8..10].parse().unwrap_or(0);
+  let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+  let days = match month {
+    1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+    4 | 6 | 9 | 11 => 30,
+    2 if leap => 29,
+    2 => 28,
+    _ => return false,
+  };
+  (1..=days).contains(&day)
+}
+
 /// A reviewer-key directory entry (spec §6:193-199).
 ///
 /// Only the fields §6 makes load-bearing for a TRUST decision are modelled.
@@ -368,6 +403,13 @@ pub enum KeyStatus {
   },
   /// No entry carries this `key_id` — or the pack named no key at all.
   Unknown,
+  /// A date in the entry, or the decision date itself, is not a real ISO date, so the key
+  /// cannot be placed relative to its own revocation. Never trusted: a malformed revocation
+  /// record must not RESTORE trust in a revoked key.
+  InvalidDate {
+    /// Which field could not be read: `as_of`, `revoked_at`, `valid_until` or `valid_from`.
+    field: &'static str,
+  },
   /// No directory was supplied, so no key CAN be trusted. Distinct from
   /// `Unknown` on purpose: "I have a trust root and your key is not in it" and
   /// "I have no trust root" are different operational facts, and collapsing
@@ -390,6 +432,7 @@ impl KeyStatus {
       Self::Expired { .. } => "expired",
       Self::NotYetValid { .. } => "not_yet_valid",
       Self::Unknown => "unknown",
+      Self::InvalidDate { .. } => "invalid_date",
       Self::NoDirectory => "no_directory",
     }
   }
@@ -403,13 +446,21 @@ impl ReviewerDirectory {
   /// lexically, which is why no date parsing (and so no date dependency) is
   /// needed here.
   pub fn key_status(&self, key_id: &str, as_of: &str) -> KeyStatus {
+    // Validate BEFORE comparing: the comparisons below are lexical and only mean anything
+    // for real zero-padded ISO dates (see `is_iso_date`).
+    if !is_iso_date(as_of) {
+      return KeyStatus::InvalidDate { field: "as_of" };
+    }
     let entry = match self.keys.iter().find(|k| k.key_id == key_id) {
       ::std::option::Option::Some(e) => e,
       ::std::option::Option::None => return KeyStatus::Unknown,
     };
     // §6:188 — "from `revoked_at` FORWARD", so the boundary date is revoked.
     if let ::std::option::Option::Some(rev) = &entry.revocation {
-      if !rev.revoked_at.is_empty() && as_of >= rev.revoked_at.as_str() {
+      if !is_iso_date(&rev.revoked_at) {
+        return KeyStatus::InvalidDate { field: "revoked_at" };
+      }
+      if as_of >= rev.revoked_at.as_str() {
         return KeyStatus::Revoked {
           revoked_at: rev.revoked_at.clone(),
           reason: rev
@@ -420,11 +471,17 @@ impl ReviewerDirectory {
       }
     }
     if let ::std::option::Option::Some(until) = &entry.valid_until {
+      if !is_iso_date(until) {
+        return KeyStatus::InvalidDate { field: "valid_until" };
+      }
       if as_of > until.as_str() {
         return KeyStatus::Expired { valid_until: until.clone() };
       }
     }
     if let ::std::option::Option::Some(from) = &entry.valid_from {
+      if !is_iso_date(from) {
+        return KeyStatus::InvalidDate { field: "valid_from" };
+      }
       if as_of < from.as_str() {
         return KeyStatus::NotYetValid { valid_from: from.clone() };
       }
@@ -1076,6 +1133,27 @@ fn decide_from_pack_text(
   // closed to aggressive-over-universe, loudly. ISO `YYYY-MM-DD` compares
   // lexically. `as_of = None` opts out of the temporal check.
   if let ::std::option::Option::Some(as_of) = &query.as_of {
+    // Spec §5: error resolves most-restrictive. A decision date or a window bound that is not a
+    // real ISO date cannot be placed on either side of a boundary, and the lexical compare below
+    // would place it silently — measured, a window ending `"never"` or `"2026-9-1"` was treated
+    // as OPEN. Fail closed instead of guessing.
+    if !is_iso_date(as_of) {
+      return aggressive_over_universe(
+        query,
+        ::std::format!("<invalid-decision-date:{source}>"),
+        true,
+      );
+    }
+    let readable = |bound: ::std::option::Option<&str>| bound.is_none_or(is_iso_date);
+    if !readable(pack.meta.effective_from.as_deref())
+      || !readable(pack.meta.effective_until.as_deref())
+    {
+      return aggressive_over_universe(
+        query,
+        ::std::format!("<invalid-effective-envelope:{source}>"),
+        true,
+      );
+    }
     let before_start = pack
       .meta
       .effective_from
@@ -1205,6 +1283,95 @@ fn decide_from_pack_text(
   }
 }
 
+/// What a pack source found for one candidate profile tag.
+enum Probe {
+  /// No pack at that tag; the walk tries the next, less specific candidate.
+  Absent,
+  /// A pack exists but its bytes could not be read. NOT the same as absent: skipping it would
+  /// let a LESS specific pack govern in its place, silently.
+  Unreadable(::std::string::String),
+  /// `(source label, pack text)`.
+  Found(::std::string::String, ::std::string::String),
+}
+
+/// Why an inheritance chain could not be trusted (spec §4.3, §5). Each is a FAIL-CLOSED condition.
+enum ChainFault {
+  /// The `inherits` chain revisited a tag. §4.3: "A cycle ... MUST fail closed (§5)".
+  Cycle(::std::string::String),
+  /// A pack names a parent that does not resolve. The child is a DELTA (§4.3): its floor and
+  /// `[prohibited]` may live entirely in the parent, so the child alone is not the pack its
+  /// author wrote. Resolving it anyway reports success on a decision made without them.
+  UnresolvedParent(::std::string::String),
+  /// A pack in the chain exists but could not be read.
+  Unreadable(::std::string::String),
+}
+
+/// The inheritance chain, child first (spec §4 steps 1-2): negotiate the profile by RFC-4647
+/// truncation, then follow `inherits` from whatever that found.
+///
+/// ONE implementation for both adapters. It used to be written twice, cycle guard included, and a
+/// security-relevant loop kept in two places is a loop that drifts: the two copies both had the
+/// same spec §4.3 deviation, and fixing one would have left the other. They now differ only in
+/// how a single tag is looked up.
+///
+/// `Ok(empty)` means the child pack itself is absent — the caller's existing "missing pack"
+/// fallback. Anything wrong AFTER a child was found is a [`ChainFault`].
+fn walk_chain(
+  start: &str,
+  mut lookup: impl FnMut(&str) -> Probe,
+) -> ::std::result::Result<
+  ::std::vec::Vec<(::std::string::String, ::std::string::String)>,
+  ChainFault,
+> {
+  let mut out = ::std::vec::Vec::new();
+  let mut seen: ::std::collections::BTreeSet<::std::string::String> =
+    ::std::collections::BTreeSet::new();
+  let mut want = ::std::string::String::from(start);
+  loop {
+    // Truncation applies to EVERY link, not just the first: a parent tag may itself name a
+    // profile that only exists further up the chain.
+    let mut hit = ::std::option::Option::None;
+    for candidate in profile_candidates(&want) {
+      match lookup(&candidate) {
+        Probe::Absent => continue,
+        Probe::Unreadable(src) => return ::std::result::Result::Err(ChainFault::Unreadable(src)),
+        Probe::Found(src, text) => {
+          hit = ::std::option::Option::Some((candidate, src, text));
+          break;
+        }
+      }
+    }
+    let (tag, source, text) = match hit {
+      ::std::option::Option::Some(h) => h,
+      ::std::option::Option::None if out.is_empty() => break,
+      ::std::option::Option::None => {
+        return ::std::result::Result::Err(ChainFault::UnresolvedParent(want));
+      }
+    };
+    if !seen.insert(tag.clone()) {
+      return ::std::result::Result::Err(ChainFault::Cycle(tag));
+    }
+    let parent = parent_tag(&text);
+    out.push((source, text));
+    match parent {
+      ::std::option::Option::Some(p) => want = p,
+      ::std::option::Option::None => break,
+    }
+  }
+  ::std::result::Result::Ok(out)
+}
+
+/// The fail-closed decision for a [`ChainFault`]: aggressive over the caller's universe, flagged
+/// fell-back, with the fault named in `source` so a reader can tell WHY.
+fn fault_decision(query: &RegulatoryQuery, fault: ChainFault) -> ControlDecision {
+  let source = match fault {
+    ChainFault::Cycle(tag) => ::std::format!("<inherits-cycle:{tag}>"),
+    ChainFault::UnresolvedParent(parent) => ::std::format!("<inherits-unresolved:{parent}>"),
+    ChainFault::Unreadable(src) => ::std::format!("<unreadable:{src}>"),
+  };
+  aggressive_over_universe(query, source, true)
+}
+
 /// Loads policy packs from a root dir mirroring `locales/`:
 /// `<root>/<profile>/<domain>.toml`. A global `strictness_override` (the DIAL)
 /// wins over each pack's declared strictness when set.
@@ -1256,40 +1423,17 @@ impl TomlRegulatoryPolicyAdapter {
   fn chain(
     &self,
     query: &RegulatoryQuery,
-  ) -> ::std::vec::Vec<(::std::string::String, ::std::string::String)> {
-    let mut out = ::std::vec::Vec::new();
-    let mut seen: ::std::collections::BTreeSet<::std::string::String> =
-      ::std::collections::BTreeSet::new();
-    let mut want = query.profile.0.clone();
-    loop {
-      // Truncation applies to EVERY link, not just the first: a parent tag may itself
-      // name a profile that only exists further up the chain.
-      let found = profile_candidates(&want)
-        .into_iter()
-        .find_map(|c| self.path_for(&c, &query.domain).map(|p| (c, p)));
-      let (tag, path) = match found {
-        ::std::option::Option::Some(f) => f,
-        ::std::option::Option::None => break,
-      };
-      // A cycle, or a diamond revisiting one tag, stops here rather than looping. The
-      // packs resolved so far still govern — refusing the whole decision because a
-      // parent pointed back would fail closed on an authoring mistake in a file the
-      // caller may not own.
-      if !seen.insert(tag.clone()) {
-        break;
-      }
-      let raw = match ::std::fs::read_to_string(&path) {
-        ::std::result::Result::Ok(s) => s,
-        ::std::result::Result::Err(_) => break,
-      };
-      let parent = parent_tag(&raw);
-      out.push((path.display().to_string(), raw));
-      match parent {
-        ::std::option::Option::Some(p) => want = p,
-        ::std::option::Option::None => break,
-      }
-    }
-    out
+  ) -> ::std::result::Result<
+    ::std::vec::Vec<(::std::string::String, ::std::string::String)>,
+    ChainFault,
+  > {
+    walk_chain(&query.profile.0, |tag| match self.path_for(tag, &query.domain) {
+      ::std::option::Option::None => Probe::Absent,
+      ::std::option::Option::Some(path) => match ::std::fs::read_to_string(&path) {
+        ::std::result::Result::Ok(raw) => Probe::Found(path.display().to_string(), raw),
+        ::std::result::Result::Err(_) => Probe::Unreadable(path.display().to_string()),
+      },
+    })
   }
 
   /// Aggressive fallback decision (fail-closed) with loud provenance.
@@ -1302,7 +1446,10 @@ impl __private_seal::RegulatoryPolicyPortSeal for TomlRegulatoryPolicyAdapter {}
 
 impl RegulatoryPolicyPort for TomlRegulatoryPolicyAdapter {
   fn required_controls(&self, query: &RegulatoryQuery) -> ControlDecision {
-    let chain = self.chain(query);
+    let chain = match self.chain(query) {
+      ::std::result::Result::Ok(c) => c,
+      ::std::result::Result::Err(fault) => return fault_decision(query, fault),
+    };
     if chain.is_empty() {
       return Self::fallback(
         query,
@@ -1372,30 +1519,14 @@ impl InMemoryRegulatoryPolicyAdapter {
   fn chain(
     &self,
     query: &RegulatoryQuery,
-  ) -> ::std::vec::Vec<(::std::string::String, ::std::string::String)> {
-    let mut out = ::std::vec::Vec::new();
-    let mut seen: ::std::collections::BTreeSet<::std::string::String> =
-      ::std::collections::BTreeSet::new();
-    let mut want = query.profile.0.clone();
-    loop {
-      let found = profile_candidates(&want)
-        .into_iter()
-        .find_map(|c| self.key_for(&c, &query.domain).map(|(k, t)| (c, k, t)));
-      let (tag, key, text) = match found {
-        ::std::option::Option::Some(f) => f,
-        ::std::option::Option::None => break,
-      };
-      if !seen.insert(tag) {
-        break;
-      }
-      let parent = parent_tag(text);
-      out.push((key, text.clone()));
-      match parent {
-        ::std::option::Option::Some(p) => want = p,
-        ::std::option::Option::None => break,
-      }
-    }
-    out
+  ) -> ::std::result::Result<
+    ::std::vec::Vec<(::std::string::String, ::std::string::String)>,
+    ChainFault,
+  > {
+    walk_chain(&query.profile.0, |tag| match self.key_for(tag, &query.domain) {
+      ::std::option::Option::None => Probe::Absent,
+      ::std::option::Option::Some((key, text)) => Probe::Found(key, text.clone()),
+    })
   }
 }
 
@@ -1403,7 +1534,10 @@ impl __private_seal::RegulatoryPolicyPortSeal for InMemoryRegulatoryPolicyAdapte
 
 impl RegulatoryPolicyPort for InMemoryRegulatoryPolicyAdapter {
   fn required_controls(&self, query: &RegulatoryQuery) -> ControlDecision {
-    let chain = self.chain(query);
+    let chain = match self.chain(query) {
+      ::std::result::Result::Ok(c) => c,
+      ::std::result::Result::Err(fault) => return fault_decision(query, fault),
+    };
     if chain.is_empty() {
       return aggressive_over_universe(
         query,
@@ -1637,7 +1771,13 @@ mod inheritance_tests {
   /// with the tag it matched would erase the only evidence that negotiation happened.
   #[test]
   fn truncation_serves_a_parent_pack_without_rewriting_the_asked_profile() {
-    let packs = [("example/region/recording_consent.r14n.toml", CHILD)];
+    // CHILD declares `inherits = "example"`, so the parent has to exist. This fixture used to
+    // omit it and passed only because a missing parent was silently ignored — which is the bug
+    // `a_missing_parent_fails_closed_instead_of_dropping_what_it_would_have_inherited` now pins.
+    let packs = [
+      ("example/recording_consent.r14n.toml", PARENT),
+      ("example/region/recording_consent.r14n.toml", CHILD),
+    ];
     let d = decide(&packs, "example/region/locality", "telepresence");
     ::std::assert_eq!(
       d.provenance.profile.0, "example/region/locality",
@@ -1649,19 +1789,6 @@ mod inheritance_tests {
       d.provenance.source
     );
     ::std::assert!(!d.provenance.fell_back, "a negotiated pack DID govern");
-  }
-
-  /// Why: an inheritance cycle is an authoring mistake in files the caller may not own, and
-  /// it must not hang or recurse without bound. It also must not fail the whole decision —
-  /// the packs resolved before the cycle still govern. Asserted on a self-inheriting pack,
-  /// the tightest possible loop.
-  #[test]
-  fn a_self_inheriting_pack_terminates_and_still_governs() {
-    const LOOP: &str = "[meta]\nstrictness = \"as_configured\"\ninherits = \"example\"\n\n[subject.telepresence]\ncontrols = [\"signal_notice\"]\n\n[legally_required]\ncontrols = [\"attestation\"]\n";
-    let packs = [("example/recording_consent.r14n.toml", LOOP)];
-    let d = decide(&packs, "example", "telepresence");
-    ::std::assert_eq!(required(&d), ["signal_notice"], "the self-inheriting pack did not govern");
-    ::std::assert!(!d.provenance.fell_back, "a cycle must not fail the decision closed");
   }
 
   /// Why: a malformed pack ANYWHERE in the chain has to fail closed, not just a malformed
@@ -2675,6 +2802,7 @@ mod trust_root_tests {
       crate::KeyStatus::Expired { valid_until: ::std::string::String::from("2026-01-01") },
       crate::KeyStatus::NotYetValid { valid_from: ::std::string::String::from("2026-01-01") },
       crate::KeyStatus::Unknown,
+      crate::KeyStatus::InvalidDate { field: "revoked_at" },
       crate::KeyStatus::NoDirectory,
     ] {
       ::std::assert!(!s.is_trusted(), "{s:?} must not be trusted");
@@ -2692,3 +2820,227 @@ mod trust_root_tests {
     ::std::assert!(!t.signatures_verified);
   }
 }
+
+#[cfg(test)]
+mod fail_closed_tests {
+  fn q(profile: &str, as_of: ::std::option::Option<&str>) -> crate::RegulatoryQuery {
+    crate::RegulatoryQuery {
+      domain: ::std::string::String::from("d"),
+      profile: crate::RegulatoryProfile(::std::string::String::from(profile)),
+      jurisdiction: ::std::string::String::from("x"),
+      subject: ::std::string::String::from("t"),
+      universe: ["attestation", "signal_notice", "forbidden_thing"]
+        .into_iter()
+        .map(|c| crate::ControlKey(::std::string::String::from(c)))
+        .collect(),
+      as_of: as_of.map(::std::string::String::from),
+      attribution_source: ::std::option::Option::None,
+      per_domain_posture_overrides: ::std::collections::BTreeMap::new(),
+      gpc_signal: false,
+      ieee7012_no_recording: false,
+    }
+  }
+
+  fn decide(packs: &[(&str, &str)], profile: &str, as_of: ::std::option::Option<&str>) -> crate::ControlDecision {
+    let a = crate::InMemoryRegulatoryPolicyAdapter::new(
+      packs
+        .iter()
+        .map(|(k, v)| (::std::string::String::from(*k), ::std::string::String::from(*v)))
+        .collect(),
+      ::std::option::Option::None,
+    );
+    crate::RegulatoryPolicyPort::required_controls(&a, &q(profile, as_of))
+  }
+
+  fn dir(json: &str) -> crate::ReviewerDirectory {
+    ::serde_json::from_str(json).expect("directory")
+  }
+
+  fn enveloped(until: &str) -> ::std::string::String {
+    ::std::format!(
+      "[meta]\nstrictness = \"as_configured\"\neffective_until = \"{until}\"\n\n[meta.legal_review]\nstatus = \"approved\"\n\n[subject.t]\ncontrols = [\"signal_notice\"]\n\n[legally_required]\ncontrols = [\"attestation\"]\n"
+    )
+  }
+
+  /// Why: every date this resolver compares is compared LEXICALLY, which is only sound for
+  /// zero-padded ISO `YYYY-MM-DD`. A validator is therefore the precondition for every
+  /// fail-closed date rule below; without it `"2026-9-01" < "2026-10-01"` is false and a
+  /// malformed date silently lands on the wrong side of a boundary. Calendar-aware (leap
+  /// years, month lengths), because `2026-02-30` is the same hazard as `2026-9-01`.
+  #[test]
+  fn only_real_zero_padded_calendar_dates_are_iso_dates() {
+    for ok in ["2026-02-28", "2024-02-29", "2026-12-31", "2000-02-29"] {
+      ::std::assert!(crate::is_iso_date(ok), "{ok:?} is a real date");
+    }
+    for bad in [
+      "", "soon", "2026-9-01", "2026-09-1", "20260901", " 2026-09-01", "2026-09-01 ",
+      "2026-13-01", "2026-00-10", "2026-04-31", "2026-02-29", "1900-02-29", "2026-09-01T00:00:00Z",
+      "２０２６-09-01",
+    ] {
+      ::std::assert!(!crate::is_iso_date(bad), "{bad:?} must not be accepted as a date");
+    }
+  }
+
+  /// Why: spec §6:188 — from `revoked_at` forward a resolver MUST treat the key as unattested.
+  /// A revocation date that cannot be read cannot be placed before or after the decision, so
+  /// the only safe reading is "untrusted". Measured before this fix: `"2026-9-01"`, `""` and
+  /// `"soon"` all resolved `trusted` with `provenance_verified = true`, i.e. a malformed
+  /// revocation record silently RESTORED trust in a revoked key. The control arms prove the
+  /// well-formed paths still work, so a pass is not "everything is untrusted".
+  #[test]
+  fn a_malformed_date_in_a_directory_entry_never_yields_trust() {
+    // CONTROLS
+    let live = dir(r#"{"keys":[{"key_id":"k","valid_from":"2026-01-01"}]}"#);
+    ::std::assert!(live.key_status("k", "2026-10-01").is_trusted(), "control: well-formed, unrevoked");
+    let dead = dir(r#"{"keys":[{"key_id":"k","revocation":{"revoked_at":"2026-06-01"}}]}"#);
+    ::std::assert!(
+      ::std::matches!(dead.key_status("k", "2026-10-01"), crate::KeyStatus::Revoked { .. }),
+      "control: well-formed revocation still reports revoked"
+    );
+    // MALFORMED
+    for frag in [
+      r#""revocation":{"revoked_at":"2026-9-01"}"#,
+      r#""revocation":{"revoked_at":""}"#,
+      r#""revocation":{"revoked_at":"soon"}"#,
+      r#""revocation":{"revoked_at":"2026-13-01"}"#,
+      r#""revocation":{"revoked_at":"2026-06-31"}"#,
+      r#""valid_until":"2026-9-1""#,
+      r#""valid_until":"never""#,
+      r#""valid_from":"2026-1-1""#,
+      r#""valid_from":"later""#,
+    ] {
+      let d = dir(&::std::format!(r#"{{"keys":[{{"key_id":"k",{frag}}}]}}"#));
+      ::std::assert!(
+        !d.key_status("k", "2026-10-01").is_trusted(),
+        "{frag} must never resolve trusted"
+      );
+    }
+  }
+
+  /// Why: the CALLER's decision date is the other operand of every comparison. A malformed
+  /// `as_of` cannot be placed relative to any revocation, so trust must not be granted on it.
+  #[test]
+  fn a_malformed_decision_date_never_yields_trust() {
+    let live = dir(r#"{"keys":[{"key_id":"k","valid_from":"2026-01-01"}]}"#);
+    for bad in ["", "yesterday", "2026-9-15", "2026-02-30"] {
+      ::std::assert!(!live.key_status("k", bad).is_trusted(), "as_of {bad:?}");
+    }
+  }
+
+  /// Why: spec §2.5/§4/§7 — a decision date outside the pack's effective window means no
+  /// in-effect pack governs, and §5 says absence or error MUST resolve most-restrictive. A
+  /// window bound that cannot be read is an error. Measured before this fix: `"2026-9-1"` and
+  /// `"never"` were both treated as an OPEN window (`fell_back = false`), so a garbled expiry
+  /// kept an expired pack in force. Controls prove an in-window and an expired pack still
+  /// behave, so the arm cannot pass by failing everything closed.
+  #[test]
+  fn a_malformed_effective_window_bound_fails_closed() {
+    let open = enveloped("2027-01-01");
+    let d = decide(&[("p/d.r14n.toml", &open)], "p", ::std::option::Option::Some("2026-10-01"));
+    ::std::assert!(!d.provenance.fell_back, "control: in-window pack governs");
+    let gone = enveloped("2026-01-01");
+    let d = decide(&[("p/d.r14n.toml", &gone)], "p", ::std::option::Option::Some("2026-10-01"));
+    ::std::assert!(d.provenance.fell_back, "control: expired pack falls back");
+    for bad in ["2026-9-1", "never", "", "2026-02-30"] {
+      let pack = enveloped(bad);
+      let d = decide(&[("p/d.r14n.toml", &pack)], "p", ::std::option::Option::Some("2026-10-01"));
+      ::std::assert!(d.provenance.fell_back, "effective_until {bad:?} must fail closed");
+    }
+  }
+
+  /// Why: same operand, other side. A caller-supplied `as_of` that is not a date is an error in
+  /// the request, and §5 resolves errors most-restrictive. Previously this passed only by
+  /// accident when a window happened to exist (`"yesterday" > "2027-..."` lexically).
+  #[test]
+  fn a_malformed_decision_date_in_the_query_fails_closed() {
+    let open = enveloped("2027-01-01");
+    for bad in ["yesterday", "2026-9-15", ""] {
+      let d = decide(&[("p/d.r14n.toml", &open)], "p", ::std::option::Option::Some(bad));
+      ::std::assert!(d.provenance.fell_back, "as_of {bad:?} must fail closed");
+    }
+  }
+
+  const BASE: &str = "[meta]\nstrictness = \"as_configured\"\n\n[meta.legal_review]\nstatus = \"approved\"\n\n[subject.t]\ncontrols = [\"signal_notice\"]\n\n[legally_required]\ncontrols = [\"attestation\"]\n\n[prohibited]\ncontrols = [\"forbidden_thing\"]\n";
+
+  fn child(parent: &str) -> ::std::string::String {
+    ::std::format!(
+      "[meta]\nstrictness = \"as_configured\"\ninherits = \"{parent}\"\n\n[meta.legal_review]\nstatus = \"approved\"\n"
+    )
+  }
+
+  /// Why: spec §4.3 — "A cycle in the `inherits` chain MUST fail closed (§5)". An earlier
+  /// version of this resolver did the opposite and had a test asserting the opposite: it
+  /// stopped at the cycle and let the packs resolved so far govern, on the reasoning that a
+  /// cycle is an authoring mistake in files the caller may not own. That reasoning is the
+  /// exact thing §5 forbids — error resolves most-restrictive, whoever made it. Covers the
+  /// tightest loop (self) and a two-node loop.
+  #[test]
+  fn an_inheritance_cycle_fails_closed() {
+    let me = child("loop");
+    let d = decide(&[("loop/d.r14n.toml", &me)], "loop", ::std::option::Option::None);
+    ::std::assert!(d.provenance.fell_back, "self-inheritance");
+    ::std::assert!(d.provenance.source.contains("inherits-cycle"), "{}", d.provenance.source);
+
+    let a = child("b");
+    let b = child("a");
+    let d = decide(&[("a/d.r14n.toml", &a), ("b/d.r14n.toml", &b)], "a", ::std::option::Option::None);
+    ::std::assert!(d.provenance.fell_back, "two-node cycle");
+    ::std::assert!(d.provenance.source.contains("inherits-cycle"), "{}", d.provenance.source);
+  }
+
+  /// Why: spec §4.3 — a child is a DELTA that "carries only its deviations from the parent",
+  /// so its effective floor and `[prohibited]` live in the parent. If the named parent does
+  /// not resolve, the child alone is NOT the pack its author wrote. Measured before this fix
+  /// (probe P1): the decision came back `fell_back = false` with `prohibited = []`, silently
+  /// discarding the parent's prohibition. The control proves a present parent still hands its
+  /// prohibition down, so the arm cannot pass by failing everything closed.
+  #[test]
+  fn a_missing_parent_fails_closed_instead_of_dropping_what_it_would_have_inherited() {
+    let c = child("base");
+    let d = decide(&[("child/d.r14n.toml", &c), ("base/d.r14n.toml", BASE)], "child", ::std::option::Option::None);
+    ::std::assert!(!d.provenance.fell_back, "control: parent present resolves");
+    ::std::assert!(
+      d.prohibited.iter().any(|k| k.as_str() == "forbidden_thing"),
+      "control: the parent's prohibition is inherited"
+    );
+
+    let d = decide(&[("child/d.r14n.toml", &c)], "child", ::std::option::Option::None);
+    ::std::assert!(d.provenance.fell_back, "parent missing must fail closed");
+    ::std::assert!(d.provenance.source.contains("inherits-unresolved"), "{}", d.provenance.source);
+  }
+
+  /// Why: a pack that EXISTS but cannot be read is not the same as a pack that is absent, and
+  /// treating it as absent is a silent downgrade. Truncation (§4 step 1) walks from the most
+  /// specific candidate to the least, so skipping an unreadable `example` would let the ROOT pack
+  /// govern in its place — a less specific, and here deliberately permissive, pack — with
+  /// `fell_back = false`. The control proves the permissive root pack really would have governed
+  /// had the walk skipped, so a pass is not "everything fails closed".
+  #[cfg(unix)]
+  #[test]
+  fn an_unreadable_parent_fails_closed_rather_than_letting_a_less_specific_pack_govern() {
+    use ::std::os::unix::fs::PermissionsExt;
+    let tmp = ::tempfile::tempdir().expect("tmp");
+    let root = tmp.path();
+    ::std::fs::create_dir_all(root.join("example/region")).expect("mkdir");
+    let c = child("example");
+    ::std::fs::write(root.join("example/region/d.r14n.toml"), &c).expect("child");
+    ::std::fs::write(root.join("example/d.r14n.toml"), BASE).expect("parent");
+    // A permissive pack at the root: the one that would silently win if "unreadable" meant "absent".
+    ::std::fs::write(
+      root.join("d.r14n.toml"),
+      "[meta]\nstrictness = \"as_configured\"\n\n[meta.legal_review]\nstatus = \"approved\"\n\n[subject.t]\ncontrols = []\n\n[legally_required]\ncontrols = [\"attestation\"]\n",
+    )
+    .expect("root");
+    let a = crate::TomlRegulatoryPolicyAdapter::new(root.to_path_buf(), ::std::option::Option::None);
+
+    let d = crate::RegulatoryPolicyPort::required_controls(&a, &q("example/region", ::std::option::Option::None));
+    ::std::assert!(!d.provenance.fell_back, "control: with the parent readable, the chain resolves");
+
+    ::std::fs::set_permissions(root.join("example/d.r14n.toml"), ::std::fs::Permissions::from_mode(0o000))
+      .expect("chmod");
+    let d = crate::RegulatoryPolicyPort::required_controls(&a, &q("example/region", ::std::option::Option::None));
+    ::std::assert!(d.provenance.fell_back, "an unreadable parent was skipped");
+    ::std::assert!(d.provenance.source.contains("unreadable"), "{}", d.provenance.source);
+  }
+}
+
