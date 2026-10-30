@@ -88,6 +88,9 @@ pub enum KeyStatus {
   Expired { key_id: ::std::string::String, valid_until: ::std::string::String },
   /// Listed but the decision date precedes `valid_from`.
   NotYetValid { key_id: ::std::string::String, valid_from: ::std::string::String },
+  /// A date in the entry, or the decision date, is not a real ISO date (`field` names which), so
+  /// the key cannot be placed relative to its own revocation. Never trusted.
+  InvalidDate { key_id: ::std::string::String, field: &'static str },
   /// Listed + in-validity, but scoped to a different jurisdiction than required.
   JurisdictionMismatch { key_id: ::std::string::String, key_jurisdiction: ::std::string::String, required: ::std::string::String },
   /// No directory entry carries this public key.
@@ -104,6 +107,12 @@ impl KeyStatus {
 /// Resolve the status of the base64 `public_key` against the directory file, as
 /// of ISO date `as_of`, optionally requiring the key's jurisdiction to equal
 /// `required_jurisdiction`.
+///
+/// This locates the entry by PUBLIC key — the one thing only this crate knows how to match — and
+/// then asks the resolver, because the date rules (revocation before expiry before not-yet-valid,
+/// calendar-validated dates, every entry for a key id) are spec §6 and live in ONE place. This
+/// function used to carry its own copy, with its own fail-opens: an empty `revoked_at` read as
+/// "not revoked", and a malformed date was compared as text.
 pub fn key_status(
   directory_path: &::std::path::Path,
   public_key: &str,
@@ -126,31 +135,28 @@ pub fn key_status(
   let key_id = ::std::string::String::from(entry["key_id"].as_str().unwrap_or("<unknown>"));
   let jurisdiction = ::std::string::String::from(entry["jurisdiction"].as_str().unwrap_or(""));
 
-  // Revocation wins (ISO dates compare lexically). Revoked on/after revoked_at.
-  if let ::std::option::Option::Some(rev) = entry.get("revocation") {
-    let revoked_at = rev["revoked_at"].as_str().unwrap_or("");
-    if !revoked_at.is_empty() && as_of >= revoked_at {
-      return ::std::result::Result::Ok(KeyStatus::Revoked {
-        key_id,
-        revoked_at: ::std::string::String::from(revoked_at),
-        reason: ::std::string::String::from(rev["reason"].as_str().unwrap_or("unspecified")),
-      });
+  // A directory the resolver cannot read (an entry with no `key_id`, a revocation with no
+  // `revoked_at`) is an ERROR, not an empty trust root.
+  let resolver_dir: ::r14n::ReviewerDirectory =
+    ::serde_json::from_value(doc.clone()).map_err(|e| ::std::format!("directory entry: {e}"))?;
+  match resolver_dir.key_status(&key_id, as_of) {
+    ::r14n::KeyStatus::Trusted => {}
+    ::r14n::KeyStatus::Revoked { revoked_at, reason } => {
+      return ::std::result::Result::Ok(KeyStatus::Revoked { key_id, revoked_at, reason });
     }
-  }
-  if let ::std::option::Option::Some(until) = entry["valid_until"].as_str() {
-    if as_of > until {
-      return ::std::result::Result::Ok(KeyStatus::Expired {
-        key_id,
-        valid_until: ::std::string::String::from(until),
-      });
+    ::r14n::KeyStatus::Expired { valid_until } => {
+      return ::std::result::Result::Ok(KeyStatus::Expired { key_id, valid_until });
     }
-  }
-  if let ::std::option::Option::Some(from) = entry["valid_from"].as_str() {
-    if as_of < from {
-      return ::std::result::Result::Ok(KeyStatus::NotYetValid {
-        key_id,
-        valid_from: ::std::string::String::from(from),
-      });
+    ::r14n::KeyStatus::NotYetValid { valid_from } => {
+      return ::std::result::Result::Ok(KeyStatus::NotYetValid { key_id, valid_from });
+    }
+    ::r14n::KeyStatus::InvalidDate { field } => {
+      return ::std::result::Result::Ok(KeyStatus::InvalidDate { key_id, field });
+    }
+    // The entry was just found, so neither can be the resolver's answer; if one ever is, it is
+    // not a trust grant.
+    ::r14n::KeyStatus::Unknown | ::r14n::KeyStatus::NoDirectory => {
+      return ::std::result::Result::Ok(KeyStatus::Unknown);
     }
   }
   if let ::std::option::Option::Some(req) = required_jurisdiction {
@@ -225,6 +231,68 @@ mod tests {
     ::std::assert!(::std::matches!(expired, super::KeyStatus::Expired { .. }), "{expired:?}");
     let early = super::key_status(&dir, "AAA", "2025-06-01", ::std::option::Option::None).expect("status");
     ::std::assert!(::std::matches!(early, super::KeyStatus::NotYetValid { .. }), "{early:?}");
+  }
+
+  /// Why: the trust root answers "may this key attest?", so a date it cannot read is NOT "no
+  /// revocation". This copy of the date rules took an empty `revoked_at` as "not revoked" and
+  /// compared `2026-7-1` as text, so a malformed revocation record RESTORED trust in a revoked key.
+  /// The control is a well-formed record, which must still resolve.
+  #[test]
+  fn a_date_the_directory_cannot_read_is_never_trusted() {
+    let tmp = ::tempfile::tempdir().expect("tmp");
+    let path = tmp.path().join("directory.json");
+    let write = |revoked_at: &str, valid_until: &str| {
+      ::std::fs::write(
+        &path,
+        ::std::format!(
+          "{{\"keys\":[{{\"key_id\":\"r\",\"public_key_ed25519\":\"AAA\",\"jurisdiction\":\"US-CA\",\
+            \"valid_until\":\"{valid_until}\",\"revocation\":{{\"revoked_at\":\"{revoked_at}\"}}}}]}}"
+        ),
+      )
+      .expect("write");
+    };
+    let go = |as_of: &str| super::key_status(&path, "AAA", as_of, ::std::option::Option::None).expect("status");
+    write("2026-06-01", "2026-12-31");
+    ::std::assert!(::std::matches!(go("2026-07-01"), super::KeyStatus::Revoked { .. }), "control");
+    ::std::assert!(go("2026-05-01").is_trusted(), "control: before the revocation");
+    write("", "2026-12-31");
+    ::std::assert_eq!(
+      go("2026-07-01"),
+      super::KeyStatus::InvalidDate { key_id: ::std::string::String::from("r"), field: "revoked_at" }
+    );
+    write("2026-6-1", "2026-12-31");
+    ::std::assert!(::std::matches!(go("2026-07-01"), super::KeyStatus::InvalidDate { field: "revoked_at", .. }));
+    write("2026-06-01", "never");
+    ::std::assert!(::std::matches!(go("2026-05-01"), super::KeyStatus::InvalidDate { field: "valid_until", .. }));
+    write("2026-06-01", "2026-12-31");
+    ::std::assert!(::std::matches!(go("2026-7-1"), super::KeyStatus::InvalidDate { field: "as_of", .. }));
+  }
+
+  /// Why: the CLI finds an entry by public key but the date rules are by `key_id`, so a directory
+  /// that lists one key id twice — once revoked — must not let the unrevoked entry's public key
+  /// pass. Both entries carry the SAME `key_id`, which is what makes it ambiguous; the control is
+  /// the same two entries with distinct ids, where the unrevoked key is trusted.
+  #[test]
+  fn a_key_id_listed_twice_cannot_hide_a_revocation() {
+    let tmp = ::tempfile::tempdir().expect("tmp");
+    let path = tmp.path().join("directory.json");
+    let write = |second_id: &str| {
+      ::std::fs::write(
+        &path,
+        ::std::format!(
+          "{{\"keys\":[{{\"key_id\":\"r\",\"public_key_ed25519\":\"AAA\"}},\
+            {{\"key_id\":\"{second_id}\",\"public_key_ed25519\":\"BBB\",\
+            \"revocation\":{{\"revoked_at\":\"2026-06-01\"}}}}]}}"
+        ),
+      )
+      .expect("write");
+    };
+    write("other");
+    let s = super::key_status(&path, "AAA", "2026-07-01", ::std::option::Option::None).expect("status");
+    ::std::assert!(s.is_trusted(), "control: distinct ids are independent: {s:?}");
+    write("r");
+    let s = super::key_status(&path, "AAA", "2026-07-01", ::std::option::Option::None).expect("status");
+    ::std::assert!(::std::matches!(s, super::KeyStatus::Revoked { .. }), "{s:?}");
   }
 
   /// Why: a key absent from the directory must be Unknown (advisory), never

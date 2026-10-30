@@ -424,6 +424,19 @@ impl KeyStatus {
     ::std::matches!(self, Self::Trusted)
   }
 
+  /// Lower is more restrictive, so a fold over several entries for one key keeps the worst.
+  /// Revocation outranks everything: it is the case §6 exists to catch.
+  fn restriction_rank(&self) -> u8 {
+    match self {
+      Self::Revoked { .. } => 0,
+      Self::InvalidDate { .. } => 1,
+      Self::Expired { .. } => 2,
+      Self::NotYetValid { .. } => 3,
+      Self::Trusted => 4,
+      Self::Unknown | Self::NoDirectory => 5,
+    }
+  }
+
   /// A stable lowercase tag for the receipt.
   pub fn as_str(&self) -> &'static str {
     match self {
@@ -446,17 +459,29 @@ impl ReviewerDirectory {
   /// lexically, which is why no date parsing (and so no date dependency) is
   /// needed here.
   pub fn key_status(&self, key_id: &str, as_of: &str) -> KeyStatus {
-    // Validate BEFORE comparing: the comparisons below are lexical and only mean anything
-    // for real zero-padded ISO dates (see `is_iso_date`).
+    // Validate BEFORE comparing: the comparisons in `ReviewerKey::status_as_of` are lexical and
+    // only mean anything for real zero-padded ISO dates (see `is_iso_date`).
     if !is_iso_date(as_of) {
       return KeyStatus::InvalidDate { field: "as_of" };
     }
-    let entry = match self.keys.iter().find(|k| k.key_id == key_id) {
-      ::std::option::Option::Some(e) => e,
-      ::std::option::Option::None => return KeyStatus::Unknown,
-    };
+    // EVERY entry carrying this id is evaluated and the most restrictive answer wins. `find()`
+    // took the first, so a later duplicate carrying a `revocation` was never read and the key
+    // resolved trusted: an ambiguous directory must not be able to hide a revocation (§5).
+    self
+      .keys
+      .iter()
+      .filter(|k| k.key_id == key_id)
+      .map(|k| k.status_as_of(as_of))
+      .min_by_key(KeyStatus::restriction_rank)
+      .unwrap_or(KeyStatus::Unknown)
+  }
+}
+
+impl ReviewerKey {
+  /// This one entry's status as of `as_of`, which the caller has already checked is a real date.
+  fn status_as_of(&self, as_of: &str) -> KeyStatus {
     // §6:188 — "from `revoked_at` FORWARD", so the boundary date is revoked.
-    if let ::std::option::Option::Some(rev) = &entry.revocation {
+    if let ::std::option::Option::Some(rev) = &self.revocation {
       if !is_iso_date(&rev.revoked_at) {
         return KeyStatus::InvalidDate { field: "revoked_at" };
       }
@@ -470,7 +495,7 @@ impl ReviewerDirectory {
         };
       }
     }
-    if let ::std::option::Option::Some(until) = &entry.valid_until {
+    if let ::std::option::Option::Some(until) = &self.valid_until {
       if !is_iso_date(until) {
         return KeyStatus::InvalidDate { field: "valid_until" };
       }
@@ -478,7 +503,7 @@ impl ReviewerDirectory {
         return KeyStatus::Expired { valid_until: until.clone() };
       }
     }
-    if let ::std::option::Option::Some(from) = &entry.valid_from {
+    if let ::std::option::Option::Some(from) = &self.valid_from {
       if !is_iso_date(from) {
         return KeyStatus::InvalidDate { field: "valid_from" };
       }
@@ -923,7 +948,10 @@ struct LegalReview {
 
 #[derive(::serde::Deserialize)]
 struct ControlList {
-  #[serde(default)]
+  /// REQUIRED, as `schema/pack.schema.json` says. It once defaulted to empty, so a misspelt key
+  /// read as "requires nothing" — and in a child delta, REPLACED the parent's table with nothing.
+  /// An explicit `controls = []` is still valid: it is how a pack says "contemplated, requires
+  /// nothing".
   controls: ::std::vec::Vec<::std::string::String>,
 }
 
@@ -942,35 +970,73 @@ fn controls_in_universe(
 }
 
 
-/// The `[meta] inherits` tag from a pack text (spec §4.3) — the ONE reader of that field.
+/// Why a pack's `[meta] inherits` could not be turned into a parent tag.
+enum ParentFault {
+  /// The text is not TOML. Not this reader's verdict to give: the pack is put IN the chain and
+  /// `decide_from_pack_text` fails it closed as `<malformed:…>`.
+  Unparseable,
+  /// `inherits` is present but is not a string.
+  NotAString,
+  /// A string, but not a well-formed profile tag (see [`is_profile_tag`]).
+  InvalidTag(::std::string::String),
+}
+
+/// True for a well-formed profile tag: `/`-separated segments of ASCII alphanumerics and `_-.`,
+/// none empty, none starting with `.`, at most 16 segments and 256 bytes. `allow_root` also
+/// admits the empty tag, which is the root profile — valid as a REQUEST, never as a parent.
 ///
-/// `PackMeta` deliberately does NOT carry it. A typed field would have made two readers of
-/// one declaration, and the parsed one would have been the unused one — which is how the two
-/// drift and nobody notices, because only the unused reader is ever type-checked.
-///
-/// Read on the cheap path on purpose: the chain is built BEFORE anything is validated, so a
-/// pack that will not parse must still be reachable — `decide_from_pack_text` is where a
-/// malformed pack fails closed, and it can only do that if the chain walker put it in the
-/// chain first. A full parse here would silently truncate the chain at the bad pack and
-/// resolve against its parents while reporting success.
-fn parent_tag(raw: &str) -> ::std::option::Option<::std::string::String> {
-  for line in raw.lines() {
-    let t = line.trim();
-    let rest = match t.strip_prefix("inherits") {
-      ::std::option::Option::Some(r) => r.trim_start(),
-      ::std::option::Option::None => continue,
-    };
-    let rest = match rest.strip_prefix('=') {
-      ::std::option::Option::Some(r) => r.trim(),
-      ::std::option::Option::None => continue,
-    };
-    let value = rest.trim_matches('"');
-    if !value.is_empty() {
-      return ::std::option::Option::Some(::std::string::String::from(value));
+/// A tag becomes a filesystem path under the filesystem adapter, and `inherits` is text the PACK
+/// controls, so this is the boundary that keeps `../`, an absolute path or an empty subtag from
+/// reaching a different pack than the one the tag names.
+fn is_profile_tag(tag: &str, allow_root: bool) -> bool {
+  if tag.is_empty() {
+    return allow_root;
+  }
+  if tag.len() > 256 {
+    return false;
+  }
+  let mut segments = 0usize;
+  for seg in tag.split('/') {
+    segments += 1;
+    let clean = !seg.is_empty()
+      && !seg.starts_with('.')
+      && seg.bytes().all(|b| b.is_ascii_alphanumeric() || ::std::matches!(b, b'_' | b'-' | b'.'));
+    if !clean {
+      return false;
     }
   }
-  ::std::option::Option::None
+  segments <= 16
 }
+
+/// The `[meta] inherits` tag from a pack text (spec §4.3) — the ONE reader of that field.
+///
+/// `PackMeta` deliberately does NOT carry it: a typed field would make two readers of one
+/// declaration, and the parsed one would be the unused one.
+///
+/// It reads the TOML, not the text. This was a line scan, and a line scan is not a TOML parser:
+/// valid TOML that spelt the key `"inherits"`, wrote `meta` as an inline table, or put a decoy
+/// `inherits` line in another table made the resolver ignore the parent — or follow the wrong
+/// one — and report `fell_back = false` with the parent's `[prohibited]` gone.
+///
+/// A pack that will not parse is still REACHABLE: the chain is built before anything is
+/// validated, and `decide_from_pack_text` is where a malformed pack fails closed. Truncating the
+/// chain at the bad pack would resolve against its parents while reporting success, so
+/// [`ParentFault::Unparseable`] puts the pack in and stops.
+fn declared_parent(
+  raw: &str,
+) -> ::std::result::Result<::std::option::Option<::std::string::String>, ParentFault> {
+  let doc: ::toml::Table = raw.parse().map_err(|_| ParentFault::Unparseable)?;
+  let value = match doc.get("meta").and_then(::toml::Value::as_table).and_then(|m| m.get("inherits")) {
+    ::std::option::Option::Some(v) => v,
+    ::std::option::Option::None => return ::std::result::Result::Ok(::std::option::Option::None),
+  };
+  let tag = value.as_str().ok_or(ParentFault::NotAString)?;
+  if !is_profile_tag(tag, false) {
+    return ::std::result::Result::Err(ParentFault::InvalidTag(::std::string::String::from(tag)));
+  }
+  ::std::result::Result::Ok(::std::option::Option::Some(::std::string::String::from(tag)))
+}
+
 /// RFC-4647-style progressive truncation over `/`-delimited subtags (spec §4 step 1).
 ///
 /// `example/region/locality` yields `["example/region/locality", "example/region", "example", ""]`
@@ -1005,7 +1071,9 @@ fn profile_candidates(profile: &str) -> ::std::vec::Vec<::std::string::String> {
 /// than a union, which is the whole point of "delta-only": a child that lists a subject is
 /// stating the complete table for that subject, not adding rows to the parent's.
 ///
-///   1. `[meta]` scalars — the child's value wins where it has one.
+///   1. `[meta]` scalars — the child's value wins where it has one. EXCEPT `legal_review`, which
+///      is the child's alone: the spec lists it among the scalars but its closing sentence is the
+///      specific one, and a false attestation is the worse way to be wrong.
 ///   2. `[subject.<name>]` — a child's table REPLACES the parent's for that subject; subjects
 ///      the child does not mention come from the parent unchanged.
 ///   3. `[legally_required]` / `[prohibited]` — the child's table, when present, REPLACES.
@@ -1021,7 +1089,10 @@ fn merge_chain(chain: ::std::vec::Vec<PolicyPackToml>) -> ::std::option::Option<
   for parent in iter {
     // Rule 1 — child scalars win; take the parent's only where the child is silent.
     effective.meta.strictness = effective.meta.strictness.or(parent.meta.strictness);
-    effective.meta.legal_review = effective.meta.legal_review.or(parent.meta.legal_review);
+    // `legal_review` is deliberately NOT carried over (§4.3: "does NOT inherit an `approved`
+    // status ... trust is not transitive"). Copying the parent's review, signature key and all,
+    // made a child nobody reviewed read as attested. The child keeps its own, or has none.
+    drop(parent.meta.legal_review);
     effective.meta.last_reviewed_against_guidance = effective
       .meta
       .last_reviewed_against_guidance
@@ -1192,6 +1263,25 @@ fn decide_from_pack_text(
     }
   }
 
+  // A floor that `[prohibited]` cancels ENTIRELY is no floor either. The check above only saw that
+  // the list was non-empty, so a pack declaring `legally_required = [x]` and `prohibited = [x]`
+  // (or a child floor meeting its parent's prohibition) resolved to `required = {}` with
+  // `fell_back = false`: "nothing is required" from a pack that declared a floor.
+  if ::std::matches!(strictness, Strictness::Minimal) {
+    let forbidden = pack.prohibited.as_ref().map(control_set).unwrap_or_default();
+    let survives = pack
+      .legally_required
+      .as_ref()
+      .is_some_and(|f| control_set(f).iter().any(|k| !forbidden.contains(k)));
+    if !survives {
+      return aggressive_over_universe(
+        query,
+        ::std::format!("<minimal-floor-prohibited:{source}>"),
+        true,
+      );
+    }
+  }
+
   // Every resolved set is intersected with the caller's universe
   // (`controls_in_universe`) — a pack can never demand a control the caller
   // does not know how to enforce, and can never silently drop below what the
@@ -1304,6 +1394,10 @@ enum ChainFault {
   UnresolvedParent(::std::string::String),
   /// A pack in the chain exists but could not be read.
   Unreadable(::std::string::String),
+  /// A profile or `inherits` tag is not a well-formed tag (see [`is_profile_tag`]).
+  InvalidTag(::std::string::String),
+  /// `inherits` is present in the named pack but is not a string.
+  InheritsMalformed(::std::string::String),
 }
 
 /// The inheritance chain, child first (spec §4 steps 1-2): negotiate the profile by RFC-4647
@@ -1323,39 +1417,65 @@ fn walk_chain(
   ::std::vec::Vec<(::std::string::String, ::std::string::String)>,
   ChainFault,
 > {
+  if !is_profile_tag(start, true) {
+    return ::std::result::Result::Err(ChainFault::InvalidTag(::std::string::String::from(start)));
+  }
   let mut out = ::std::vec::Vec::new();
   let mut seen: ::std::collections::BTreeSet<::std::string::String> =
     ::std::collections::BTreeSet::new();
-  let mut want = ::std::string::String::from(start);
-  loop {
-    // Truncation applies to EVERY link, not just the first: a parent tag may itself name a
-    // profile that only exists further up the chain.
-    let mut hit = ::std::option::Option::None;
-    for candidate in profile_candidates(&want) {
-      match lookup(&candidate) {
-        Probe::Absent => continue,
-        Probe::Unreadable(src) => return ::std::result::Result::Err(ChainFault::Unreadable(src)),
-        Probe::Found(src, text) => {
-          hit = ::std::option::Option::Some((candidate, src, text));
-          break;
-        }
+
+  // The caller's REQUEST is negotiated: progressive truncation, most specific first (§4 step 1).
+  let mut hit = ::std::option::Option::None;
+  for candidate in profile_candidates(start) {
+    match lookup(&candidate) {
+      Probe::Absent => continue,
+      Probe::Unreadable(src) => return ::std::result::Result::Err(ChainFault::Unreadable(src)),
+      Probe::Found(src, text) => {
+        hit = ::std::option::Option::Some((candidate, src, text));
+        break;
       }
     }
-    let (tag, source, text) = match hit {
-      ::std::option::Option::Some(h) => h,
-      ::std::option::Option::None if out.is_empty() => break,
-      ::std::option::Option::None => {
-        return ::std::result::Result::Err(ChainFault::UnresolvedParent(want));
-      }
-    };
+  }
+  let (mut tag, mut source, mut text) = match hit {
+    ::std::option::Option::Some(h) => h,
+    ::std::option::Option::None => return ::std::result::Result::Ok(out),
+  };
+
+  loop {
     if !seen.insert(tag.clone()) {
       return ::std::result::Result::Err(ChainFault::Cycle(tag));
     }
-    let parent = parent_tag(&text);
+    let parent = declared_parent(&text);
+    let want = match parent {
+      ::std::result::Result::Ok(::std::option::Option::Some(p)) => p,
+      ::std::result::Result::Ok(::std::option::Option::None) => {
+        out.push((source, text));
+        break;
+      }
+      // Not TOML: keep the pack in the chain and stop, so `decide` reports it `<malformed:…>`.
+      ::std::result::Result::Err(ParentFault::Unparseable) => {
+        out.push((source, text));
+        break;
+      }
+      ::std::result::Result::Err(ParentFault::NotAString) => {
+        return ::std::result::Result::Err(ChainFault::InheritsMalformed(source));
+      }
+      ::std::result::Result::Err(ParentFault::InvalidTag(t)) => {
+        return ::std::result::Result::Err(ChainFault::InvalidTag(t));
+      }
+    };
     out.push((source, text));
-    match parent {
-      ::std::option::Option::Some(p) => want = p,
-      ::std::option::Option::None => break,
+    // A parent is NAMED, so it is looked up EXACTLY. Truncation is how a REQUEST is negotiated;
+    // applied to a reference it let a typo'd parent resolve to the root pack whenever one
+    // existed — the least specific pack, often the most permissive.
+    match lookup(&want) {
+      Probe::Absent => return ::std::result::Result::Err(ChainFault::UnresolvedParent(want)),
+      Probe::Unreadable(src) => return ::std::result::Result::Err(ChainFault::Unreadable(src)),
+      Probe::Found(src, t) => {
+        tag = want;
+        source = src;
+        text = t;
+      }
     }
   }
   ::std::result::Result::Ok(out)
@@ -1368,6 +1488,8 @@ fn fault_decision(query: &RegulatoryQuery, fault: ChainFault) -> ControlDecision
     ChainFault::Cycle(tag) => ::std::format!("<inherits-cycle:{tag}>"),
     ChainFault::UnresolvedParent(parent) => ::std::format!("<inherits-unresolved:{parent}>"),
     ChainFault::Unreadable(src) => ::std::format!("<unreadable:{src}>"),
+    ChainFault::InvalidTag(tag) => ::std::format!("<invalid-tag:{tag}>"),
+    ChainFault::InheritsMalformed(src) => ::std::format!("<inherits-malformed:{src}>"),
   };
   aggressive_over_universe(query, source, true)
 }
@@ -1403,19 +1525,36 @@ impl TomlRegulatoryPolicyAdapter {
   }
 
 
-  /// Prefer the RLPS pack extension `<domain>.r14n.toml`; fall back to the
-  /// legacy `<domain>.toml` (backward compatible — Squillo's `policies/` trees
-  /// keep resolving unchanged).
-  /// Resolve the pack path for one profile tag, preferring the RLPS extension.
-  fn path_for(&self, profile: &str, domain: &str) -> ::std::option::Option<::std::path::PathBuf> {
+  /// Look up one profile tag, preferring the RLPS extension `<domain>.r14n.toml` and falling back
+  /// to the legacy `<domain>.toml` (Squillo's `policies/` trees keep resolving unchanged).
+  ///
+  /// Only "not there" is ABSENT. `is_file()` was false for ANY metadata error, so a directory the
+  /// process could not enter read as absent and truncation let a less specific pack govern in its
+  /// place — the silent downgrade `Probe::Unreadable` exists to stop.
+  fn probe(&self, profile: &str, domain: &str) -> Probe {
     let dir = if profile.is_empty() { self.root.clone() } else { self.root.join(profile) };
     for name in [::std::format!("{domain}.r14n.toml"), ::std::format!("{domain}.toml")] {
       let candidate = dir.join(&name);
-      if candidate.is_file() {
-        return ::std::option::Option::Some(candidate);
+      match ::std::fs::metadata(&candidate) {
+        ::std::result::Result::Ok(m) if m.is_file() => {
+          return match ::std::fs::read_to_string(&candidate) {
+            ::std::result::Result::Ok(raw) => Probe::Found(candidate.display().to_string(), raw),
+            ::std::result::Result::Err(_) => Probe::Unreadable(candidate.display().to_string()),
+          };
+        }
+        ::std::result::Result::Ok(_) => continue,
+        ::std::result::Result::Err(e)
+          if ::std::matches!(
+            e.kind(),
+            ::std::io::ErrorKind::NotFound | ::std::io::ErrorKind::NotADirectory
+          ) =>
+        {
+          continue;
+        }
+        ::std::result::Result::Err(_) => return Probe::Unreadable(candidate.display().to_string()),
       }
     }
-    ::std::option::Option::None
+    Probe::Absent
   }
 
   /// The inheritance chain, child first (spec §4 steps 1-2): negotiate the profile by
@@ -1427,13 +1566,7 @@ impl TomlRegulatoryPolicyAdapter {
     ::std::vec::Vec<(::std::string::String, ::std::string::String)>,
     ChainFault,
   > {
-    walk_chain(&query.profile.0, |tag| match self.path_for(tag, &query.domain) {
-      ::std::option::Option::None => Probe::Absent,
-      ::std::option::Option::Some(path) => match ::std::fs::read_to_string(&path) {
-        ::std::result::Result::Ok(raw) => Probe::Found(path.display().to_string(), raw),
-        ::std::result::Result::Err(_) => Probe::Unreadable(path.display().to_string()),
-      },
-    })
+    walk_chain(&query.profile.0, |tag| self.probe(tag, &query.domain))
   }
 
   /// Aggressive fallback decision (fail-closed) with loud provenance.
@@ -2897,22 +3030,25 @@ mod fail_closed_tests {
       ::std::matches!(dead.key_status("k", "2026-10-01"), crate::KeyStatus::Revoked { .. }),
       "control: well-formed revocation still reports revoked"
     );
-    // MALFORMED
-    for frag in [
-      r#""revocation":{"revoked_at":"2026-9-01"}"#,
-      r#""revocation":{"revoked_at":""}"#,
-      r#""revocation":{"revoked_at":"soon"}"#,
-      r#""revocation":{"revoked_at":"2026-13-01"}"#,
-      r#""revocation":{"revoked_at":"2026-06-31"}"#,
-      r#""valid_until":"2026-9-1""#,
-      r#""valid_until":"never""#,
-      r#""valid_from":"2026-1-1""#,
-      r#""valid_from":"later""#,
+    // MALFORMED. The status is pinned to `InvalidDate` NAMING the field, not merely "not
+    // trusted": a bare `!is_trusted()` is also true of Expired, NotYetValid and Unknown, so an arm
+    // that asserted only that stayed green with the date validation deleted.
+    for (frag, field) in [
+      (r#""revocation":{"revoked_at":"2026-9-01"}"#, "revoked_at"),
+      (r#""revocation":{"revoked_at":""}"#, "revoked_at"),
+      (r#""revocation":{"revoked_at":"soon"}"#, "revoked_at"),
+      (r#""revocation":{"revoked_at":"2026-13-01"}"#, "revoked_at"),
+      (r#""revocation":{"revoked_at":"2026-06-31"}"#, "revoked_at"),
+      (r#""valid_until":"2026-9-1""#, "valid_until"),
+      (r#""valid_until":"never""#, "valid_until"),
+      (r#""valid_from":"2026-1-1""#, "valid_from"),
+      (r#""valid_from":"later""#, "valid_from"),
     ] {
       let d = dir(&::std::format!(r#"{{"keys":[{{"key_id":"k",{frag}}}]}}"#));
-      ::std::assert!(
-        !d.key_status("k", "2026-10-01").is_trusted(),
-        "{frag} must never resolve trusted"
+      ::std::assert_eq!(
+        d.key_status("k", "2026-10-01"),
+        crate::KeyStatus::InvalidDate { field },
+        "{frag}"
       );
     }
   }
@@ -2923,7 +3059,11 @@ mod fail_closed_tests {
   fn a_malformed_decision_date_never_yields_trust() {
     let live = dir(r#"{"keys":[{"key_id":"k","valid_from":"2026-01-01"}]}"#);
     for bad in ["", "yesterday", "2026-9-15", "2026-02-30"] {
-      ::std::assert!(!live.key_status("k", bad).is_trusted(), "as_of {bad:?}");
+      ::std::assert_eq!(
+        live.key_status("k", bad),
+        crate::KeyStatus::InvalidDate { field: "as_of" },
+        "as_of {bad:?}"
+      );
     }
   }
 
@@ -2945,6 +3085,11 @@ mod fail_closed_tests {
       let pack = enveloped(bad);
       let d = decide(&[("p/d.r14n.toml", &pack)], "p", ::std::option::Option::Some("2026-10-01"));
       ::std::assert!(d.provenance.fell_back, "effective_until {bad:?} must fail closed");
+      ::std::assert!(
+        d.provenance.source.contains("invalid-effective-envelope"),
+        "effective_until {bad:?}: failed closed for the wrong reason: {}",
+        d.provenance.source
+      );
     }
   }
 
@@ -2957,6 +3102,11 @@ mod fail_closed_tests {
     for bad in ["yesterday", "2026-9-15", ""] {
       let d = decide(&[("p/d.r14n.toml", &open)], "p", ::std::option::Option::Some(bad));
       ::std::assert!(d.provenance.fell_back, "as_of {bad:?} must fail closed");
+      ::std::assert!(
+        d.provenance.source.contains("invalid-decision-date"),
+        "as_of {bad:?}: failed closed for the wrong reason: {}",
+        d.provenance.source
+      );
     }
   }
 
@@ -3042,5 +3192,251 @@ mod fail_closed_tests {
     ::std::assert!(d.provenance.fell_back, "an unreadable parent was skipped");
     ::std::assert!(d.provenance.source.contains("unreadable"), "{}", d.provenance.source);
   }
-}
 
+  // ── Review findings, 2026-10-31: the chain's INPUT, and what the merge may carry forward ──────
+  //
+  // Each arm below has a CONTROL that proves the well-formed path still behaves, so a pass is not
+  // "everything fails closed". The first group was reproduced through the wasm boundary before any
+  // fix: a quoted `"inherits"` key and an inline `meta = { … }` table made the resolver ignore the
+  // parent entirely — `prohibited = []`, `fell_back = false`.
+
+  const PAR: &str = "[meta]\nstrictness = \"as_configured\"\n\n[meta.legal_review]\nstatus = \"approved\"\n\n[subject.t]\ncontrols = [\"signal_notice\", \"attestation\"]\n\n[legally_required]\ncontrols = [\"attestation\"]\n\n[prohibited]\ncontrols = [\"forbidden_thing\"]\n";
+
+  fn kid_with(meta: &str) -> ::std::string::String {
+    ::std::format!(
+      "[meta]\nstrictness = \"as_configured\"\n{meta}\n\n[subject.t]\ncontrols = [\"signal_notice\", \"forbidden_thing\"]\n"
+    )
+  }
+
+  fn inherited(child: &str) -> crate::ControlDecision {
+    decide(&[("p/d.r14n.toml", child), ("par/d.r14n.toml", PAR)], "p", ::std::option::Option::None)
+  }
+
+  fn prohibits(d: &crate::ControlDecision, k: &str) -> bool {
+    d.prohibited.iter().any(|c| c.as_str() == k)
+  }
+
+  /// Why: spec §4.3 — a child is a DELTA, so its `[prohibited]` lives in the parent. The chain's
+  /// input was a line-oriented TEXT scan that disagreed with the TOML parser: valid TOML that spelt
+  /// `inherits` any way but a bare `inherits = "x"` line made the resolver DROP the parent and
+  /// report `fell_back = false` with the parent's prohibition gone. Every form below is the SAME
+  /// declaration to a TOML parser and must resolve exactly as the control does. Reproduced before
+  /// the fix: quoted key, inline table and dotted key all dropped the parent.
+  #[test]
+  fn every_toml_spelling_of_inherits_resolves_the_same_parent() {
+    let control = inherited(&kid_with("inherits = \"par\""));
+    ::std::assert!(!control.provenance.fell_back, "control: the plain form resolves");
+    ::std::assert!(prohibits(&control, "forbidden_thing"), "control: the parent's prohibition is inherited");
+    let forms: [(&str, ::std::string::String); 6] = [
+      (
+        "dotted keys",
+        ::std::string::String::from("meta.strictness = \"as_configured\"\nmeta.inherits = \"par\"\n\n[subject.t]\ncontrols = [\"signal_notice\", \"forbidden_thing\"]\n"),
+      ),
+      ("quoted key", kid_with("\"inherits\" = \"par\"")),
+      ("literal-quoted key", kid_with("'inherits' = \"par\"")),
+      ("trailing comment", kid_with("inherits = \"par\"  # the parent")),
+      ("literal-string value", kid_with("inherits = 'par'")),
+      (
+        "inline meta table",
+        ::std::string::String::from("meta = { strictness = \"as_configured\", inherits = \"par\" }\n\n[subject.t]\ncontrols = [\"signal_notice\", \"forbidden_thing\"]\n"),
+      ),
+    ];
+    for (name, text) in forms {
+      let d = inherited(&text);
+      ::std::assert!(!d.provenance.fell_back, "{name}: {}", d.provenance.source);
+      ::std::assert!(prohibits(&d, "forbidden_thing"), "{name}: the parent was silently dropped");
+      ::std::assert_eq!(d.provenance.source, control.provenance.source, "{name}: a different chain");
+    }
+  }
+
+  /// Why: the reader must take `inherits` from `[meta]` and from nowhere else. A decoy `inherits`
+  /// key in an earlier table was followed instead of the real one, and one in `[subject.t]` was
+  /// followed at all. Control: the real `[meta]` declaration still wins.
+  #[test]
+  fn only_meta_inherits_counts_not_a_decoy_elsewhere_in_the_pack() {
+    let decoy_first = "[subject.u]\ninherits = \"decoy\"\ncontrols = [\"signal_notice\"]\n\n[meta]\nstrictness = \"as_configured\"\ninherits = \"par\"\n\n[subject.t]\ncontrols = [\"signal_notice\", \"forbidden_thing\"]\n";
+    let d = inherited(decoy_first);
+    ::std::assert!(!d.provenance.fell_back, "{}", d.provenance.source);
+    ::std::assert!(d.provenance.source.contains("par/d.r14n.toml"), "followed the decoy: {}", d.provenance.source);
+
+    let spoof = "[meta]\nstrictness = \"as_configured\"\n\n[subject.t]\ninherits = \"par\"\ncontrols = [\"signal_notice\"]\n";
+    let d = inherited(spoof);
+    ::std::assert!(!d.provenance.source.contains("par/"), "an inherits outside [meta] was followed: {}", d.provenance.source);
+  }
+
+  /// Why: an `inherits` that is present but not a string is a malformed declaration, not an
+  /// absent one. The typed parser ignores unknown keys, so `inherits = 5` used to read as "no
+  /// parent" and the child resolved alone.
+  #[test]
+  fn an_inherits_that_is_not_a_string_fails_closed() {
+    let d = inherited(&kid_with("inherits = 5"));
+    ::std::assert!(d.provenance.fell_back, "inherits = 5 was read as no parent");
+    ::std::assert!(d.provenance.source.contains("inherits-malformed"), "{}", d.provenance.source);
+  }
+
+  /// Why: a parent is NAMED, so it is looked up exactly. Truncation (§4 step 1) is how the
+  /// caller's REQUEST is negotiated, not how a reference is resolved. Applied to `inherits` it
+  /// made a typo'd parent silently resolve to the ROOT pack whenever one existed — and the root
+  /// pack is the least specific, often the most permissive. Control: the exact parent resolves.
+  #[test]
+  fn a_misspelled_parent_does_not_fall_through_to_the_root_pack() {
+    let root = "[meta]\nstrictness = \"as_configured\"\n\n[subject.t]\ncontrols = []\n\n[legally_required]\ncontrols = [\"attestation\"]\n";
+    let good = kid_with("inherits = \"par\"");
+    let d = decide(&[("p/d.r14n.toml", &good), ("par/d.r14n.toml", PAR), ("d.r14n.toml", root)], "p", ::std::option::Option::None);
+    ::std::assert!(!d.provenance.fell_back, "control: the exact parent resolves");
+    let typo = kid_with("inherits = \"parr\"");
+    let d = decide(&[("p/d.r14n.toml", &typo), ("par/d.r14n.toml", PAR), ("d.r14n.toml", root)], "p", ::std::option::Option::None);
+    ::std::assert!(d.provenance.fell_back, "a typo'd parent resolved to {}", d.provenance.source);
+    ::std::assert!(d.provenance.source.contains("inherits-unresolved"), "{}", d.provenance.source);
+  }
+
+  /// Why: a profile or `inherits` tag becomes a filesystem path under the filesystem adapter, and
+  /// `inherits` is pack-controlled text. `../`, an absolute path, an empty subtag or a dot-segment
+  /// let a pack pull a different pack in from anywhere on disk. Control: ordinary nested tags work.
+  #[test]
+  fn a_tag_that_could_leave_the_pack_root_fails_closed() {
+    let ok = kid_with("inherits = \"par\"");
+    ::std::assert!(!inherited(&ok).provenance.fell_back, "control");
+    for bad in ["../par", "/par", "par//x", "par/..", ".hidden", "pa\\r", "par/ x", ""] {
+      let d = inherited(&kid_with(&::std::format!("inherits = '{bad}'")));
+      ::std::assert!(d.provenance.fell_back, "inherits {bad:?} was followed: {}", d.provenance.source);
+      ::std::assert!(d.provenance.source.contains("invalid-tag"), "{bad:?}: {}", d.provenance.source);
+    }
+    let d = decide(&[("a/d.r14n.toml", PAR)], "../a", ::std::option::Option::None);
+    ::std::assert!(d.provenance.fell_back && d.provenance.source.contains("invalid-tag"), "{}", d.provenance.source);
+  }
+
+  /// Why: spec §4.3 — "`[meta.legal_review]` does NOT inherit an `approved` status ... trust is not
+  /// transitive across the inheritance chain." The merge copied the parent's review (and its
+  /// `signature_key_id`) onto a child that had none, so a child nobody reviewed read as
+  /// `approved` and, with a verified signature, as `provenance_verified = true` — a FALSE
+  /// compliance claim. Control: a child carrying its own review is still attested.
+  #[test]
+  fn a_child_without_its_own_review_does_not_inherit_an_approved_status() {
+    let signed_parent = "[meta]\nstrictness = \"as_configured\"\n\n[meta.legal_review]\nstatus = \"approved\"\nsignature_key_id = \"k\"\n\n[subject.t]\ncontrols = [\"signal_notice\"]\n\n[legally_required]\ncontrols = [\"attestation\"]\n";
+    let own = "[meta]\nstrictness = \"as_configured\"\ninherits = \"par\"\n\n[meta.legal_review]\nstatus = \"approved\"\nsignature_key_id = \"k\"\n";
+    let none = "[meta]\nstrictness = \"as_configured\"\ninherits = \"par\"\n";
+    let trust = crate::TrustRoot {
+      directory: ::std::option::Option::Some(dir(r#"{"keys":[{"key_id":"k","valid_from":"2020-01-01"}]}"#)),
+      signatures_verified: true,
+    };
+    let go = |child: &str| {
+      let a = crate::InMemoryRegulatoryPolicyAdapter::new(
+        [("p/d.r14n.toml", child), ("par/d.r14n.toml", signed_parent)]
+          .iter()
+          .map(|(k, v)| (::std::string::String::from(*k), ::std::string::String::from(*v)))
+          .collect(),
+        ::std::option::Option::None,
+      )
+      .with_trust_root(trust.clone());
+      crate::RegulatoryPolicyPort::required_controls(&a, &q("p", ::std::option::Option::Some("2026-06-01")))
+    };
+    let d = go(own);
+    ::std::assert!(d.provenance.provenance_verified, "control: a child with its own review is attested");
+    ::std::assert_eq!(d.provenance.legal_review_status.as_deref(), ::std::option::Option::Some("approved"));
+    let d = go(none);
+    ::std::assert!(!d.provenance.provenance_verified, "an UNREVIEWED child inherited its parent's trust");
+    ::std::assert_eq!(d.provenance.legal_review_status, ::std::option::Option::None);
+  }
+
+  /// Why: the minimal-floor guard only checked that the floor LIST was non-empty. A floor wholly
+  /// cancelled by `[prohibited]` (in one pack, or a child's floor meeting a parent's prohibition)
+  /// resolved to `required = {}` with `fell_back = false` — "nothing required" from a pack that
+  /// declared a floor, exactly what the guard exists to prevent. Control: a floor only PARTLY
+  /// prohibited still resolves, to the remainder.
+  #[test]
+  fn a_floor_wholly_cancelled_by_prohibited_fails_closed() {
+    let partly = "[meta]\nstrictness = \"minimal\"\n\n[legally_required]\ncontrols = [\"attestation\", \"signal_notice\"]\n\n[prohibited]\ncontrols = [\"signal_notice\"]\n";
+    let d = decide(&[("p/d.r14n.toml", partly)], "p", ::std::option::Option::None);
+    ::std::assert!(!d.provenance.fell_back, "control: a partly prohibited floor resolves");
+    ::std::assert_eq!(d.required.iter().map(|c| c.as_str()).collect::<::std::vec::Vec<_>>(), ["attestation"]);
+    let wholly = "[meta]\nstrictness = \"minimal\"\n\n[legally_required]\ncontrols = [\"signal_notice\"]\n\n[prohibited]\ncontrols = [\"signal_notice\"]\n";
+    let d = decide(&[("p/d.r14n.toml", wholly)], "p", ::std::option::Option::None);
+    ::std::assert!(d.provenance.fell_back, "a wholly cancelled floor resolved to {:?}", d.required);
+    ::std::assert!(d.provenance.source.contains("minimal-floor-prohibited"), "{}", d.provenance.source);
+  }
+
+  /// Why: `schema/pack.schema.json` makes `controls` REQUIRED in every control list, but the
+  /// runtime defaulted a missing one to EMPTY. A misspelt key (`control = [...]`) therefore read as
+  /// "this subject requires nothing" with `fell_back = false`, and in a child delta it silently
+  /// REPLACED — erased — the parent's table for that subject. An explicit empty list stays valid:
+  /// it is the only way to say "contemplated, requires nothing". Control proves that.
+  #[test]
+  fn a_control_list_without_a_controls_key_is_malformed_not_empty() {
+    let explicit = "[meta]\nstrictness = \"as_configured\"\n\n[subject.t]\ncontrols = []\n";
+    let d = decide(&[("p/d.r14n.toml", explicit)], "p", ::std::option::Option::None);
+    ::std::assert!(!d.provenance.fell_back, "control: an explicit empty list is valid");
+    let typo = "[meta]\nstrictness = \"as_configured\"\n\n[subject.t]\ncontrol = [\"signal_notice\"]\n";
+    let d = decide(&[("p/d.r14n.toml", typo)], "p", ::std::option::Option::None);
+    ::std::assert!(d.provenance.fell_back, "a typo'd controls key read as an empty set");
+    ::std::assert!(d.provenance.source.starts_with("<malformed:"), "{}", d.provenance.source);
+  }
+
+  /// Why: `find()` returned the FIRST entry for a key id, so a later duplicate carrying a
+  /// `revocation` was never read and the key resolved trusted. An ambiguous directory is an
+  /// error (§5): every matching entry is evaluated and the most restrictive wins. Control: a
+  /// single unrevoked entry is trusted.
+  #[test]
+  fn a_duplicate_key_id_cannot_hide_a_revocation() {
+    let one = dir(r#"{"keys":[{"key_id":"k"}]}"#);
+    ::std::assert!(one.key_status("k", "2026-10-01").is_trusted(), "control");
+    for order in [
+      r#"{"keys":[{"key_id":"k"},{"key_id":"k","revocation":{"revoked_at":"2026-06-01"}}]}"#,
+      r#"{"keys":[{"key_id":"k","revocation":{"revoked_at":"2026-06-01"}},{"key_id":"k"}]}"#,
+    ] {
+      ::std::assert!(!dir(order).key_status("k", "2026-10-01").is_trusted(), "{order}");
+    }
+  }
+
+  /// Why: `is_file()` is false for ANY metadata error, so a directory the process cannot enter was
+  /// reported as ABSENT and truncation let a less specific pack govern in its place — the silent
+  /// downgrade `an_unreadable_parent…` pins for a file that exists but cannot be read. Control: the
+  /// readable layout resolves. Skipped when the process can read it anyway (running as root).
+  #[cfg(unix)]
+  #[test]
+  fn an_unenterable_profile_directory_fails_closed_not_absent() {
+    use ::std::os::unix::fs::PermissionsExt;
+    let tmp = ::tempfile::tempdir().expect("tmp");
+    let root = tmp.path();
+    ::std::fs::create_dir_all(root.join("example/region")).expect("mkdir");
+    ::std::fs::write(root.join("example/region/d.r14n.toml"), BASE).expect("child");
+    ::std::fs::write(root.join("example/d.r14n.toml"), BASE).expect("example");
+    let a = crate::TomlRegulatoryPolicyAdapter::new(root.to_path_buf(), ::std::option::Option::None);
+    let d = crate::RegulatoryPolicyPort::required_controls(&a, &q("example/region", ::std::option::Option::None));
+    ::std::assert!(!d.provenance.fell_back, "control: the readable layout resolves");
+    ::std::fs::set_permissions(root.join("example/region"), ::std::fs::Permissions::from_mode(0o000)).expect("chmod");
+    if ::std::fs::read_to_string(root.join("example/region/d.r14n.toml")).is_ok() {
+      return; // running as root: the permission bit does not bind, so there is nothing to test
+    }
+    let d = crate::RegulatoryPolicyPort::required_controls(&a, &q("example/region", ::std::option::Option::None));
+    ::std::fs::set_permissions(root.join("example/region"), ::std::fs::Permissions::from_mode(0o755)).expect("restore");
+    ::std::assert!(d.provenance.fell_back, "an unenterable directory was skipped: {}", d.provenance.source);
+  }
+
+  /// Why: under the filesystem adapter an `inherits` tag IS a path component, and the tag is text
+  /// the PACK controls. `../outside` used to be joined onto the root and read — a pack could pull
+  /// in, and inherit from, a file anywhere the process could read. Control: the in-root parent is
+  /// followed, and the out-of-root pack is real and parseable, so a refusal is the tag check and
+  /// not a missing file.
+  #[test]
+  fn a_filesystem_inherits_cannot_escape_the_pack_root() {
+    let tmp = ::tempfile::tempdir().expect("tmp");
+    let root = tmp.path().join("root");
+    ::std::fs::create_dir_all(root.join("p")).expect("mkdir p");
+    ::std::fs::create_dir_all(root.join("par")).expect("mkdir par");
+    ::std::fs::create_dir_all(tmp.path().join("outside")).expect("mkdir outside");
+    ::std::fs::write(root.join("par/d.r14n.toml"), PAR).expect("par");
+    ::std::fs::write(tmp.path().join("outside/d.r14n.toml"), PAR).expect("outside");
+    let go = |inherits: &str| {
+      ::std::fs::write(root.join("p/d.r14n.toml"), kid_with(&::std::format!("inherits = '{inherits}'"))).expect("child");
+      let a = crate::TomlRegulatoryPolicyAdapter::new(root.clone(), ::std::option::Option::None);
+      crate::RegulatoryPolicyPort::required_controls(&a, &q("p", ::std::option::Option::None))
+    };
+    let d = go("par");
+    ::std::assert!(!d.provenance.fell_back, "control: {}", d.provenance.source);
+    ::std::assert!(prohibits(&d, "forbidden_thing"), "control: the in-root parent is inherited");
+    let d = go("../outside");
+    ::std::assert!(d.provenance.fell_back, "followed a parent outside the root: {}", d.provenance.source);
+    ::std::assert!(d.provenance.source.contains("invalid-tag"), "{}", d.provenance.source);
+  }
+}

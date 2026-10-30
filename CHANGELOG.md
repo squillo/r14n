@@ -47,6 +47,57 @@ The published schemas no longer rely on `"format": "date"`, which the validator 
 TIGHTENS published schemas: a pack or directory with a malformed date that used to validate is now
 rejected. The pattern checks shape, not the calendar; the resolver checks the calendar.
 
+### Fixed (revision 2026-10-31 — the inheritance chain's input, found by review)
+
+A review of the fixes above found that the chain they made fail-closed was still BUILT from
+unvalidated input. The quoted-key and inline-table forms were reproduced through the wasm
+boundary before the fix (both resolved with `fell_back = false` and the parent's `[prohibited]`
+gone); every item was then re-run there after it. Each fix has a test that failed before it and
+was shown to fail again with the fix removed.
+
+- **`[meta] inherits` was read by a line scan, not by the TOML parser.** Valid TOML that wrote
+  the key quoted (`"inherits" = "x"`), wrote `meta` as an inline table or dotted keys, or put a
+  decoy `inherits` line in another table made the resolver ignore the parent or follow the wrong
+  one. It is now read from the parsed document, from `[meta]` only; a value that is not a string
+  fails closed as `<inherits-malformed:…>`. Introduced by the 2026-10-19 revision.
+- **A parent is looked up exactly.** Progressive truncation (§4 step 1) negotiates the caller's
+  REQUEST; applied to `inherits` it let a misspelt parent resolve to the ROOT pack whenever one
+  existed — the least specific pack, often the most permissive.
+- **Profile and `inherits` tags are validated** (`<invalid-tag:…>`): non-empty `/`-separated
+  segments of ASCII alphanumerics and `_-.`, none starting with `.`, at most 16 segments and
+  256 bytes. Under the filesystem adapter a tag is a path component and `inherits` is text the pack
+  controls, so `../x` could pull in a pack from outside the root. The same bound ends the
+  quadratic candidate expansion on a very long profile.
+- **`legal_review` no longer inherits.** The merge copied the parent's review, signature key
+  included, onto a child that had none, so a child nobody reviewed read as `approved` and, with a
+  verified signature, as `provenance_verified = true`. Spec §4.3 says it does NOT inherit. (Rule 1
+  of the same section lists `legal_review` among the scalars a child inherits when unset; the
+  closing sentence is the specific one and is the reading implemented.)
+- **A minimal floor wholly cancelled by `[prohibited]` fails closed**
+  (`<minimal-floor-prohibited:…>`). The floor guard only checked that the list was non-empty.
+- **`controls` is required in a control list**, as `pack.schema.json` already said. It defaulted
+  to empty, so a misspelt key read as "requires nothing" and, in a child delta, ERASED the parent's
+  table for that subject. An explicit `controls = []` is still valid. This TIGHTENS the runtime: a
+  pack that relied on the default now fails closed as `<malformed:…>`.
+- **A key id listed twice can no longer hide a revocation.** `key_status` took the first entry;
+  it now evaluates every entry for the id and the most restrictive wins. The CLI's `directory.rs`
+  carried its own copy of the date rules with their own fail-opens (an empty `revoked_at` read as
+  "not revoked"); it now locates the entry by public key and asks the resolver. It gains a
+  `KeyStatus::InvalidDate` variant and an `r14n verify` against a directory with an unreadable
+  date now exits as untrusted.
+- **A profile directory the process cannot enter is no longer "absent".** `is_file()` was false
+  for any metadata error, so truncation let a less specific pack govern in its place. Only
+  not-found is absent; anything else is `<unreadable:…>`.
+
+Process note: these are fixes against requirements the spec already states (§4.3, §5, §6), but
+three are readings the spec does not pin down: exact-match parent lookup, the tag grammar, and
+`legal_review` against rule 1. No conformance vector covers any of them, and adding one is a
+normative act, so other implementations are not yet bound to them. An Erratum or RFC should settle
+them; none has been filed.
+
+The earlier date tests asserted only "not trusted", which is also true of an expired or unknown
+key; they now pin the exact `invalid_date` status and the `<invalid-…>` provenance marker.
+
 ### Added (recorded retroactively — shipped 2026-10-20 to 2026-10-30 without a CHANGELOG entry)
 
 These landed on `main` without an entry, an RFC issue, or a second maintainer approval, which
