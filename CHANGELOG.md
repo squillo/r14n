@@ -12,6 +12,71 @@ History banner in the spec for normative changes), rather than forking a version
 
 ## [0.1.0-draft]
 
+### Added (revision 2026-10-31 — optional framework links on catalog controls; the CONTRACT only)
+
+- **A control MAY carry typed links to the compliance-framework editions it relates to** — an
+  OPTIONAL `frameworks` facet on a catalog control, in `schema/catalog.schema.json` and as typed
+  Snapp data (`FrameworkLinks`, `FrameworkLink`, `FrameworkReview`). Details and rationale:
+  [`docs/framework-links.md`](docs/framework-links.md).
+  - The edition set is CLOSED and grows by last-position additions only: `soc2_tsc_2017`,
+    `iso27001_2022_a1_2024`, `hipaa_45cfr164_2013`, `hecvat_4_1_6`. One snake_case spelling is
+    used by the Snapp prop, the schema key and the TOML key.
+  - `relation` is `informs` | `contributes` | `necessary`. There is deliberately NO `satisfies`: a
+    control can be necessary for a criterion, never sufficient for it.
+  - Three cross-field rules, carried by the schema (the type system cannot express them; each is
+    pinned as an inverted tripwire so a compiler that starts enforcing them is noticed):
+    `necessary` requires an `approved` review; the `hipaa_45cfr164_2013` edition requires a review
+    block; an `approved` review must name its reviewer (`counsel`).
+  - **Nothing is populated.** No shipped catalog carries a `frameworks` block, and a guard test
+    fails if one does, until a maintainer deliberately flips `FRAMEWORK_LINK_LICENSING_CLEARED`
+    in `tools/tests/framework_links.rs`. Criterion identifiers are not published: licensing for
+    each framework's identifiers is uncleared, and a link is a public claim about someone else's
+    certification scope. The `criteria` field exists so the contract can expand without a schema
+    change.
+  - A resolver MUST NOT vary a decision on a link. The reference resolver never reads a catalog.
+- **A `snapp_compliance` declaration type** (`SnappCompliance`, `ExercisedDomains`,
+  `ExercisedDomain`): the (domain, subject) pairs a consuming application exercises and the data
+  classes it handles. Data classes are SUBJECT tokens, never profiles. The install-time resolve that
+  would consume it is NOT specified here; two decisions it needs (what an undeclared application
+  means, and where the resolve runs) are left open in the docs on purpose.
+- **`ControlDef` now declares `verified_by`, `attestation_mode`, `subject_rights` and
+  `legal_basis_hint`.** The published schema and the shipped `recording_consent` catalog already
+  used them, but the typed path did not, and an undeclared prop is refused — so a catalog using them
+  could not be authored through the typed source. The type was narrower than the artifact it is the
+  source of.
+
+Process note: this adds a published schema contract. Per `GOVERNANCE.md` that is RFC territory and
+needs two maintainer approvals. No RFC issue has been filed yet, so nothing here is ratified until
+a maintainer says so.
+
+### Tests (revision 2026-10-31)
+
+- New gates: the worked example in the docs must validate against the schema it documents; every
+  keyword doc in the Snapp tree must be declared in its index and every declaration must have a file
+  (invariant 11 — the same index-only-discovery rule the smoke packs already had); no shipped
+  catalog populates framework links.
+- Test helpers shared by the tools and resolver integration tests live in `tests/common/`: the
+  repo-root and file-read helpers (previously redefined in several files) and the JSON-Schema
+  validator helpers (previously copied into the new test file). No behavioural change.
+- The Snapp framework suite grew from 20 to 79 node-validation arms. Eleven are inverted tripwires
+  pinning what the compiler does not enforce today.
+
+### Fixed (revision 2026-10-31 — documentation)
+
+- `catalog/data_residency.catalog.toml` header gained guidance for authors of a residency gate: the
+  SET of approved regions is the gate's input and not the catalog's (the keys stay opaque and hold
+  no region value); an empty or absent set is refuse, not "no restriction"; a region is not an r14n
+  profile tag; a region is data handed to the check, never a branch; and a receipt should record
+  whether a set was consulted. It is guidance only — promoting any of it to a requirement is a
+  catalog-semantics change and needs the RFC process. Comments only; no key or schema changed.
+- `SECURITY.md` listed two known limitations that were out of date in opposite directions: one said
+  the resolver never consults a reviewer-key directory (it now does, when supplied), the other said a
+  signature does not bind pack identity (it does: `rlps-sig/1` binds `<profile>/<domain>`, and a
+  test pins that relocation fails verification).
+- ⚠ The published crates.io, npm and PyPI `0.1.0` artifacts predate the trust-root revision and the
+  fail-open fixes below; the repository still reports `0.1.0`. Whether and when to cut a release is
+  a maintainer decision.
+
 ### Fixed (revision 2026-10-31 — three fail-opens in the resolver, found by audit)
 
 All three fell open on input that should have resolved most-restrictive (spec §5). Each was
@@ -98,6 +163,34 @@ them; none has been filed.
 The earlier date tests asserted only "not trusted", which is also true of an expired or unknown
 key; they now pin the exact `invalid_date` status and the `<invalid-…>` provenance marker.
 
+### Tests (revision 2026-10-31 — the schema's refusals)
+
+- `catalog.schema.json` is now checked for what it REFUSES, one row per rule, each pinned to the
+  schema's own reason. Every keyword was deleted in turn and the table went red each time; before,
+  the shipped catalogs all validating said nothing about whether a keyword was still there.
+- The framework-link refusal helper now requires the stated reason. A fixture refused for an
+  unrelated defect used to pass.
+- `counsel` and each `criteria` item must contain a non-space character (`pattern`);
+  `minLength: 1` accepted a single space. A test pins that the documentation page's example holds
+  only `EXAMPLE-` criteria and fictional counsel. The keyword index must re-export what it
+  declares.
+
+### Fixed (revision 2026-10-31 — wording that claimed more than was true)
+
+- `docs/framework-links.md` said an unknown jurisdiction attribution "falls back"; the reference
+  resolver treats an OMITTED attribution source as an opt-out and resolves normally. A caller must
+  mark it `unknown` to fail closed. The page also cited `TRADEMARKS.md` for a statement it does not
+  make, and described the licensing guard more broadly than its scope (it reads
+  `catalog/*.catalog.toml`, nothing else).
+- `necessary` is described as a RECORDED claim by a reviewer, which nothing verifies; `counsel` is
+  documented as not a legal credential. The N types and the schema said the criterion "cannot be
+  addressed without" the control as if stated as fact.
+- The Snapp compliance types said the keyed-table key format was "carried by the schema". No
+  schema covers a declaration; the key format is enforced nowhere today, and the text now says so.
+- `SECURITY.md` still said a signature does not bind pack identity (it does), over-claimed that an
+  unreadable date is never "in force" (with no decision date the envelope is not checked), and now
+  records that an inherited parent is not covered by the child's attestation.
+
 ### Added (recorded retroactively — shipped 2026-10-20 to 2026-10-30 without a CHANGELOG entry)
 
 These landed on `main` without an entry, an RFC issue, or a second maintainer approval, which
@@ -105,8 +198,9 @@ These landed on `main` without an entry, an RFC issue, or a second maintainer ap
 that a maintainer can ratify or revert each one deliberately.
 
 - **Eleven Control Catalogs** (was two): `data_residency`, `data_retention`, `analytics_consent`,
-  `data_protection`, `health`, `location`, `nfc`, `photo_library`, `smart_home` added. No real
-  jurisdiction is named in any of them; none ships a pack (invariant 2). In `data_retention`,
+  `data_protection`, `health`, `location`, `nfc`, `photo_library`, `smart_home` added. None of those nine names a real jurisdiction or regime and none ships a pack (invariant 2). The
+  older `recording_consent` catalog does mention two statutes, in a comment (lines 85-86), which
+  is flagged for a maintainer's review against the jurisdiction-neutral rule. In `data_retention`,
   `usage_analytics_opt_in` and `external_agent_harvest_permitted` are DEPRECATED, not removed,
   with `superseded_by` into `analytics_consent` (invariant 10).
 - **`schema/catalog.schema.json`** — the catalog was the only published artifact with no schema.

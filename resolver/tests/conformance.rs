@@ -12,6 +12,8 @@
 //! Revision History
 //! - 2026-07-06: authored with the level-1/2/3 vector files.
 
+mod common;
+
 /// Capabilities this reference resolver implements (keep in lockstep with
 /// `/conformance/README.md`'s status paragraph).
 const SUPPORTED: &[&str] = &[
@@ -37,10 +39,7 @@ const SUPPORTED: &[&str] = &[
 ];
 
 fn vectors_file(name: &str) -> ::serde_json::Value {
-  let path = ::std::path::Path::new(::std::env!("CARGO_MANIFEST_DIR"))
-    .join("..")
-    .join("conformance")
-    .join(name);
+  let path = common::repo_root().join("conformance").join(name);
   let raw = ::std::fs::read_to_string(&path)
     .unwrap_or_else(|e| ::std::panic!("read {}: {e}", path.display()));
   ::serde_json::from_str(&raw)

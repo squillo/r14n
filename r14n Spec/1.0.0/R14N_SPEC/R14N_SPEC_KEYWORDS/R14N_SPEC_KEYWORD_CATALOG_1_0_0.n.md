@@ -167,9 +167,50 @@ pub mod * blocks "ControlDef" {
       description = "What to use instead. Cross-domain successors are spelled `<domain>::<key>`, because a key is namespaced by its owning domain (spec §2) and a bare name would be ambiguous. A deprecation without this leaves the holder of an issued receipt no forward path."
       priority    = 7
     }
+    frameworks? {
+      type        = <FrameworkLinks>
+      description = "OPTIONAL typed links from this control to the compliance-framework EDITIONS it relates to (see the `frameworks` keyword doc). A pointer for a human reviewer, never a determination: it does not say the control is sufficient for, or satisfies, any criterion, and it is NOT LEGAL ADVICE. A resolver MUST NOT vary a decision on it. Absent means no link has been made, which is not the same as no relationship existing. ADDITIVE: a control without this prop validates exactly as before."
+      priority    = 8
+    }
+    verified_by? {
+      atom        = str
+      description = "A pointer to the external specification section that defines how this control is verified (an interoperability spec's anchor). For a human tracing a control to its defining text; never dereferenced by a resolver. Declared here because shipped catalogs use it and an undeclared prop is REFUSED by default, so without this a catalog carrying it could not be authored through the typed path."
+      priority    = 9
+    }
+    attestation_mode? {
+      atom        = str
+      description = "Which attestation mode this control requires, where a domain has more than one and they are NOT interchangeable. Open rather than closed: the shipped values are a two-member set in one domain, and closing it here would refuse a domain whose modes this vocabulary has not met. Two controls may share a mechanism and differ only here; the control KEY carries the distinction in a receipt."
+      priority    = 10
+    }
+    subject_rights? {
+      atom        = list
+      items       { atom = str }
+      min_items   = 1
+      unique_items = true
+      description = "Data-subject rights this control bears on (for example withdrawal). Informational: it tells a reviewer which right a control serves, and asserts nothing about whether that right applies in any jurisdiction."
+      priority    = 11
+    }
+    legal_basis_hint? {
+      atom        = str
+      description = "A HINT at the consent or processing model a control is usually associated with. The name hedges on purpose and the hedge is load-bearing: a catalog is jurisdiction-neutral and NOT LEGAL ADVICE, so this is a pointer for a human reviewer choosing which packs to author - never a determination, never evidence a basis is available, and a resolver MUST NOT vary a decision on it."
+      priority    = 12
+    }
   }
 }
 ```
+
+## Framework links (added 2026-10-30)
+
+A control MAY carry an OPTIONAL `frameworks` prop of type `FrameworkLinks`: typed links to the
+compliance-framework editions it relates to, declared in
+[R14N_SPEC_KEYWORD_FRAMEWORKS_1_0_0.n.md](R14N_SPEC_KEYWORD_FRAMEWORKS_1_0_0.n.md). It is last-position
+and optional, so every existing catalog validates exactly as before — which the unchanged
+`control_def_resolves` arm proves, since it carries no `frameworks`.
+
+A link says a control is RELATED to an edition. It is not a determination, it never says a control
+is sufficient for any criterion, and a resolver MUST NOT vary a decision on it. **Nothing is
+populated:** no shipped catalog has a `frameworks` block, because the identifier spaces of the
+frameworks are not cleared for publication. NOT LEGAL ADVICE.
 
 ## References
 

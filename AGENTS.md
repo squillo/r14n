@@ -152,6 +152,11 @@ There is **no rustfmt gate** — the tree follows a documented hand-rolled house
    jurisdiction are counsel-gated and deliberately absent. A pack claiming a jurisdiction needs
    a named attorney of record. Do not generate one, even as an example — use
    `packs/example/region/` (explicitly fictional) to demonstrate profile grammar.
+   The same gate covers framework links: `frameworks` blocks stay out of every shipped catalog,
+   and real SOC 2 / ISO 27001 / HIPAA / HECVAT criterion or question identifiers stay out of this
+   repository, until a maintainer flips `FRAMEWORK_LINK_LICENSING_CLEARED` in
+   `tools/tests/framework_links.rs` (`docs/framework-links.md` §6). A link is a public claim about
+   someone else's certification scope.
 3. **The disclaimer travels with every artifact.** Packs, receipts, docs, and generated output
    all carry NOT-LEGAL-ADVICE. Do not remove it, weaken it, or move it below the fold.
 4. **Bindings are generated, and their shims stay thin.** TS/JS and Python come from the Rust

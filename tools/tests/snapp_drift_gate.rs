@@ -40,14 +40,7 @@
 //! Revision History
 //! - 2026-10-16: ported from `.github/scripts/snapp_drift_gate.py`.
 
-fn root() -> ::std::path::PathBuf {
-  ::std::path::Path::new(::std::env!("CARGO_MANIFEST_DIR")).join("..")
-}
-
-fn read(rel: &str) -> ::std::string::String {
-  let p = root().join(rel);
-  ::std::fs::read_to_string(&p).unwrap_or_else(|e| ::std::panic!("read {}: {e}", p.display()))
-}
+mod common;
 
 fn sha256_hex(rel_path: &::std::path::Path) -> ::std::string::String {
   let bytes = ::std::fs::read(rel_path)
@@ -58,7 +51,7 @@ fn sha256_hex(rel_path: &::std::path::Path) -> ::std::string::String {
 
 /// `mod NAME {};` declarations in an index, in declaration order.
 fn declared_mods(index_rel: &str) -> ::std::vec::Vec<::std::string::String> {
-  read(index_rel)
+  common::read(index_rel)
     .lines()
     .filter_map(|line| {
       let t = line.trim();
@@ -76,8 +69,20 @@ fn declared_mods(index_rel: &str) -> ::std::vec::Vec<::std::string::String> {
     .collect()
 }
 
+/// `pub @use NAME {}` re-exports in an index, in order. A `mod` declaration compiles a file; only
+/// a re-export makes what it defines visible to a Snapp that `@deps` this one.
+fn reexported_mods(index_rel: &str) -> ::std::vec::Vec<::std::string::String> {
+  common::read(index_rel)
+    .lines()
+    .filter_map(|line| {
+      let rest = line.trim().strip_prefix("pub @use ")?;
+      ::std::option::Option::Some(::std::string::String::from(rest.split_whitespace().next()?))
+    })
+    .collect()
+}
+
 fn files_with_suffix(dir_rel: &str, suffix: &str) -> ::std::vec::Vec<::std::string::String> {
-  let dir = root().join(dir_rel);
+  let dir = common::root().join(dir_rel);
   let mut out: ::std::vec::Vec<::std::string::String> = ::std::fs::read_dir(&dir)
     .unwrap_or_else(|e| ::std::panic!("read_dir {}: {e}", dir.display()))
     .filter_map(|e| e.ok())
@@ -119,6 +124,62 @@ fn every_smoke_pack_is_declared_and_every_declaration_has_a_file() {
   ::std::assert!(!on_disk.is_empty(), "no smoke packs found — the glob or the path is wrong");
 }
 
+/// Why: the same index-only discovery rule that governs the smoke packs governs the KEYWORD docs,
+/// and nothing checked it. A `R14N_SPEC_KEYWORD_*` doc that its index does not declare is
+/// compiled by NOTHING — the types it defines silently do not exist, and every test written
+/// against them fails to resolve, which can read as a test problem rather than a missing
+/// declaration. The inverse (a declaration with no file) is a hard build error found only by
+/// someone running the compiler, which public CI cannot. The index file itself (`mod.n.md`)
+/// is excluded from the on-disk set.
+#[test]
+fn every_keyword_doc_is_declared_and_every_declaration_has_a_file() {
+  const INDEX: &str = "r14n Spec/1.0.0/R14N_SPEC/R14N_SPEC_KEYWORDS/mod.n.md";
+  const DIR: &str = "r14n Spec/1.0.0/R14N_SPEC/R14N_SPEC_KEYWORDS";
+  let declared = declared_mods(INDEX);
+  let on_disk: ::std::vec::Vec<::std::string::String> = files_with_suffix(DIR, ".n.md")
+    .into_iter()
+    .filter(|stem| stem != "mod")
+    .collect();
+
+  for stem in &on_disk {
+    ::std::assert!(
+      declared.contains(stem),
+      "{DIR}/{stem}.n.md exists but {INDEX} does not declare it — discovery is index-only, so \
+       the types it defines are compiled by NOTHING. Add `mod {stem} {{}};` to the index."
+    );
+  }
+  for name in &declared {
+    ::std::assert!(
+      on_disk.contains(name),
+      "{INDEX} declares `mod {name} {{}}` but {DIR}/{name}.n.md does not exist"
+    );
+  }
+  ::std::assert!(
+    on_disk.len() >= 4,
+    "found {} keyword docs — the glob or the path is wrong (policies, catalog, frameworks and \
+     snapp_compliance are all expected)",
+    on_disk.len()
+  );
+
+  // A declaration compiles a doc; only a `pub @use` re-export puts its types in front of a Snapp
+  // that `@deps` this one. A declared-but-unexported doc is compiled, green, and unreachable to
+  // every consumer, which reads as "the type is missing" rather than "the re-export is".
+  let reexported = reexported_mods(INDEX);
+  for name in &declared {
+    ::std::assert!(
+      reexported.contains(name),
+      "{INDEX} declares `mod {name} {{}}` but never `pub @use {name} {{}}` — compiled, but no \
+       consumer of this Snapp can see its types"
+    );
+  }
+  for name in &reexported {
+    ::std::assert!(
+      declared.contains(name),
+      "{INDEX} re-exports `{name}` but never declares it with `mod {name} {{}};`"
+    );
+  }
+}
+
 /// Why: a bundle is what every consumer actually reads, and two things about it can drift
 /// silently. A declared pack absent from it means the source moved and the emit did not
 /// follow. A `@snapp.version` that contradicts the filename misleads anything pinning by
@@ -128,7 +189,7 @@ fn every_smoke_pack_is_declared_and_every_declaration_has_a_file() {
 fn the_framework_bundle_carries_every_declared_pack_and_agrees_with_its_filename() {
   const BUNDLE: &str = "snapp/r14n@0.1.0-alpha.1.json";
   let doc: ::serde_json::Value =
-    ::serde_json::from_str(&read(BUNDLE)).expect("framework bundle is not valid JSON");
+    ::serde_json::from_str(&common::read(BUNDLE)).expect("framework bundle is not valid JSON");
 
   let meta = &doc["@snapp"];
   ::std::assert!(
@@ -148,7 +209,7 @@ fn the_framework_bundle_carries_every_declared_pack_and_agrees_with_its_filename
   // file (`health_aggressive`). Comparing those sets directly reports every pack missing.
   let packs = doc["packs"].as_object().expect("bundle has no `packs` object");
   for stem in declared_mods("r14n Spec/1.0.0/smoke_tests/mod.n.md") {
-    let src = read(&::std::format!("r14n Spec/1.0.0/smoke_tests/{stem}.n"));
+    let src = common::read(&::std::format!("r14n Spec/1.0.0/smoke_tests/{stem}.n"));
     for line in src.lines() {
       // `  name: <PolicyPack> {` — the typed instance declaration.
       if let ::std::option::Option::Some((lhs, rhs)) = line.split_once(':') {
@@ -187,7 +248,7 @@ fn assignment<'a>(line: &'a str, key: &str) -> ::std::option::Option<&'a str> {
 #[test]
 fn every_local_integrity_pin_matches_its_targets_current_bytes() {
   const SOURCE: &str = "baselines/1.0.0/lib.n.md";
-  let body = read(SOURCE);
+  let body = common::read(SOURCE);
   let mut checked = 0usize;
   let mut pending_from: ::std::option::Option<::std::string::String> =
     ::std::option::Option::None;
@@ -202,7 +263,7 @@ fn every_local_integrity_pin_matches_its_targets_current_bytes() {
       let target = pending_from
         .take()
         .expect("an `integrity` line with no preceding `from` — malformed @deps entry");
-      let target_path = root().join("baselines/1.0.0").join(&target);
+      let target_path = common::root().join("baselines/1.0.0").join(&target);
       ::std::assert!(
         target_path.is_file(),
         "{SOURCE} pins {target} which does not exist"
@@ -225,7 +286,7 @@ fn every_local_integrity_pin_matches_its_targets_current_bytes() {
 /// identity. It is gitignored for that reason; this asserts the committed state agrees.
 #[test]
 fn the_snapp_dir_holds_exactly_one_bundle_per_name() {
-  let dir = root().join("snapp");
+  let dir = common::root().join("snapp");
   let mut by_name: ::std::collections::BTreeMap<::std::string::String, ::std::vec::Vec<::std::string::String>> =
     ::std::collections::BTreeMap::new();
   for entry in ::std::fs::read_dir(&dir).expect("read_dir snapp/").filter_map(|e| e.ok()) {

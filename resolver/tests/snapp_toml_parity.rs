@@ -26,13 +26,11 @@
 //! Revision History
 //! - 2026-10-15: authored when recording_consent landed in the baselines Snapp.
 
-fn repo_root() -> ::std::path::PathBuf {
-  ::std::path::Path::new(::std::env!("CARGO_MANIFEST_DIR")).join("..")
-}
+mod common;
 
 /// The emitted baselines bundle, keyed by pack name.
 fn snapp_packs() -> ::serde_json::Value {
-  let p = repo_root().join("snapp").join("r14n_baselines@1.0.0.json");
+  let p = common::repo_root().join("snapp").join("r14n_baselines@1.0.0.json");
   let raw = ::std::fs::read_to_string(&p)
     .unwrap_or_else(|e| ::std::panic!("read {}: {e}", p.display()));
   let doc: ::serde_json::Value =
@@ -41,7 +39,7 @@ fn snapp_packs() -> ::serde_json::Value {
 }
 
 fn toml_pack(profile: &str) -> ::toml::Value {
-  let p = repo_root()
+  let p = common::repo_root()
     .join("packs")
     .join(profile)
     .join("recording_consent.r14n.toml");
@@ -207,7 +205,7 @@ fn minimal_recording_consent_agrees_across_both_representations() {
 /// a keyed map), so the shapes are normalized and the CONTROLS are compared.
 #[test]
 fn the_two_in_repo_copies_of_health_aggressive_agree() {
-  let fw_raw = ::std::fs::read_to_string(repo_root().join("snapp").join("r14n@0.1.0-alpha.1.json"))
+  let fw_raw = ::std::fs::read_to_string(common::repo_root().join("snapp").join("r14n@0.1.0-alpha.1.json"))
     .expect("framework bundle");
   let fw: ::serde_json::Value = ::serde_json::from_str(&fw_raw).expect("framework bundle JSON");
   let a = &fw["packs"]["health_aggressive"];
