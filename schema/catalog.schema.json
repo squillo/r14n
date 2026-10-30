@@ -99,7 +99,7 @@
         },
         "deprecated": {
           "type": "string",
-          "format": "date",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
           "description": "The date this key was deprecated. A control key is long-lived audit evidence, so a retired key is DEPRECATED rather than deleted: receipts already issued name it, and a reader of one needs it to still resolve. Requires superseded_by - see dependentRequired."
         },
         "superseded_by": {
