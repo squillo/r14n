@@ -22,7 +22,8 @@ duplicate it.
 - `resolver/` — the Rust reference resolver (crate `r14n`); `src/wire.rs` is the JSON boundary.
 - `tools/` — the `r14n` CLI (crate `r14n-tools`).
 - `bindings/` — generated JS/TS (`bindings/wasm` → `@squillo/r14n`) and Python
-  (`bindings/python` → `r14n`) packages, plus `bindings/npm/build.mjs`.
+  (`bindings/python` → `r14n`) packages. The npm package is staged by the CLI (`r14n package-npm`);
+  there is no hand-written JavaScript in the build or the tests.
 - `site/` — the r14n.squillo.com Worker (splash + the `/ns` vocabulary host).
 - `r14n Spec/`, `baselines/`, `snapp/` — the **N Lang Snapp tree**: the typed spec sources
   (`policies` keyword + `PolicyPack`/`Subject` blocks), a baseline-pack consumer Snapp that
@@ -41,7 +42,8 @@ cargo clippy --manifest-path resolver/Cargo.toml --all-targets -- -D warnings
 cargo run --quiet --manifest-path tools/Cargo.toml -- validate \
   --catalog catalog/recording_consent.catalog.toml \
   packs/aggressive/recording_consent.r14n.toml packs/minimal/recording_consent.r14n.toml
-node bindings/npm/build.mjs && node --test bindings/npm/smoke.test.mjs
+cargo run --quiet --locked --manifest-path tools/Cargo.toml -- package-npm   # stage dist/npm
+wasm-pack test --node bindings/wasm                                           # wasm ABI under Node
 maturin build --release --manifest-path bindings/python/Cargo.toml --out dist/wheels
 ```
 

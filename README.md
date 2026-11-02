@@ -276,7 +276,7 @@ regulatory-policy engine — the live first consumer.
   supersession).
 - [`bindings/`](bindings/) — the JS/TS and Python packages, **generated from `resolver/`**:
   [`bindings/wasm`](bindings/wasm) (wasm-bindgen shim → [`@squillo/r14n`](https://www.npmjs.com/package/@squillo/r14n)
-  on npm, built by [`bindings/npm/build.mjs`](bindings/npm/build.mjs)) and
+  on npm, staged by `r14n package-npm`) and
   [`bindings/python`](bindings/python) (PyO3 abi3 shim → [`r14n`](https://pypi.org/project/r14n/)
   on PyPI, built by maturin). Both are thin FFI shims over one tested JSON boundary
   ([`resolver/src/wire.rs`](resolver/src/wire.rs)) — not ports, so there is nothing to drift.

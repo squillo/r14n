@@ -79,9 +79,10 @@ repo it touches:
   `resolver/src/wire.rs` and is tested there, once. A shim under `/bindings` adds the FFI
   attribute and maps the error type — nothing else. Logic that appears in a shim is logic the
   other language does not get and no test covers; put it in the core. Each binding is then
-  gated as the *artifact a consumer installs*: `bindings-js` builds the npm package and runs
-  `bindings/npm/smoke.test.mjs` against it, `bindings-python` builds the wheel and runs
-  `bindings/python/tests/`.
+  gated as the *artifact a consumer installs*: `bindings-js` stages the npm package with
+  `r14n package-npm` (which refuses a manifest that promises a file the stage lacks) and runs the
+  `wasm_bindgen_test` suite in `bindings/wasm/tests` under Node 20 and 22; `bindings-python` builds
+  the wheel and runs `bindings/python/tests/`.
 - Follow the house style already in the tree (fully-qualified paths, Revision History blocks).
 
 ## Pack contributions — the gate

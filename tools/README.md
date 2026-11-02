@@ -13,6 +13,7 @@ subcommand operates on configuration artifacts; none states what any jurisdictio
 | `verify <pack> [--sig <f>] [--directory <d> [--as-of <date>] [--jurisdiction <j>]]` | — | Verify content address + identity-bound signature; with `--directory`, verify the directory's steward signature, then check the signer is a listed, non-revoked, non-expired (and jurisdiction-matched) reviewer as of a date. Exit 3 if the signature is valid but the signer is not trusted (decision stays advisory-only). |
 | `sign-directory <dir.json> --key <seed>` | — | Steward-sign a reviewer-key directory over its RFC-8785 (JCS) canonical form; the seed's public key must equal `steward.public_key_ed25519`. |
 | `publish <pack> --id <profile>/<domain>` | — | Validate, then append a content-addressed version entry (monotonic version, `supersedes` sha chain, signature embed) to the **LOCAL** `registry/index.json`. |
+| `package-npm [--out <dir>]` | — | Build the wasm binding and stage the publishable `@squillo/r14n` npm package (default `dist/npm`): rewrite the generated `package.json`, add README and LICENSE, and fail if the manifest promises a file the stage lacks. Requires `wasm-pack`. |
 
 `publish` never touches a network. Making anything public — pushing this repo, crates.io, a
 hosted registry — is a human decision behind the counsel gate (GOVERNANCE.md hard gate 1).

@@ -174,11 +174,13 @@ jobs:
   # Schema-vs-producers validation runs inside the `tools` job above
   # (tools/tests/schema_conformance.rs) — no separate job / no Python needed.
 
-  # The JS/TS binding, tested as the artifact a consumer installs: build the
-  # wasm package from resolver/ exactly as a release would, then run the smoke
-  # tests against the built package. The boundary's LOGIC is pinned by the
-  # resolver job (r14n::wire tests); what this proves is that the generated
-  # glue, the .wasm, and the published metadata work together under Node.
+  # The JS/TS binding, with no hand-written JavaScript anywhere in the path: the
+  # package is staged by the Rust CLI (`r14n package-npm`) and the wasm ABI is
+  # tested by Rust (`wasm_bindgen_test`) running the real .wasm under Node. The
+  # boundary's LOGIC is pinned by the resolver job (r14n::wire tests); what this
+  # proves is that the ABI works under a real Node runtime and that the staged
+  # package is COMPLETE — `package-npm` refuses a manifest that promises a file
+  # the stage lacks, because nothing here executes the published bundle itself.
   bindings-js:
     runs-on: ubuntu-latest
     steps:
@@ -188,28 +190,27 @@ jobs:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          workspaces: bindings/wasm
+          workspaces: |
+            bindings/wasm
+            tools
       - uses: taiki-e/install-action@82cd3e7658a6f96c86c0234aeeda1748937cb0a1 # v2.85.13
         with:
           tool: wasm-pack
+      - name: stage the npm package from the Rust core
+        run: cargo run --quiet --locked --manifest-path tools/Cargo.toml -- package-npm
       # Node 20 is the floor the package supports; 22 is current LTS. The
       # binding is wasm + generated glue, so both runtimes exercise the same
       # bytes — a version that stops loading them is the failure we want caught.
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: build the npm package from the Rust core
-        run: node bindings/npm/build.mjs
-      # The test file is named explicitly: `node --test bindings/npm/` would
-      # also try to execute build.mjs as a test and fail on a file that
-      # declares none.
-      - name: smoke-test the built package (Node 20)
-        run: node --test bindings/npm/smoke.test.mjs
+      - name: wasm ABI tests under Node 20
+        run: wasm-pack test --node bindings/wasm
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: smoke-test the built package (Node 22 LTS)
-        run: node --test bindings/npm/smoke.test.mjs
+      - name: wasm ABI tests under Node 22 (LTS)
+        run: wasm-pack test --node bindings/wasm
 
   # The Python binding, tested as the artifact a consumer pip-installs. One
   # Python version only, deliberately: the wheel is abi3 (3.9+), so a matrix

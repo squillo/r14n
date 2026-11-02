@@ -6,7 +6,8 @@
 //! analogue) · `validate` (the cross-file linter behind `schema/pack.schema.json`)
 //! · `keygen` / `sign` / `verify` (Ed25519, detached) · `publish` (LOCAL
 //! content-addressed registry index only — network publication is manual and
-//! counsel-gated).
+//! counsel-gated) · `package-npm` (build and stage the `@squillo/r14n` npm package from the
+//! Rust core; shells out to wasm-pack).
 //!
 //! ⚠ NOT LEGAL ADVICE. Every subcommand operates on configuration artifacts;
 //! none of them states what any jurisdiction's law is.
@@ -15,6 +16,7 @@
 //! - 2026-07-06: authored — roadmap item 5 (pack-lifecycle CLI).
 //! - 2026-07-06: DRY/testability pass — `parse_args` is pure (Result, no
 //!   exits) so the CLI surface is unit-tested; `Help` is a Command variant.
+//! - 2026-11-02: `package-npm` — the npm package build moved here from a Node script.
 
 mod catalog;
 mod directory;
@@ -22,6 +24,7 @@ mod extract;
 mod jcs;
 mod keys;
 mod merge;
+mod package_npm;
 mod packtoml;
 mod publish;
 mod validate;
@@ -37,6 +40,7 @@ USAGE:
   r14n verify   <pack> [--sig <file>] [--directory <dir.json> [--as-of <YYYY-MM-DD>] [--jurisdiction <j>]]
   r14n sign-directory <dir.json> --key <seedfile>   (steward-signs over the JCS canonical form)
   r14n publish  <pack> --id <profile/domain> [--registry <index.json>]
+  r14n package-npm [--out <dir>]            (stage @squillo/r14n; needs wasm-pack; default dist/npm)
 
 `publish` writes only the LOCAL registry index; making anything public is a
 human decision behind the counsel gate (see GOVERNANCE.md).";
@@ -81,6 +85,9 @@ enum Command {
     pack: ::std::path::PathBuf,
     id: ::std::string::String,
     registry: ::std::path::PathBuf,
+  },
+  PackageNpm {
+    out: ::std::option::Option<::std::path::PathBuf>,
   },
   Help,
 }
@@ -222,6 +229,13 @@ fn parse_args(
       let pack = ::std::path::PathBuf::from(args.remove(0));
       expect_no_leftovers(&args)?;
       ::std::result::Result::Ok(Command::Publish { pack, id, registry })
+    }
+    "package-npm" => {
+      let cmd = Command::PackageNpm {
+        out: take_flag(&mut args, "--out")?.map(::std::path::PathBuf::from),
+      };
+      expect_no_leftovers(&args)?;
+      ::std::result::Result::Ok(cmd)
     }
     "--help" | "-h" | "help" => ::std::result::Result::Ok(Command::Help),
     other => ::std::result::Result::Err(::std::format!("unknown subcommand `{other}`")),
@@ -369,6 +383,14 @@ fn main() {
         registry.display()
       );
     }
+    Command::PackageNpm { out } => match crate::package_npm::run(out.as_deref()) {
+      ::std::result::Result::Ok(done) => ::std::eprintln!("{done}"),
+      // Exit with the failing tool's own status, not a flattened 1.
+      ::std::result::Result::Err((code, message)) => {
+        ::std::eprintln!("error: {message}");
+        ::std::process::exit(code);
+      }
+    },
   }
 }
 
@@ -415,6 +437,18 @@ mod tests {
       ),
       other => ::std::panic!("publish parse failed: {other:?}"),
     }
+    match parse(&["package-npm"]) {
+      ::std::result::Result::Ok(super::Command::PackageNpm { out }) => ::std::assert!(
+        out.is_none(),
+        "no --out must stay None so the build lands in the repo's dist/npm, not the cwd"
+      ),
+      other => ::std::panic!("package-npm parse failed: {other:?}"),
+    }
+    ::std::assert!(::std::matches!(
+      parse(&["package-npm", "--out", "stage"]),
+      ::std::result::Result::Ok(super::Command::PackageNpm { out: ::std::option::Option::Some(_) })
+    ));
+    ::std::assert!(parse(&["package-npm", "stage"]).is_err(), "a bare path is a dropped --out, not an argument");
   }
 
   /// Why: bad invocations must produce a diagnosable Err — not a panic, not a
