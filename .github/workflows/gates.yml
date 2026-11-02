@@ -212,6 +212,31 @@ jobs:
       - name: wasm ABI tests under Node 22 (LTS)
         run: wasm-pack test --node bindings/wasm
 
+  # The r14n.squillo.com Worker (site/worker), a standalone crate with its own lockfile. Its
+  # routing table is pure, so `cargo test` pins the behaviour of the live Worker on the host
+  # (the recorded 20-request matrix) with no WASM runtime. The last step proves the crate also
+  # compiles for the Workers target, with the SAME flags the deployed build uses: a table that
+  # passes on the host but does not build for wasm32 is not a Worker.
+  site-worker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+          components: clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: site/worker
+      - name: routing table parity (host)
+        run: cargo test --locked --manifest-path site/worker/Cargo.toml
+      - name: clippy (warnings are errors)
+        run: cargo clippy --locked --manifest-path site/worker/Cargo.toml --all-targets -- -D warnings
+      - name: compiles for the Workers target
+        env:
+          RUSTFLAGS: -C target-feature=+reference-types,+multivalue
+        run: cargo build --locked --release --target wasm32-unknown-unknown --manifest-path site/worker/Cargo.toml
+
   # The Python binding, tested as the artifact a consumer pip-installs. One
   # Python version only, deliberately: the wheel is abi3 (3.9+), so a matrix
   # would rebuild the same stable-ABI artifact and prove nothing new. The

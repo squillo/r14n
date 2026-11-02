@@ -1,0 +1,41 @@
+[package]
+name = "r14n-ns"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "The r14n.squillo.com Worker in Rust: the splash page and the /ns vocabulary host. A pure routing table plus a thin workers-rs shim."
+repository = "https://github.com/squillo/r14n"
+publish = false
+
+# Standalone crate, INTENTIONALLY not a member of any other workspace: the empty [workspace]
+# table below opts out of the repository's other Cargo workspaces, so building the resolver
+# or the CLI never drags in a WASM toolchain (and this crate never joins their lockfiles).
+[workspace]
+
+[lib]
+# `cdylib` is what wasm-bindgen consumes for the WASM target. `rlib` is added so `cargo test`
+# can link the routing table on the host, with no WASM runtime involved.
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# Pinned EXACTLY to the 0.8.5 release: the family already serving production Workers built by the
+# plain cargo + wasm-bindgen path (not worker-build, whose newer flags need an externref table the
+# compiler does not emit). The wasm-bindgen CLI must equal the wasm-bindgen crate in Cargo.lock.
+worker = "=0.8.5"
+
+[build-dependencies]
+# build.rs derives each ETag from the bytes of the vocabulary file it describes.
+sha2 = "0.10"
+
+[dev-dependencies]
+# Tests recompute the digests independently of build.rs and parse the recorded live matrix.
+sha2 = "0.10"
+toml = "0.8"
+
+[profile.release]
+# A Worker's cold start is dominated by module size, so optimize for size and link-time-optimize.
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

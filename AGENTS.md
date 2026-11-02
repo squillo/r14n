@@ -24,7 +24,9 @@ duplicate it.
 - `bindings/` — generated JS/TS (`bindings/wasm` → `@squillo/r14n`) and Python
   (`bindings/python` → `r14n`) packages. The npm package is staged by the CLI (`r14n package-npm`);
   there is no hand-written JavaScript in the build or the tests.
-- `site/` — the r14n.squillo.com Worker (splash + the `/ns` vocabulary host).
+- `site/` — the r14n.squillo.com Worker (splash + the `/ns` vocabulary host). `site/worker` is the
+  Rust Worker crate `r14n-ns` (pure routing table + thin workers-rs shim, standalone lockfile);
+  `site/src/index.js` + `site/wrangler.jsonc` are the previous JS Worker, retired at cutover.
 - `r14n Spec/`, `baselines/`, `snapp/` — the **N Lang Snapp tree**: the typed spec sources
   (`policies` keyword + `PolicyPack`/`Subject` blocks), a baseline-pack consumer Snapp that
   `@deps` them under an integrity pin, and the emitted ABI bundles. Sources are Apache-2.0;
@@ -37,6 +39,7 @@ duplicate it.
 cargo test --locked --manifest-path resolver/Cargo.toml
 cargo test --locked --manifest-path tools/Cargo.toml
 cargo clippy --manifest-path resolver/Cargo.toml --all-targets -- -D warnings
+cargo test --locked --manifest-path site/worker/Cargo.toml   # the Worker's routing table, pinned to a recorded live matrix
 # Pack lint — CI globs every catalog and validates its domain's packs, in both
 # directions (every pack reaches a catalog; no pack exists without one). One domain:
 cargo run --quiet --manifest-path tools/Cargo.toml -- validate \
