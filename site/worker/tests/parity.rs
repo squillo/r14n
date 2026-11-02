@@ -28,12 +28,15 @@ const METHODS: [&str; 11] =
   ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "CONNECT", "TRACE", "REPORT", "PROPFIND"];
 
 /// Every path the table serves.
-const KNOWN_PATHS: [&str; 5] =
-  ["/", "/ns", "/ns/context.jsonld", "/ns/rlps.ttl", "/assets/r14n-banner.webp"];
+const KNOWN_PATHS: [&str; 3] = ["/ns", "/ns/context.jsonld", "/ns/rlps.ttl"];
 
-/// Near misses: each differs from a served path by one character of slash, case or encoding.
-const UNKNOWN_PATHS: [&str; 8] =
-  ["/ns/", "/assets/", "/nope", "/NS", "/ns/context.jsonld/", "/index.html", "//", "/n%73"];
+/// Near misses -- each differs from a served path by one character of slash, case or encoding --
+/// plus the static tier's own paths, which the platform answers before this Worker runs and which
+/// must therefore be a plain 404 here, never served from a second copy.
+const UNKNOWN_PATHS: [&str; 10] = [
+  "/ns/", "/assets/", "/nope", "/NS", "/ns/context.jsonld/", "/index.html", "//", "/n%73", "/",
+  "/assets/r14n-banner.webp",
+];
 
 /// A repo-relative file read FRESH from disk -- never through the crate's own `include_bytes!` --
 /// so a wrong embed path shows up as a mismatch instead of the embed being compared to itself.
@@ -102,8 +105,6 @@ fn recorded_body(case: &::toml::Value) -> ::std::option::Option<::std::vec::Vec<
     "none" => ::std::option::Option::None,
     "jsonld" => ::std::option::Option::Some(repo_bytes("ns/context.jsonld")),
     "ttl" => ::std::option::Option::Some(repo_bytes("ns/rlps.ttl")),
-    "html" => ::std::option::Option::Some(repo_bytes("site/src/index.html")),
-    "banner" => ::std::option::Option::Some(repo_bytes("assets/r14n-banner.webp")),
     "text" => ::std::option::Option::Some(
       text(case, "body_text").expect("case.body_text").as_bytes().to_vec(),
     ),
@@ -177,14 +178,15 @@ fn route_matches_the_recorded_live_matrix() {
   }
 }
 
-/// Why: a fixture that silently lost cases would let the parity test pass vacuously; the live
-/// matrix was recorded as 20 distinct requests, and a duplicate name would hide one behind another.
+/// Why: a fixture that silently lost cases would let the parity test pass vacuously. Twenty live
+/// requests were recorded; the four the static tier now answers moved to the cache-policy test, so
+/// sixteen remain, and a duplicate name would hide one behind another.
 #[test]
 fn the_recorded_matrix_is_complete_and_unambiguous() {
   let doc = fixture();
   let names: ::std::collections::BTreeSet<&str> = cases(&doc).iter().map(case_name).collect();
-  ::std::assert_eq!(cases(&doc).len(), 20, "recorded live cases");
-  ::std::assert_eq!(names.len(), 20, "case names are unique");
+  ::std::assert_eq!(cases(&doc).len(), 16, "replayed live cases");
+  ::std::assert_eq!(names.len(), 16, "case names are unique");
 }
 
 /// Why: the two additive headers are the ONLY sanctioned difference from the live Worker, and they
@@ -405,4 +407,59 @@ fn the_routing_table_names_no_host_type() {
   for needle in ["worker::", "wasm_bindgen", "web_sys", "js_sys"] {
     ::std::assert!(!source.contains(needle), "src/site.rs mentions {needle}");
   }
+}
+
+/// `site/public/_headers` as path pattern -> (lowercase header name -> value). The file is read by
+/// the platform, not the Worker, so this is the only place a Rust test can see it.
+fn headers_file() -> ::std::collections::BTreeMap<
+  ::std::string::String,
+  ::std::collections::BTreeMap<::std::string::String, ::std::string::String>,
+> {
+  ::std::string::String::from_utf8(repo_bytes("site/public/_headers"))
+    .expect("_headers is UTF-8")
+    .lines()
+    .filter(|line| !line.trim().is_empty() && !line.trim_start().starts_with('#'))
+    .fold((::std::collections::BTreeMap::new(), ::std::string::String::new()), |(mut rules, path), line| {
+      if line.starts_with(char::is_whitespace) {
+        let (name, value) = line.trim().split_once(':').expect("a header line is `Name: value`");
+        rules
+          .entry(path.clone())
+          .or_insert_with(::std::collections::BTreeMap::new)
+          .insert(name.trim().to_lowercase(), value.trim().to_string());
+        (rules, path)
+      } else {
+        (rules, line.trim().to_string())
+      }
+    })
+    .0
+}
+
+/// Why: the splash page and the banner moved out of the Worker into the static tier, so the cache
+/// policy the Worker used to send -- ten minutes for `/`, immutable for the banner because its
+/// filename changes with its content, and `Allow` on the platform's own 405 -- now lives in `site/public/_headers`, where the platform
+/// reads it and nothing else would look. A dropped or mistyped rule would silently change what every
+/// cache in front of the site does. Exactly three rules must exist (a stray one is a surprise), the
+/// page must still point at the banner path the platform serves, and both files must exist there.
+#[test]
+fn the_static_tier_declares_the_cache_policy_the_worker_used_to_send() {
+  let rules = headers_file();
+  let value = |path: &str, name: &str| rules.get(path).and_then(|r| r.get(name)).map(String::as_str);
+  ::std::assert_eq!(value("/", "cache-control"), ::std::option::Option::Some("public, max-age=600"));
+  ::std::assert_eq!(
+    value("/assets/*", "cache-control"),
+    ::std::option::Option::Some("public, max-age=31536000, immutable")
+  );
+  ::std::assert_eq!(
+    value("/*", "x-content-type-options"),
+    ::std::option::Option::Some("nosniff")
+  );
+  ::std::assert_eq!(value("/*", "allow"), ::std::option::Option::Some("GET, HEAD"));
+  ::std::assert_eq!(rules.keys().map(String::as_str).collect::<::std::vec::Vec<_>>(), ["/", "/*", "/assets/*"]);
+
+  let html = ::std::string::String::from_utf8(repo_bytes("site/public/index.html")).expect("UTF-8");
+  ::std::assert!(
+    html.contains("src=\"/assets/r14n-banner.webp\""),
+    "the page does not reference the banner at the path the static tier serves"
+  );
+  ::std::assert!(!repo_bytes("site/public/assets/r14n-banner.webp").is_empty(), "the banner is empty");
 }

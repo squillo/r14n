@@ -2,13 +2,13 @@
 // r14n.squillo.com — the RLPS splash page and the vocabulary namespace host
 // (https://r14n.squillo.com/ns#). The vocabulary artifacts are imported STRAIGHT
 // from /ns at bundle time — one source of truth, byte-identical by construction.
-import INDEX_HTML from "./index.html";
+import INDEX_HTML from "../public/index.html";
 import CONTEXT_JSONLD from "../../ns/context.jsonld";
 import RLPS_TTL from "../../ns/rlps.ttl";
 // Imported from /assets rather than copied here, for the same reason the
 // vocabulary is: one file serves both the README and this page, so they cannot
 // show different images.
-import BANNER_WEBP from "../../assets/r14n-banner.webp";
+import BANNER_WEBP from "../public/assets/r14n-banner.webp";
 
 // ETags: first 32 hex chars of each artifact's sha256, pinned at deploy time.
 const ETAG_JSONLD = '"f61fd666dc4b97d128122187215a4719"';

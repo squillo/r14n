@@ -24,8 +24,9 @@ duplicate it.
 - `bindings/` — generated JS/TS (`bindings/wasm` → `@squillo/r14n`) and Python
   (`bindings/python` → `r14n`) packages. The npm package is staged by the CLI (`r14n package-npm`);
   there is no hand-written JavaScript in the build or the tests.
-- `site/` — the r14n.squillo.com Worker (splash + the `/ns` vocabulary host). `site/worker` is the
-  Rust Worker crate `r14n-ns` (pure routing table + thin workers-rs shim, standalone lockfile);
+- `site/` — the r14n.squillo.com Worker (splash + the `/ns` vocabulary host). Two tiers: `site/public` is the
+  static frontend (page, banner, `_headers`) and `site/worker` is the Rust Worker crate `r14n-ns`
+  (the `/ns` backend: pure routing table + thin workers-rs shim, standalone lockfile);
   `site/src/index.js` + `site/wrangler.jsonc` are the previous JS Worker, retired at cutover.
 - `r14n Spec/`, `baselines/`, `snapp/` — the **N Lang Snapp tree**: the typed spec sources
   (`policies` keyword + `PolicyPack`/`Subject` blocks), a baseline-pack consumer Snapp that

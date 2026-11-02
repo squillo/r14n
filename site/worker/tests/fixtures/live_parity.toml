@@ -1,7 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # The live behaviour of https://r14n.squillo.com, recorded on 2026-11-02 with curl against the
-# JavaScript Worker this crate replaces: one table per request. tests/parity.rs drives the routing
+# JavaScript Worker this crate replaces: one table per request. Twenty requests were recorded; the
+# four that the static tier now answers (GET and HEAD of `/` and of the banner) are not here -- the
+# platform serves them in front of this Worker, and `the_static_tier_declares_...` pins their
+# headers instead. The other sixteen are replayed below. tests/parity.rs drives the routing
 # table over every case and requires the answer to match, byte for byte where bytes are frozen.
 #
 # Request:  `method`, `path`, and optionally `accept` / `if_none_match` (raw header values).
@@ -12,37 +15,13 @@
 # Body:     `body` names what the bytes must be --
 #             "none"    no body at all (HEAD, 304)
 #             "jsonld"  ns/context.jsonld         "ttl"     ns/rlps.ttl
-#             "html"    site/src/index.html       "banner"  assets/r14n-banner.webp
 #             "text"    the literal `body_text`
 #           -- compared with the repository file read fresh from disk. `body_bytes` and
 #           `body_sha256_16` (first 16 hex of the live sha256) are the recorded live size and
-#           digest, present only where the body is frozen: the vocabulary and the error texts. The
-#           splash page and the banner are edited on purpose, so their sizes and digests are NOT
-#           frozen here -- only the headers and "equals the repository file" are. (The live page
-#           was 13220 bytes, sha256 7ca69de94c6e1c1b, when recorded; the repository copy differs.)
-#
-# Re-record the vocabulary digests deliberately when ns/ changes and is deployed: a failure here
-# after an edit to ns/ is the reminder.
-
-[[case]]
-name = "get-root"
-method = "GET"
-path = "/"
-status = 200
-body = "html"
-[case.headers]
-content-type = "text/html; charset=utf-8"
-cache-control = "public, max-age=600"
-
-[[case]]
-name = "head-root"
-method = "HEAD"
-path = "/"
-status = 200
-body = "none"
-[case.headers]
-content-type = "text/html; charset=utf-8"
-cache-control = "public, max-age=600"
+#           digest, recorded for every body but ASSERTED only for the literal "text" bodies (the 404
+#           and 405 texts, which exist nowhere else). A vocabulary body is pinned by equality with
+#           the repository file instead, so an intentional edit to ns/ never fails against a stale
+#           snapshot.
 
 [[case]]
 name = "post-root"
@@ -223,26 +202,6 @@ content-type = "text/turtle; charset=utf-8"
 access-control-allow-origin = "*"
 cache-control = "public, max-age=3600"
 etag = '"fc94b11047ca028515610517a4ea82ed"'
-
-[[case]]
-name = "banner"
-method = "GET"
-path = "/assets/r14n-banner.webp"
-status = 200
-body = "banner"
-[case.headers]
-content-type = "image/webp"
-cache-control = "public, max-age=31536000, immutable"
-
-[[case]]
-name = "banner-head"
-method = "HEAD"
-path = "/assets/r14n-banner.webp"
-status = 200
-body = "none"
-[case.headers]
-content-type = "image/webp"
-cache-control = "public, max-age=31536000, immutable"
 
 [[case]]
 name = "slash"

@@ -1,15 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 //! # The routing table -- plain data in, plain data out
 //!
-//! Everything r14n.squillo.com decides lives here: which path serves what, which representation a
-//! `GET /ns` negotiates, when a conditional request earns a 304. A request arrives as four plain
-//! strings ([`Req`]) and leaves as a status, headers and a body ([`Resp`]). This module names no
-//! host type, so it runs under a bare `cargo test`, and the Workers shim in `lib.rs` is left with
-//! nothing to do but convert at the edges.
+//! Everything the r14n.squillo.com WORKER decides lives here: which `/ns` path serves what, which
+//! representation a `GET /ns` negotiates, when a conditional request earns a 304. The splash page and
+//! its banner are not decided here at all -- they are the static tier (`site/public`), served by the
+//! platform in front of this Worker, so a request for them never reaches it.
 //!
-//! It is a behaviour-for-behaviour port of the JavaScript Worker it replaces, including its
-//! quirks: parity is the acceptance test, and a "fix" here is a divergence a client could see.
-//! Exactly two things are new -- the headers in `ADDED` -- and they ride on every response.
+//! A request arrives as four plain strings ([`Req`]) and leaves as a status, headers and a body
+//! ([`Resp`]). This module names no host type, so it runs under a bare `cargo test`, and the
+//! Workers shim in `lib.rs` is left with nothing to do but convert at the edges.
+//!
+//! For the `/ns` routes it is a behaviour-for-behaviour port of the JavaScript Worker it replaces,
+//! including its quirks: parity is the acceptance test, and a "fix" here is a divergence a client
+//! could see. Exactly two things are new -- the headers in `ADDED` -- and they ride on every
+//! response this Worker sends.
 //!
 //! **NOT LEGAL ADVICE** -- this host serves a data-interchange vocabulary and a splash page; nothing
 //! it returns states what the law is.
@@ -18,12 +22,10 @@
 //! - 2026-11-02: authored -- the JavaScript Worker's `fetch`, plus `x-content-type-options` and
 //!   `x-squillo-impl` on every response.
 
-// The vocabulary, the splash page and the banner are embedded STRAIGHT from their source of record
-// in the repository, so the served bytes cannot drift from it. Paths are relative to this file.
+// The vocabulary is embedded STRAIGHT from its source of record in the repository, so the served
+// bytes cannot drift from it. Paths are relative to this file.
 const CONTEXT_JSONLD: &[u8] = ::std::include_bytes!("../../../ns/context.jsonld");
 const RLPS_TTL: &[u8] = ::std::include_bytes!("../../../ns/rlps.ttl");
-const BANNER_WEBP: &[u8] = ::std::include_bytes!("../../../assets/r14n-banner.webp");
-const INDEX_HTML: &str = ::std::include_str!("../../src/index.html");
 
 // `ETAG_JSONLD` and `ETAG_TTL`, written by build.rs from the two vocabulary files above.
 ::std::include!(::std::concat!(::std::env!("OUT_DIR"), "/etags.rs"));
@@ -120,11 +122,8 @@ fn dispatch(req: &Req) -> Resp {
     "/ns" => vocab(req, if wants_turtle(req.accept) { &TURTLE } else { &JSONLD }, true),
     "/ns/context.jsonld" => vocab(req, &JSONLD, false),
     "/ns/rlps.ttl" => vocab(req, &TURTLE, false),
-    // Immutable by URL: the filename changes when the image does, so it can be cached hard.
-    "/assets/r14n-banner.webp" => {
-      page("image/webp", "public, max-age=31536000, immutable", Body::Static(BANNER_WEBP))
-    }
-    "/" => page("text/html; charset=utf-8", "public, max-age=600", Body::Text(INDEX_HTML)),
+    // `/` and `/assets/*` are the static tier: the platform answers them before this Worker runs, so
+    // reaching here with one means the static tier is missing -- a plain 404, visible, not a guess.
     _ => text(404, "not found", &[]),
   }
 }
@@ -154,15 +153,6 @@ fn vocab(req: &Req, v: &Vocab, vary: bool) -> Resp {
     Resp { status: 304, headers, body: Body::Empty }
   } else {
     Resp { status: 200, headers, body: Body::Static(v.body) }
-  }
-}
-
-/// A cacheable page or image: no tag, no CORS header, never conditional.
-fn page(content_type: &'static str, cache_control: &'static str, body: Body) -> Resp {
-  Resp {
-    status: 200,
-    headers: ::std::vec![("content-type", content_type), ("cache-control", cache_control)],
-    body,
   }
 }
 

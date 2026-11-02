@@ -1,0 +1,18 @@
+# Response headers for the static tier (this directory), read by the platform that serves it --
+# not by the Worker, which never sees these requests. They are the policy the previous Worker sent
+# by hand, now declared next to the files they describe. site/worker/tests/parity.rs pins them.
+
+# The splash page: revalidated every ten minutes.
+/
+  Cache-Control: public, max-age=600
+
+# Immutable by URL: a file here is renamed when its content changes, so it can be cached hard.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Everything static: stop a browser MIME-sniffing a served file into something it is not, and name
+# the methods it answers. A non-GET/HEAD request for a static path gets the platform's own 405, and
+# RFC 9110 wants an Allow header on a 405 (the previous Worker sent one).
+/*
+  X-Content-Type-Options: nosniff
+  Allow: GET, HEAD

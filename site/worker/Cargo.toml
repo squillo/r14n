@@ -3,7 +3,7 @@ name = "r14n-ns"
 version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
-description = "The r14n.squillo.com Worker in Rust: the splash page and the /ns vocabulary host. A pure routing table plus a thin workers-rs shim."
+description = "The r14n.squillo.com Worker in Rust: the /ns vocabulary host (the splash page is the static tier in site/public). A pure routing table plus a thin workers-rs shim."
 repository = "https://github.com/squillo/r14n"
 publish = false
 
