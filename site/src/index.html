@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
 <title>r14n — Regulatory Localization Pack Specification (RLPS)</title>
 <meta name="description" content="RLPS externalizes compliance controls the way i18n externalizes strings: human-diffable packs, a fail-closed resolver, signed decision receipts. NOT LEGAL ADVICE.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230f766e'/%3E%3Ctext x='32' y='42' font-family='ui-monospace,monospace' font-size='26' font-weight='700' fill='white' text-anchor='middle'%3Er14%3C/text%3E%3C/svg%3E">
@@ -30,44 +31,57 @@
     }
   }
   * { box-sizing: border-box; margin: 0; }
-  body { background: var(--bg); color: var(--fg); font: 16px/1.65 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  a { color: var(--accent); text-decoration: none; }
-  a:hover { text-decoration: underline; }
+  /* 1rem, not 16px: a px body size would ignore the reader's browser font-size setting. */
+  body { background: var(--bg); color: var(--fg); font: 1rem/1.65 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  /* Links are underlined at rest so they never depend on colour alone (WCAG 1.4.1). */
+  a { color: var(--accent); text-decoration: underline; text-underline-offset: .15em; }
+  a:hover { text-decoration-thickness: .12em; }
+  /* One focus ring for everything focusable: 3px accent, 3:1+ on every surface it meets. */
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
   code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
   .wrap { max-width: 66rem; margin: 0 auto; padding: 0 1.25rem; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  /* Skip link: parked above the viewport, slid into view on focus. It reuses .btn.primary. */
+  .skip { position: absolute; top: .5rem; left: .5rem; transform: translateY(-200%); }
+  .skip:focus { transform: none; }
 
   .notice { background: var(--warn-bg); border-bottom: 1px solid var(--warn-line); color: var(--warn-fg); font-size: .9rem; padding: .5rem 0; text-align: center; }
   .notice strong { letter-spacing: .02em; }
 
-  header.site { display: flex; align-items: center; gap: 1.5rem; padding: 1.1rem 0; }
+  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1.5rem; padding-block: 1.1rem; }
   .mark { font-family: ui-monospace, monospace; font-weight: 700; font-size: 1.25rem; }
   .mark span { color: var(--accent); }
-  nav { margin-left: auto; display: flex; gap: 1.25rem; flex-wrap: wrap; font-size: .95rem; }
+  .bar nav { margin-left: auto; display: flex; gap: 1.25rem; flex-wrap: wrap; font-size: .95rem; }
 
   .hero { padding: 3.5rem 0 2.5rem; }
   .hero h1 { font-size: clamp(1.7rem, 4.5vw, 2.6rem); line-height: 1.15; max-width: 44rem; }
   .analogy { display: inline-block; margin: 1.1rem 0 0; padding: .35rem .7rem; background: var(--bg2); border: 1px solid var(--line); border-radius: .5rem; font-family: ui-monospace, monospace; font-size: .95rem; }
   .hero p.lead { margin-top: 1.1rem; max-width: 44rem; color: var(--muted); font-size: 1.08rem; }
   .cta { margin-top: 1.6rem; display: flex; gap: .75rem; flex-wrap: wrap; }
-  .btn { display: inline-block; padding: .6rem 1.1rem; border-radius: .55rem; border: 1px solid var(--line); font-weight: 600; font-size: .95rem; }
-  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
-  .btn:hover { text-decoration: none; filter: brightness(1.06); }
+  /* Accent border, not --line: --line is ~1.3:1 on the page, too faint to mark a button's edge (1.4.11). */
+  .btn { display: inline-block; padding: .6rem 1.1rem; border-radius: .55rem; border: 1px solid var(--accent); font-weight: 600; font-size: .95rem; text-decoration: none; }
+  .btn.primary { background: var(--accent); color: var(--accent-fg); }
+  .btn:hover { filter: brightness(1.06); }
   .hero-art { display: block; width: 100%; height: auto; margin: 2.2rem 0 0; border: 1px solid var(--line); border-radius: .7rem; }
 
   section { padding: 2.4rem 0; border-top: 1px solid var(--line); }
   h2 { font-size: 1.35rem; margin-bottom: 1rem; }
-  .grid2 { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr)); }
+  /* min(var(--col), 100%): a bare minmax(19rem, …) is 304px and overflows a 320px viewport's 280px column. */
+  .grid2, .cards, .stats { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(min(var(--col), 100%), 1fr)); }
+  .grid2 { --col: 19rem; }
   .panel { background: var(--code-bg); color: var(--code-fg); border-radius: .7rem; overflow: hidden; }
   .panel h3 { font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; padding: .6rem .9rem; color: var(--code-dim); border-bottom: 1px solid rgba(255,255,255,.07); }
   .panel pre { padding: .9rem; overflow-x: auto; font-size: .82rem; line-height: 1.55; }
+  /* The ring sits inside the pre: .panel clips overflow, so an outer outline would be cut off. */
+  .panel pre:focus-visible { outline-color: var(--code-good); outline-offset: -3px; }
   .panel .c { color: var(--code-dim); } .panel .g { color: var(--code-good); }
 
-  .cards { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
+  .cards { --col: 15rem; }
   .card { background: var(--bg2); border: 1px solid var(--line); border-radius: .7rem; padding: 1.1rem 1.2rem; }
   .card h3 { font-size: 1.02rem; margin-bottom: .4rem; }
   .card p { font-size: .93rem; color: var(--muted); }
 
-  .stats { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); }
+  .stats { --col: 13rem; }
   .stat { border-left: 3px solid var(--accent); padding: .1rem 0 .1rem 1rem; }
   .stat b { display: block; font-size: 1.25rem; }
   .stat span { font-size: .88rem; color: var(--muted); }
@@ -75,26 +89,36 @@
   .prose { max-width: 46rem; color: var(--muted); }
   .prose b { color: var(--fg); }
 
-  footer.site { border-top: 1px solid var(--line); padding: 2rem 0 2.6rem; font-size: .9rem; color: var(--muted); }
+  /* line-height 1.7 puts the .9rem footer links at 24.5px tall, clearing the 24px target minimum (2.5.8). */
+  footer.site { border-top: 1px solid var(--line); padding: 2rem 0 2.6rem; font-size: .9rem; line-height: 1.7; color: var(--muted); }
   footer .links { display: flex; gap: 1.1rem 1.4rem; flex-wrap: wrap; margin-bottom: 1rem; }
+
+  /* No transitions, animations or smooth scrolling exist today; this keeps it that way. */
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  }
 </style>
 </head>
 <body>
 
-<div class="notice"><strong>⚠ NOT LEGAL ADVICE.</strong> RLPS is a data-interchange and configuration standard — it does not state what the law is, and "aggressive" ≠ "compliant".</div>
+<a class="btn primary skip" href="#main">Skip to main content</a>
 
-<div class="wrap">
-  <header class="site">
+<header>
+  <div class="notice" role="note"><strong>⚠ NOT LEGAL ADVICE.</strong> RLPS is a data-interchange and configuration standard — it does not state what the law is, and "aggressive" ≠ "compliant".</div>
+  <div class="wrap bar">
     <div class="mark">r14<span>n</span></div>
-    <nav>
+    <nav aria-label="Primary">
       <a href="https://github.com/squillo/r14n/blob/main/spec/RLPS-v0.1.md">Spec</a>
       <a href="https://github.com/squillo/r14n/tree/main/conformance">Conformance</a>
       <a href="/ns">Vocabulary</a>
       <a href="https://crates.io/crates/r14n">crates.io</a>
       <a href="https://github.com/squillo/r14n">GitHub</a>
     </nav>
-  </header>
+  </div>
+</header>
 
+<div class="wrap">
+  <main id="main">
   <div class="hero">
     <h1>Pull regulatory rules out of your code — the way i18n pulled out your strings.</h1>
     <div class="analogy">r14n : compliance controls&nbsp;&nbsp;::&nbsp;&nbsp;i18n : strings</div>
@@ -104,22 +128,22 @@
       provenance and signed decision receipts.</p>
     <div class="cta">
       <a class="btn primary" href="https://github.com/squillo/r14n">View on GitHub</a>
-      <a class="btn" href="https://drive.google.com/file/d/1N9q9FhnVUT6jzMLTHg-trTCcxBmdNVVa/view?usp=sharing" target="_blank" rel="noopener">▶ Watch the explainer</a>
+      <a class="btn" href="https://drive.google.com/file/d/1N9q9FhnVUT6jzMLTHg-trTCcxBmdNVVa/view?usp=sharing" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">▶</span> Watch the explainer<span class="sr"> (opens in a new tab)</span></a>
       <a class="btn" href="https://github.com/squillo/r14n/blob/main/spec/RLPS-v0.1.md">Read the spec</a>
       <a class="btn" href="https://crates.io/crates/r14n">cargo add r14n</a>
     </div>
     <!-- width/height are the intrinsic pixels: they give the browser the aspect
          ratio up front, so the page does not reflow when the image lands. -->
     <img class="hero-art" src="/assets/r14n-banner.webp" width="1600" height="872"
-         alt="A globe ringed by shields labelled Data Privacy, Regional Compliance, and Global Regulations, over a circuit-board field — the regulatory-localization idea in one picture.">
+         alt="Banner reading “Regulatory Localization” and “Global Data Privacy &amp; Compliance”: a globe ringed by shields labelled Data Privacy, Regional Compliance, and Global Regulations, over a circuit-board field.">
   </div>
 
   <section>
     <h2>Before / after</h2>
     <div class="grid2">
       <div class="panel">
-        <h3>Before — rules tangled into app code</h3>
-        <pre><span class="c"># pseudocode, any language</span>
+        <h3 id="before-h">Before — rules tangled into app code</h3>
+        <pre tabindex="0" role="region" aria-labelledby="before-h"><span class="c"># pseudocode, any language</span>
 if any(participant in a two-party-consent state):
     require(consent)
 else if any(participant in the EU):
@@ -129,8 +153,8 @@ else if any(participant in the EU):
 # to a compliance reviewer, easy to get wrong</span></pre>
       </div>
       <div class="panel">
-        <h3>After — the same rules as a reviewable pack</h3>
-        <pre><span class="c"># recording_consent.r14n.toml</span>
+        <h3 id="after-h">After — the same rules as a reviewable pack</h3>
+        <pre tabindex="0" role="region" aria-labelledby="after-h"><span class="c"># recording_consent.r14n.toml</span>
 <span class="g">[subject.twin_attend]</span>
 controls = ["announcement", "aph_mandate_principal_signed"]
 
@@ -192,9 +216,10 @@ controls = ["attestation", "announcement",
       trademark, and conformance-claim rules live in the
       <a href="https://github.com/squillo/r14n/blob/main/GOVERNANCE.md">repository</a>.</p>
   </section>
+  </main>
 
   <footer class="site">
-    <div class="links">
+    <nav class="links" aria-label="Project and policy links">
       <a href="https://github.com/squillo/r14n/blob/main/spec/RLPS-v0.1.md">Specification</a>
       <a href="https://github.com/squillo/r14n/blob/main/SECURITY.md">Security</a>
       <a href="https://github.com/squillo/r14n/blob/main/CONTRIBUTING.md">Contributing &amp; governance</a>
@@ -203,7 +228,7 @@ controls = ["attestation", "announcement",
       <a href="https://crates.io/crates/r14n">crates.io</a>
       <a href="https://www.npmjs.com/package/@squillo/r14n">npm</a>
       <a href="https://pypi.org/project/r14n/">PyPI</a>
-    </div>
+    </nav>
     <div>© 2026 Squillo, Inc. · Apache-2.0 (code) / CC-BY-4.0 (spec &amp; vocabulary) · <strong>NOT LEGAL ADVICE</strong></div>
   </footer>
 </div>
