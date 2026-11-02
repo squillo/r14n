@@ -21,6 +21,15 @@ History banner in the spec for normative changes), rather than forking a version
   byte-identical to the old script's output for every file except `package.json`, which is
   semantically identical (key order differs). `package-npm` also refuses a manifest that promises a
   file the stage lacks, because nothing executes the published bundle any more.
+- **The Python binding's tests are Rust.** `bindings/python/tests/python_surface.rs` replaces
+  `test_r14n.py`: the seven cases are ported one-for-one and drive the shim's own module object
+  through an embedded CPython, so no Python source is hand-written. Each was shown to fail against
+  a broken shim. The wheel is no longer installed and imported in CI, which is a real narrowing:
+  the job now builds it and checks it is exactly one `abi3` wheel, and two structural tests pin the
+  facts an import would have caught (the import name agrees across Cargo and maturin; the `abi3`
+  floor equals `requires-python`). `auto-initialize` is a dev-dependency only; a wheel build's
+  undefined-symbol set was measured identical with and without it. The shim's one change is that
+  its module initialiser is `pub`.
 - **The `r14n.squillo.com` Worker is a Rust crate, and the site is two tiers.** `site/worker`
   (`r14n-ns`) is the `/ns` backend: a pure routing table plus a thin workers-rs shim, with ETags
   derived from the served bytes at build time instead of hand-pinned. `site/public` is the static

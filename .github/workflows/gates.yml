@@ -237,11 +237,14 @@ jobs:
           RUSTFLAGS: -C target-feature=+reference-types,+multivalue
         run: cargo build --locked --release --target wasm32-unknown-unknown --manifest-path site/worker/Cargo.toml
 
-  # The Python binding, tested as the artifact a consumer pip-installs. One
-  # Python version only, deliberately: the wheel is abi3 (3.9+), so a matrix
-  # would rebuild the same stable-ABI artifact and prove nothing new. The
-  # binding crate has no cargo tests because it has no logic — it is a thin
-  # #[pyfunction] shim over r14n::wire, which the resolver job tests.
+  # The Python binding. Its tests are Rust (bindings/python/tests/python_surface.rs): they drive
+  # the shim's own module object through an embedded CPython, so no Python source is hand-written
+  # anywhere. That needs a Python shipping a shared libpython, which setup-python provides. The
+  # logic underneath is a thin #[pyfunction] shim over r14n::wire, which the resolver job tests;
+  # these cover only what the shim adds (names, the dial's None default, the exception type).
+  # One Python version only, deliberately: the wheel is abi3 (3.9+), so a matrix would rebuild
+  # the same stable-ABI artifact and prove nothing new. The wheel is still built, and checked
+  # to be one abi3 wheel — the property "one wheel serves every Python" rests on.
   bindings-python:
     runs-on: ubuntu-latest
     steps:
@@ -253,14 +256,20 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: test the exported Python surface
+        run: cargo test --locked --manifest-path bindings/python/Cargo.toml
       - name: build the wheel from the Rust core
         run: |
           python -m pip install --quiet 'maturin>=1.7,<2.0'
           maturin build --release --manifest-path bindings/python/Cargo.toml --out dist/wheels
-      - name: install the built wheel and run its tests
+      - name: the build is exactly one abi3 wheel
         run: |
-          python -m pip install --quiet dist/wheels/r14n-*.whl
-          python -m unittest discover -s bindings/python/tests -v
+          wheels=(dist/wheels/r14n-*.whl)
+          [ "${#wheels[@]}" -eq 1 ] || { echo "::error::expected exactly one wheel, found ${#wheels[@]}"; exit 1; }
+          case "${wheels[0]}" in
+            *-abi3-*) echo "ok: ${wheels[0]}" ;;
+            *) echo "::error::${wheels[0]} is not an abi3 wheel — one build would no longer serve every Python"; exit 1 ;;
+          esac
 
   # No rustfmt gate on purpose: the tree follows a documented hand-rolled house style
   # (CONTRIBUTING.md — fully-qualified paths, 2-space indent) that rustfmt would rewrite.

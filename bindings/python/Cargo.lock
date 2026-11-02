@@ -150,6 +150,8 @@ version = "0.1.0"
 dependencies = [
  "pyo3",
  "r14n",
+ "serde_json",
+ "toml",
 ]
 
 [[package]]

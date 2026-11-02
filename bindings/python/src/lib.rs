@@ -15,6 +15,8 @@
 //! Revision History
 //! - 2026-08-23: authored — thin shim over `r14n::wire` (bindings policy
 //!   revision 2026-08-23d).
+//! - 2026-11-02: the module initialiser is `pub` so the Rust integration tests can drive it;
+//!   no behaviour change.
 
 use pyo3::prelude::{pyfunction, pymodule, Bound, PyModule, PyModuleMethods, PyResult};
 use pyo3::wrap_pyfunction;
@@ -73,8 +75,11 @@ fn resolve_with_receipts(
 
 /// The `r14n` Python module. `__version__` and `RLPS_NS` are module attributes
 /// so the common lookups need no function call.
+///
+/// `pub` so `tests/python_surface.rs` can build the module object in-process and drive it through a
+/// real interpreter; a wheel exports the same `PyInit_r14n` symbol either way.
 #[pymodule]
-fn r14n(m: &Bound<'_, PyModule>) -> PyResult<()> {
+pub fn r14n(m: &Bound<'_, PyModule>) -> PyResult<()> {
   m.add_function(wrap_pyfunction!(resolve, m)?)?;
   m.add_function(wrap_pyfunction!(resolve_with_receipts, m)?)?;
   m.add("__version__", ::std::env!("CARGO_PKG_VERSION"))?;

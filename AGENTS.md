@@ -48,6 +48,7 @@ cargo run --quiet --manifest-path tools/Cargo.toml -- validate \
   packs/aggressive/recording_consent.r14n.toml packs/minimal/recording_consent.r14n.toml
 cargo run --quiet --locked --manifest-path tools/Cargo.toml -- package-npm   # stage dist/npm
 wasm-pack test --node bindings/wasm                                           # wasm ABI under Node
+cargo test --locked --manifest-path bindings/python/Cargo.toml                # Python surface, embedded CPython
 maturin build --release --manifest-path bindings/python/Cargo.toml --out dist/wheels
 ```
 

@@ -29,12 +29,15 @@ r14n_core = { package = "r14n", path = "../../resolver" }
 # `abi3-py39` builds against CPython's stable ABI, so ONE wheel serves 3.9 and
 # every later version instead of one wheel per minor release.
 #
-# `auto-initialize` is deliberately ABSENT: it exists to start an interpreter
-# inside `cargo test`, and it requires a Python distribution shipping a shared
-# libpython (pyo3's build script refuses otherwise) — a constraint many dev
-# machines and runners quietly fail. This shim has no Rust tests to run because
-# it has no logic of its own: the boundary is tested in the core crate, and the
-# real Python surface is tested against the built wheel (tests/test_r14n.py).
+# `auto-initialize` is deliberately ABSENT here: it starts an interpreter inside
+# the process, and it requires a Python distribution shipping a shared libpython
+# (pyo3's build script refuses otherwise) — a constraint many dev machines and
+# runners quietly fail. It is enabled under [dev-dependencies] below instead,
+# which cargo (resolver 2) unifies only while building tests, never for a wheel
+# or a plain build. The shim still has no logic of its own — the boundary is
+# tested in the core crate — so tests/python_surface.rs checks only what the
+# shim adds: the exported names, the `None` default of the strictness dial, and
+# the exception type a Python caller sees.
 #
 # `extension-module` tells pyo3 to leave libpython unlinked — correct for a
 # wheel, where the host interpreter supplies those symbols. It is opt-in below
@@ -44,3 +47,13 @@ pyo3 = { version = "0.29", features = ["abi3-py39"] }
 [features]
 # Turned on by maturin for wheel builds and by nothing else.
 extension-module = ["pyo3/extension-module"]
+
+[dev-dependencies]
+# `auto-initialize` starts the interpreter the tests drive; see the note on the
+# dependency above for why it lives here and not there. `serde_json` reads the
+# decisions the shim returns; `toml` reads the two manifests whose agreement the
+# import name and the abi3 floor depend on (the wheel itself is no longer
+# imported by a Python test, so those are checked as files).
+pyo3 = { version = "0.29", features = ["abi3-py39", "auto-initialize"] }
+serde_json = "1"
+toml = "0.8"

@@ -81,8 +81,9 @@ repo it touches:
   other language does not get and no test covers; put it in the core. Each binding is then
   gated as the *artifact a consumer installs*: `bindings-js` stages the npm package with
   `r14n package-npm` (which refuses a manifest that promises a file the stage lacks) and runs the
-  `wasm_bindgen_test` suite in `bindings/wasm/tests` under Node 20 and 22; `bindings-python` builds
-  the wheel and runs `bindings/python/tests/`.
+  `wasm_bindgen_test` suite in `bindings/wasm/tests` under Node 20 and 22; `bindings-python` runs
+  the Rust tests in `bindings/python/tests/` (an embedded interpreter drives the shim's module) and
+  builds the wheel, checking it is one `abi3` wheel.
 - Follow the house style already in the tree (fully-qualified paths, Revision History blocks).
 
 ## Pack contributions — the gate
