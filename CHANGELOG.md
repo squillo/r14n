@@ -12,6 +12,30 @@ History banner in the spec for normative changes), rather than forking a version
 
 ## [0.1.0-draft]
 
+### Changed (revision 2026-11-02 — the npm build, its tests and the site Worker are Rust; the site is split into two tiers)
+
+- **No hand-written JavaScript remains in the npm build or its tests.** `r14n package-npm`
+  (in `tools/`) replaces `bindings/npm/build.mjs`; the wasm ABI is now tested by Rust
+  `wasm_bindgen_test`s (`bindings/wasm/tests/wasm.rs`) running the real `.wasm` under Node 20 and 22,
+  replacing `bindings/npm/smoke.test.mjs`. Parity was audited, not assumed: the staged package is
+  byte-identical to the old script's output for every file except `package.json`, which is
+  semantically identical (key order differs). `package-npm` also refuses a manifest that promises a
+  file the stage lacks, because nothing executes the published bundle any more.
+- **The `r14n.squillo.com` Worker is a Rust crate, and the site is two tiers.** `site/worker`
+  (`r14n-ns`) is the `/ns` backend: a pure routing table plus a thin workers-rs shim, with ETags
+  derived from the served bytes at build time instead of hand-pinned. `site/public` is the static
+  frontend (the splash page, its banner, and a `_headers` file carrying the cache policy the old
+  Worker sent by hand), served by the platform in front of the Worker; the Worker no longer embeds
+  them (312 KB of wasm, down from 527 KB). The Worker's behaviour is pinned to a recorded matrix of
+  the live Worker (16 of 20 requests; the other 4 are the static tier's), and the whole deployment
+  shape was replayed in a local workerd: 14 of 20 are byte-identical, the rest differ only as
+  tabulated in `site/README.md`. Two response headers are new on the Worker's responses:
+  `x-content-type-options: nosniff` and `x-squillo-impl`. The JavaScript Worker stays in place, and
+  deployable, until the cutover.
+- **Splash page accessibility pass** (`site/src/index.html`): landmarks, a skip link, labelled
+  navigation, visible focus, a `prefers-reduced-motion` rule, reflow at 320 CSS px, and one
+  below-floor border colour fixed. No copy, link target or disclaimer text changed.
+
 ### Added (revision 2026-10-31 — optional framework links on catalog controls; the CONTRACT only)
 
 - **A control MAY carry typed links to the compliance-framework editions it relates to** — an
