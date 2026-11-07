@@ -12,6 +12,72 @@ History banner in the spec for normative changes), rather than forking a version
 
 ## [0.1.0-draft]
 
+### Added (revision 2026-11-03 — catalogs for five domains that shipped without one, the training-capture locality axis, and the two install-time decisions recorded; the catalog half of the data-class delta, r14n side)
+
+- **Five Control Catalogs** (was eleven, now sixteen; 23 control keys): `ai_disclosure` (4),
+  `contact_import` (4), `diagnostics_upload` (4), `export_control` (3) and `training_data_capture`
+  (8). A consuming application ships DRAFT packs for each of these domains whose control keys no
+  catalog here declared, and a pack that names an undeclared key is an undeclared vocabulary
+  (invariant 11). Each catalog declares the vocabulary and ships WITHOUT packs, on purpose, the same
+  way `data_residency`, `data_retention` and `analytics_consent` do (invariant 2): a pack for a
+  real jurisdiction needs an attorney of record. The key set of each catalog equals the union of the
+  keys that application's draft packs name across all of its profiles, with one addition, below.
+  None names a jurisdiction or a regime, and none declares a `prohibition`: every key is one a
+  shipped draft pack places in a requirement table.
+- **Names are kept as shipped.** The domains `ai_disclosure` and `export_control` are broader than
+  their names (the first also covers quiet hours and auto-renewal terms, the second also a refund
+  cooling-off window and a dunning cadence). A control key is long-lived audit evidence, so neither
+  is renamed; whether a part belongs in a domain of its own is a question for a later, additive
+  catalog. Likewise `explicit_optin_consent` (`training_data_capture`) and `explicit_opt_in`
+  (`contact_import`) are two domain-scoped keys and neither is renamed to match the other.
+- **Two `*_permitted` keys are `permit`, the rest are `obligation`**:
+  `agent_real_vault_mutation_permitted` and `crypto_settlement_permitted` name an authorization the
+  actor must HOLD, on the precedent `data_residency` and `analytics_consent` already set. Each
+  carries a polarity warning in its header: the consuming gate acts on it only when a governing pack
+  REQUIRES it, which means the pack grants the act. A catalog can declare that a key exists and
+  never which direction a gate reads it. `kind` is documentation today; nothing enforces it.
+- **A locality axis on `training_data_capture`**: where a captured training corpus goes (the device
+  or the organization's own storage, a cloud service the organization does not control, or the
+  operator of the consuming platform) decides whether a capture is a private convenience or a
+  disclosure to another party. The three localities are SUBJECT tokens, named once in the catalog
+  header so that every pack spells them alike; a subject is a pack's concern and is never declared
+  in a catalog. The header states the rule and does not state a stance: whether a locality is
+  permitted outright or only on an affirmative opt-in is PACK DATA, and no key encodes a default.
+  It also records three resolver facts the vocabulary cannot enforce: a subject a pack declares no
+  table for resolves to the caller's whole universe (spec §3); the `minimal` floor is one list per
+  pack and not one per subject (spec §2, §3); and `fell_back = true` means "no pack governed and the
+  whole universe was required", never "allow" (spec §5, §6). ONE control key is added,
+  `recipient_disclosed` (before the corpus leaves the device, the subject is told who receives it
+  and for what use), because a destination outside the organization has a recipient to name. No
+  draft pack names it yet.
+- **`docs/framework-links.md` section 7.3 records both decisions for the installer it serves
+  first** (Squillo OS), each with the reasoning it rests on in this specification's own terms:
+  an application that declares nothing is determined to have declared the widest declaration, never
+  an empty one (spec §5), while what that determination causes is the organization's; and the
+  install-time resolve runs on the device, inside the installer's own decision. The page does not
+  bind any other installer, keeps the options another installer may choose differently, and still
+  claims no tool performs these steps. The heading no longer says the decisions are open.
+- **The resolver, the schemas, the spec text and every shipped pack are untouched.** Nothing here
+  changes how any existing profile, domain or subject resolves.
+
+Process note: this adds catalogs, which `GOVERNANCE.md` makes RFC territory, and the entry below
+headed "Added (recorded retroactively — shipped 2026-10-20 to 2026-10-30 without a CHANGELOG entry)"
+says what the process requires: an entry, an RFC issue, and maintainer approval. This is the entry.
+The change was approved by the maintainer in the project ledger on 2026-11-03; the RFC issue is to
+be filed at publication, and none is recorded in this repository's tracked files as of this entry.
+The approval is recorded in that ledger and not in this repository, and a maintainer may still
+revert any catalog above deliberately.
+
+### Tests (revision 2026-11-03)
+
+- New gate `tools/tests/snapp_declarations.rs`: each new catalog declares exactly the control keys
+  the draft packs name, in both directions (`training_data_capture` with its one added key); none
+  declares a `prohibition` and only the two polarity keys are `permit`; the two polarity keys carry
+  the polarity warning; every new catalog validates against the published catalog schema; the
+  training-capture header names the three locality tokens, the pack-data rule and the resolver
+  facts, and states no stance for a locality; section 7.3 records both decisions and binds no other
+  installer. It reads committed files only and invokes no compiler.
+
 ### Changed (revision 2026-11-02 — the npm build, its tests and the site Worker are Rust; the site is split into two tiers)
 
 - **No hand-written JavaScript remains in the npm build or its tests.** `r14n package-npm`

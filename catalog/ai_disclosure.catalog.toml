@@ -1,0 +1,84 @@
+# RLPS Control Catalog — domain: ai_disclosure
+#
+# The canonical, jurisdiction-neutral declaration of the control keys an ai_disclosure
+# pack may reference, each with a deontic KIND and a title. Packs reference these
+# keys; they do NOT redefine them. NOT LEGAL ADVICE — a control is a stable
+# identifier for a required action, not a statement of any jurisdiction's law, and
+# satisfying every control here is not a finding that any automated behavior is lawful.
+# See /docs/not-legal-advice.md.
+#
+# kind ∈ { permit | obligation | prohibition }
+#
+# ── WHY THIS CATALOG EXISTS ─────────────────────────────────────────────────
+#
+# A consuming application ships DRAFT packs for this domain (status `draft`, counsel
+# not yet engaged) whose four control keys no catalog in this repository declared. The
+# invariant-11 glob over `packs/*.r14n.toml` cannot see them: they are N Lang packs in
+# the application's own tree, not published TOML. This file declares the vocabulary.
+# It ships WITHOUT packs on purpose, the same way `data_residency`, `data_retention`
+# and `analytics_consent` do: a pack for a real jurisdiction needs an attorney of
+# record, and the packs live in the consuming application.
+#
+# ── THE DOMAIN IS BROADER THAN ITS NAME ─────────────────────────────────────
+#
+# The shipped draft packs put four unlike subjects under this one domain: reviewing an
+# agent's twin, mutating a real vault, quiet hours, and creating an auto-renewing
+# subscription. Only the first is a disclosure of AI involvement. The domain name is the
+# consuming application's and is kept as shipped, because a control key is long-lived
+# audit evidence and a receipt that already names a domain must keep resolving. Whether
+# the last three belong in a domain of their own is a question for a later, additive
+# catalog, never a rename of this one.
+#
+# ⚠ ONE KEY IS READ BY THE GATE WITH INVERTED POLARITY IN THE CONSUMING APPLICATION:
+# `agent_real_vault_mutation_permitted`. It is acted on only when a governing pack
+# REQUIRES it, which means the pack explicitly permits the act; its absence blocks. That
+# is the same hazard the `analytics_consent` catalog records for
+# `external_agent_harvest_permitted` (§2.1: a control key is opaque and the enforcing
+# gate owns its polarity). The catalog can declare that a key EXISTS, never which
+# direction a gate will read it. The other three keys are read with ordinary polarity:
+# `quiet_hours_enforced` is checked only when a governing pack requires it, and then the
+# quiet-hours window is enforced.
+#
+# ── ON THE `kind` COLUMN: DERIVED FROM SHIPPED PRECEDENT ────────────────────
+#
+# `kind` is DOCUMENTATION today — nothing enforces it, and `r14n validate` keys off
+# catalog MEMBERSHIP alone (see the data_residency catalog's header for the derivation
+# this follows). All four keys appear in requirement tables of the shipped draft packs,
+# which per the credential_use catalog's rule 1 means none of them can be a
+# `prohibition`. Between the other two kinds, `agent_real_vault_mutation_permitted` is a
+# PERMIT: it names an authorization the actor must HOLD, on the same `*_permitted`
+# precedent the data_residency and analytics_consent catalogs follow. The other three
+# name a state the enforcing gate must bring about, so they are obligations.
+
+[domain]
+name = "ai_disclosure"
+description = "Controls governing disclosure of, and limits on, automated and agent behavior — the AI-involvement notice, authorization of an agent's change to a real vault, quiet hours for automated outreach, and disclosure of auto-renewal terms."
+
+# ── Obligations — a state the enforcing gate must bring about ────────────────
+
+[control.ai_disclosure]
+kind = "obligation"
+title = "AI involvement disclosed"
+description = "The subject is told that an AI or automated system took part in, or produced, the activity under review. The control asserts the disclosure was made; it encodes neither its wording nor its channel, because a key per wording would put policy in the vocabulary."
+
+[control.quiet_hours_enforced]
+kind = "obligation"
+title = "Quiet hours enforced"
+description = "Automated notifications and outreach are withheld during the quiet hours configured for the recipient. The control asserts the window was consulted and honored; the hours themselves live in the enforcing layer's configuration, and a key per window would put policy in the vocabulary."
+
+[control.auto_renewal_disclosure]
+kind = "obligation"
+title = "Auto-renewal terms disclosed"
+description = "Before an automatically renewing subscription is created, its renewal terms and the way to cancel it are disclosed to the buyer. The control asserts the disclosure was shown; it encodes neither its wording nor which jurisdictions demand it."
+
+# ── Permits — a named authorization the actor must hold ─────────────────────
+#
+# Modelled on `credential_vault_residency_permitted` and its siblings in the
+# data_residency catalog: a permit in a requirement table means the actor must HOLD the
+# authorization. A permit asserts nothing about whether the authorization is valid
+# anywhere — that is the enforcing gate's question.
+
+[control.agent_real_vault_mutation_permitted]
+kind = "permit"
+title = "Agent change to a real vault authorized"
+description = "An automated agent's mutation of a real (not twin) vault carries an explicit authorization for that mutation. ⚠ POLARITY IS THE GATE'S: see this file's header — a governing pack that requires this key is granting the act, and its absence blocks it."

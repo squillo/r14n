@@ -1,0 +1,76 @@
+# RLPS Control Catalog — domain: export_control
+#
+# The canonical, jurisdiction-neutral declaration of the control keys an export_control
+# pack may reference, each with a deontic KIND and a title. Packs reference these
+# keys; they do NOT redefine them. NOT LEGAL ADVICE — a control is a stable
+# identifier for a required action, not a statement of any jurisdiction's law, and
+# satisfying every control here is not a finding that any transaction is lawful or
+# that any sanctions or export-control regime has been satisfied. See
+# /docs/not-legal-advice.md.
+#
+# kind ∈ { permit | obligation | prohibition }
+#
+# ── WHY THIS CATALOG EXISTS ─────────────────────────────────────────────────
+#
+# A consuming application ships DRAFT packs for this domain whose three control keys no
+# catalog in this repository declared (the packs are N Lang in the application's tree,
+# outside the invariant-11 glob over `packs/*.r14n.toml`). This file declares the
+# vocabulary. It ships WITHOUT packs on purpose, the same way `data_residency`,
+# `data_retention` and `analytics_consent` do.
+#
+# ── THE DOMAIN IS BROADER THAN ITS NAME ─────────────────────────────────────
+#
+# The shipped draft packs put three unlike subjects under this one domain: initiating a
+# settlement, a refund cooling-off window, and a dunning retry cadence. Only the first
+# is close to export control in the sanctions sense. The domain name is the consuming
+# application's and is kept as shipped, because a control key is long-lived audit
+# evidence and a receipt that already names a domain must keep resolving. Whether the
+# last two belong in a domain of their own is a question for a later, additive catalog,
+# never a rename of this one.
+#
+# ⚠ `crypto_settlement_permitted` IS READ BY THE GATE WITH INVERTED POLARITY IN THE
+# CONSUMING APPLICATION. It is acted on only when a governing pack REQUIRES it, which
+# means the pack explicitly permits a crypto settlement; its absence blocks. That is the
+# same hazard the `analytics_consent` catalog records for
+# `external_agent_harvest_permitted` (§2.1: a control key is opaque and the enforcing
+# gate owns its polarity). The catalog declares that the key EXISTS, never which
+# direction a gate will read it.
+#
+# ── ON THE `kind` COLUMN: DERIVED FROM SHIPPED PRECEDENT ────────────────────
+#
+# `kind` is DOCUMENTATION today — nothing enforces it, and `r14n validate` keys off
+# catalog MEMBERSHIP alone (see the data_residency catalog's header for the derivation
+# this follows). All three keys appear in requirement tables of the shipped draft packs,
+# which per the credential_use catalog's rule 1 means none of them can be a
+# `prohibition`. Between the other two kinds, `crypto_settlement_permitted` is a PERMIT:
+# it names an authorization the actor must HOLD, on the same `*_permitted` precedent the
+# data_residency and analytics_consent catalogs follow. The other two name a state the
+# enforcing gate must bring about, so they are obligations.
+
+[domain]
+name = "export_control"
+description = "Controls governing initiating a payment settlement and the consumer-protection cadence around it — authorization of a crypto settlement, a refund cooling-off window, and a cap on dunning frequency."
+
+# ── Obligations — a state the enforcing gate must bring about ────────────────
+
+[control.refund_cooling_off_required]
+kind = "obligation"
+title = "Refund cooling-off window honored"
+description = "A purchase is refundable during its cooling-off window and the buyer was told so. The control asserts the window was applied; its length belongs to the enforcing layer's configuration, and a key per length would put policy in the vocabulary."
+
+[control.dunning_frequency_capped]
+kind = "obligation"
+title = "Dunning frequency capped"
+description = "Repeated payment-retry and overdue notices to the same person are limited to a bounded cadence. The control asserts the cap was applied; the cap itself is the enforcing layer's configuration."
+
+# ── Permits — a named authorization the actor must hold ─────────────────────
+#
+# Modelled on the `*_permitted` keys of the data_residency catalog: a permit in a
+# requirement table means the actor must HOLD the authorization. A permit asserts
+# nothing about whether the authorization is valid anywhere — that is the enforcing
+# gate's question.
+
+[control.crypto_settlement_permitted]
+kind = "permit"
+title = "Crypto settlement authorized"
+description = "A settlement in a crypto-asset carries an explicit authorization. ⚠ POLARITY IS THE GATE'S: see this file's header — a governing pack that requires this key is granting the act, and its absence blocks it."

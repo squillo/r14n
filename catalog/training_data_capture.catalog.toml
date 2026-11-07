@@ -1,0 +1,135 @@
+# RLPS Control Catalog — domain: training_data_capture
+#
+# The canonical, jurisdiction-neutral declaration of the control keys a
+# training_data_capture pack may reference, each with a deontic KIND and a title.
+# Packs reference these keys; they do NOT redefine them. NOT LEGAL ADVICE — a control
+# is a stable identifier for a required action, not a statement of any jurisdiction's
+# law, and satisfying every control here is not a finding that any capture or any
+# training use is lawful. See /docs/not-legal-advice.md.
+#
+# kind ∈ { permit | obligation | prohibition }
+#
+# ── WHY THIS CATALOG EXISTS ─────────────────────────────────────────────────
+#
+# A consuming application ships DRAFT packs for this domain, for every profile, whose
+# control keys no catalog in this repository declared: seven in the first drafts, and an
+# eighth, `recipient_disclosed`, added with the locality axis below (the packs are N Lang
+# in the application's tree, outside the invariant-11 glob over `packs/*.r14n.toml`).
+# This file declares the vocabulary. It ships WITHOUT packs on purpose, the same way
+# `data_residency`, `data_retention` and `analytics_consent` do.
+#
+# ── THE LOCALITY AXIS: WHERE THE CAPTURED CORPUS GOES ───────────────────────
+#
+# Capturing material for training is not one act. WHERE the corpus ends up decides
+# whether the same capture is a private convenience or a disclosure to another party,
+# and a policy can follow the destination, not the capture. The vocabulary carries that
+# as three LOCALITIES, named as SUBJECTS of this one domain, the same way the
+# `contact_import` domain carries the source of its records as subjects (`native_store`,
+# `cloud_import`, `org_directory_sync`). A subject is a pack's concern and is never
+# declared here; this header records the three subject tokens that a consuming
+# application's packs and declarations use, so that one spelling is used everywhere:
+#
+#   local_corpus    the corpus stays on the device or in the organization's own storage.
+#   cloud_corpus    the corpus leaves for a cloud service the organization does not
+#                   control.
+#   platform_corpus the corpus goes to the operator of the consuming platform, for that
+#                   operator's own model training.
+#
+# These three tokens are the one spelling of the locality of a training corpus; a pack
+# that varies by locality uses them.
+#
+# ── NO KEY HERE ENCODES A DEFAULT ───────────────────────────────────────────
+#
+# Whether a locality is permitted outright or only on an affirmative opt-in is PACK DATA,
+# expressed by what each subject's table in a pack requires (for example, by whether that
+# table requires `explicit_optin_consent`) — NOT by a key, and NOT by this header. A
+# control key is opaque and carries no value; the profile and the subject are the
+# dimensions that vary. A key that named a locality's stance would put policy in the
+# vocabulary and need a new key every time a pack's stance changed. This is the rule the
+# `analytics_consent` catalog states for its own domain, and this domain follows it. The
+# header names the three localities so that packs spell them alike; it says nothing about
+# which of them any pack permits.
+#
+# ── ABSENCE IS THE FULL UNIVERSE ────────────────────────────────────────────
+#
+# Under `as_configured`, a subject a pack declares no table for resolves to the caller's
+# WHOLE control universe, including `explicit_optin_consent` (spec §3). A pack therefore
+# names each locality it means to govern, explicitly: a locality left out is not
+# "unchanged", it is "everything required". A new locality cannot be enabled by forgetting
+# it, and it cannot be governed by forgetting it either.
+#
+# ⚠ THE FLOOR IS PER PACK, NOT PER SUBJECT. Under `minimal` posture only the pack's
+# `[legally_required]` floor is required (spec §3), and a pack has exactly one such floor
+# (spec §2), so it is one list for every subject in the pack. A floor written for the
+# local corpus (`scrub_secrets`, `org_local_only`) does not make a cloud capture opt-in,
+# and `org_local_only` in a floor makes a cloud capture fail closed only by accident of
+# its name. A pack author who wants a non-local locality governed under `minimal` must
+# put `explicit_optin_consent` in the floor, or the locality must live in a domain of its
+# own. Which of the two a consuming platform adopts is that platform's choice and the
+# maintainers' to review; a vocabulary does not decide it.
+#
+# ⚠ A CONSUMER MUST NOT READ A FELL-BACK ANSWER AS PERMISSION.
+# Spec §5: absence, ambiguity or error resolves to the most-restrictive outcome, with the
+# decision flagged `fell_back` (spec §6 carries the flag into the receipt). So
+# `fell_back = true` means "no pack governed, and the caller's whole declared universe
+# was required", never "nothing is required". A consumer that turns it into "allow" reads
+# absence as permission, which is the inverse of §5. The cost of that reading is highest
+# where the corpus leaves the organization, because a wrong "allow" there is a disclosure
+# to another party.
+# A consumer that departs from this rule owns the departure: it records
+# that decision, with its own test, in the consumer where the departure is made. This
+# catalog does not grant it. The catalog cannot enforce this; it states it so that a
+# consumer's tests can be written against it.
+#
+# ⚠ `explicit_optin_consent` here and `explicit_opt_in` in `contact_import` are two
+# spellings for two domain-scoped controls. A control key is long-lived audit evidence
+# and is domain-scoped (spec §2), so neither is renamed to match the other.
+#
+# All eight are obligations: each names a state the enforcing gate must bring about
+# before material is captured or sent.
+
+[domain]
+name = "training_data_capture"
+description = "Controls governing capturing material for model training — scrubbing, encryption, locality, opt-out and consent obligations, by where the captured corpus goes (the device or the organization's own storage, a cloud service, or the operator of the consuming platform)."
+
+# ── Obligations — a state the enforcing gate must bring about ────────────────
+
+[control.scrub_secrets]
+kind = "obligation"
+title = "Secrets scrubbed before capture"
+description = "Credentials, tokens and key material are removed from the material before it is written to any training corpus. The control asserts the scrub ran; the detection rules belong to the enforcing layer."
+
+[control.encrypt_at_rest]
+kind = "obligation"
+title = "Corpus encrypted at rest"
+description = "The captured corpus is stored encrypted. The control asserts it; the cipher and key custody belong to the enforcing layer and are deliberately not named here."
+
+[control.org_local_only]
+kind = "obligation"
+title = "Corpus stays inside the organization"
+description = "The captured corpus is held only in storage the organization controls and is not sent to any outside party. Satisfied only while the corpus stays in the organization's own storage: a subject whose corpus goes to an outside party cannot satisfy it, so a table that requires it for such a subject fails closed."
+
+[control.opt_out_honored]
+kind = "obligation"
+title = "Opt-out honored"
+description = "A subject who opted out is excluded from capture, and the opt-out is checked at capture time, not once at enrollment."
+
+[control.admin_gated_reads]
+kind = "obligation"
+title = "Reads of the corpus gated to an administrator"
+description = "Reading the captured corpus requires an administrator role. The control asserts the gate exists; who holds the role is the enforcing layer's access policy."
+
+[control.retention_capped]
+kind = "obligation"
+title = "Corpus retention capped"
+description = "The captured corpus is held under a retention cap and deleted when it lapses. The cap's length belongs to the enforcing layer, and a key per length would put policy in the vocabulary."
+
+[control.explicit_optin_consent]
+kind = "obligation"
+title = "Explicit opt-in consent held"
+description = "Capture proceeds only on the subject's affirmative opt-in. Silence, a pre-selected default or continued use is not an opt-in. Which subjects require it is pack data: a pack lists this key in the tables of the subjects its regime demands it for. See this file's header."
+
+[control.recipient_disclosed]
+kind = "obligation"
+title = "Recipient of the corpus disclosed"
+description = "Before the corpus leaves the device, the subject is told who receives it and for what use. The control asserts the disclosure; it encodes neither its wording nor its channel. Added with the locality axis, because a destination outside the organization has a recipient to name."

@@ -1,0 +1,58 @@
+# RLPS Control Catalog — domain: diagnostics_upload
+#
+# The canonical, jurisdiction-neutral declaration of the control keys a
+# diagnostics_upload pack may reference, each with a deontic KIND and a title. Packs
+# reference these keys; they do NOT redefine them. NOT LEGAL ADVICE — a control is a
+# stable identifier for a required action, not a statement of any jurisdiction's law,
+# and satisfying every control here is not a finding that any upload is lawful. See
+# /docs/not-legal-advice.md.
+#
+# kind ∈ { permit | obligation | prohibition }
+#
+# ── WHY THIS CATALOG EXISTS ─────────────────────────────────────────────────
+#
+# A consuming application ships DRAFT packs for this domain (the fail-closed
+# `aggressive` baseline and a `minimal` floor) whose four control keys no catalog in
+# this repository declared (the packs are N Lang in the application's tree, outside the
+# invariant-11 glob over `packs/*.r14n.toml`). This file declares the vocabulary. It
+# ships WITHOUT packs on purpose, the same way `data_residency`, `data_retention` and
+# `analytics_consent` do.
+#
+# ── THIS DOMAIN IS ABOUT SENDING, NOT ABOUT KEEPING ─────────────────────────
+#
+# A diagnostics upload is a transmission to a third party. How LONG that party keeps the
+# report, and WHERE the destination is, are separate domains' questions that this domain
+# touches only as an acknowledgement (`retention_bound`) and a check
+# (`data_residency_egress`) at the moment of sending. The approved-region SET and the
+# retention LENGTH are inputs to the enforcing gate, never keys here, and a gate that
+# needs them resolves the `data_residency` and `data_retention` domains for itself:
+# resolution is per domain and never merged across domains (spec §3).
+#
+# All four are obligations: each names a state the enforcing gate must bring about
+# before the report leaves the device.
+
+[domain]
+name = "diagnostics_upload"
+description = "Controls governing the upload of a bug report or diagnostic bundle to a third party — the consent, processor-acknowledgement, retention and destination-region obligations an upload must satisfy."
+
+# ── Obligations — a state the enforcing gate must bring about ────────────────
+
+[control.upload_consent]
+kind = "obligation"
+title = "Upload consent obtained"
+description = "The subject consented to this upload after being shown what it carries. The control asserts the consent was obtained for THIS upload; it names neither the prompt's wording nor which profiles demand it."
+
+[control.third_party_processor_ack]
+kind = "obligation"
+title = "Third-party processor acknowledged"
+description = "The subject was told the report is handled by a third-party processor and acknowledged it. A separate key from the upload consent because consenting to send a report and knowing who will process it are two facts."
+
+[control.retention_bound]
+kind = "obligation"
+title = "Report retention bounded"
+description = "The uploaded report is held under a stated retention bound and deleted when it lapses. The bound's length lives in the enforcing layer's configuration; this control asserts it was stated and applied, and deliberately encodes no duration."
+
+[control.data_residency_egress]
+kind = "obligation"
+title = "Destination region checked before sending"
+description = "The region the report is sent to is checked against the approved set before it leaves the device, and a destination outside the set is refused rather than downgraded. The SET is the gate's input and not this catalog's (see the data_residency catalog's header)."

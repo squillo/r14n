@@ -260,9 +260,13 @@ Limits of the result, stated so they are not rediscovered:
 - A resolution that blocked or fell back produces an over-approximation — the caller's whole
   universe — and the report should say so.
 
-### 7.3 Two open decisions
+### 7.3 Two decisions, and where they are made
 
-These are **undecided**. This page does not choose between the options.
+Both decisions have been made for one installer: Squillo OS (2026-11-02). This page records each
+decision and the reasoning it rests on, stated in this specification's own terms. It does not bind
+any other installer, and the options are kept below because another installer faces the same choice
+and may choose differently. It records a decision and not a shipped behavior: as section 7 says,
+this page does not claim that any tool performs these steps.
 
 **A. What an undeclared application means at install.**
 
@@ -271,10 +275,26 @@ These are **undecided**. This page does not choose between the options.
 | Most-restrictive | An application that declares nothing is treated as exercising everything the installer's catalogs can describe. | The gap is loud and no application escapes the report. Every application that predates declarations is reported with maximal links, and may be blocked. |
 | Warn-only | The install proceeds; the installer warns that nothing was declared and that no informed-frameworks report could be produced. | Nothing is blocked. The application is absent from any rollup, and a warning can go unread. |
 
-Spec §5 governs what a *resolver* returns on absence, ambiguity or error; it does not settle what
-an *installer* does about an application that never declared anything.
+*Decided for Squillo OS: the DETERMINATION is most-restrictive; the CONSEQUENCE is the
+organization's.* An application that declares nothing is determined to have declared nothing, and
+the installer reads that as the widest declaration, never as an empty one. The reasoning is this
+specification's own. Spec §5 says absence, ambiguity or error MUST resolve to the most-restrictive
+outcome, and a declaration that was never made is an absence. Reading it as an empty declaration
+would make this the one place in the stack where absence is read as permission, which is the defect
+section 7.2 already guards against when it asks a report to carry `fell_back` rather than hide it.
+Section 8, variant 1, makes the same point about an omitted input. A declaration is also only the
+author's claim (section 7.1), so a missing one has nothing for the installer to compare against.
+
+What the determination CAUSES is a separate question, and it belongs to the organization. Posture
+(§3) is the caller's own narrowing and is not a global switch, so the consequence follows it: for an
+organization whose posture is the strictest, or that has a pack for a regulated domain active, an
+undeclared application requires a recorded approval by someone entitled to give it; for any other
+organization the determination is recorded and nothing is blocked, so no application that predates
+declarations is stopped by this decision. Only the determination is most-restrictive. The check is
+one more rule in the installer's existing decision, not a second gate beside it.
 
 **B. Where the install-time resolve runs.**
+
 Candidates: the installer on the target machine, a service the installer calls, a build or
 publishing pipeline before distribution, or the application's own first run. What bears on the
 choice:
@@ -286,9 +306,18 @@ choice:
 - **Integrity of what is consumed.** Packs are content-addressed (§2) and signatures bind a
   pack's identity (§6); a catalog read for links needs the same care.
 - **Capability is not the constraint.** The resolver ships as a Rust crate, a wasm package and a
-  Python package, and its wire form is byte-stable across hosts and runs, so the same resolve can
-  sit on either side of a frontend/backend boundary. The choice is about trust and inputs, not
-  feasibility.
+  Python package, and its wire form is byte-stable across hosts and runs.
+
+*Decided for Squillo OS: on the device, inside the installer's own decision.* The containment check
+(what the toolchain attested, within what the author declared, within what the organization grants)
+is local set arithmetic and runs where the install decision runs. Each of the other candidates adds
+a party the result must be trusted through, which is the first bullet above. A service in the path
+controls the inputs of the resolve. A build or publishing pipeline has to be trusted to have run
+first. A distribution registry that only stores and serves artifacts verifies nothing, so it can
+withhold evidence and cannot be made to vouch for it: the check cannot live there. Running where the
+install decision runs adds none of these. Any resolve the organization's grant needs runs on the
+same device, with the caller's own universe, posture and jurisdiction; an unknown jurisdiction is
+reported as unknown, never left out (§4.1; section 8, variant 1).
 
 ## 8. A worked example
 

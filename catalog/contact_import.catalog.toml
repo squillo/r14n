@@ -1,0 +1,59 @@
+# RLPS Control Catalog — domain: contact_import
+#
+# The canonical, jurisdiction-neutral declaration of the control keys a contact_import
+# pack may reference, each with a deontic KIND and a title. Packs reference these
+# keys; they do NOT redefine them. NOT LEGAL ADVICE — a control is a stable
+# identifier for a required action, not a statement of any jurisdiction's law, and
+# satisfying every control here is not a finding that any contact import is lawful.
+# See /docs/not-legal-advice.md.
+#
+# kind ∈ { permit | obligation | prohibition }
+#
+# ── WHY THIS CATALOG EXISTS ─────────────────────────────────────────────────
+#
+# A consuming application ships DRAFT packs for this domain, for five profiles, whose
+# four control keys no catalog in this repository declared (the packs are N Lang in the
+# application's tree, outside the invariant-11 glob over `packs/*.r14n.toml`). This file
+# declares the vocabulary. It ships WITHOUT packs on purpose, the same way
+# `data_residency`, `data_retention` and `analytics_consent` do.
+#
+# ── THE LOCALITY OF THE SOURCE IS A SUBJECT, NOT A CONTROL ──────────────────
+#
+# The shipped packs vary what an import requires by WHERE THE RECORDS COME FROM, and they
+# do it with SUBJECTS: `native_store` (the device's own store), `cloud_import` (a cloud
+# account), `org_directory_sync` (an organization's directory). Subjects live in packs,
+# never here. The same convention carries the training-data locality axis
+# (see the `training_data_capture` catalog), and this domain is its house precedent.
+#
+# ⚠ `explicit_opt_in` here and `explicit_optin_consent` in `training_data_capture` are
+# two spellings for two domain-scoped controls. A control key is long-lived audit
+# evidence and is domain-scoped (spec §2), so neither is renamed to match the other.
+#
+# All four are obligations: each names a state the enforcing gate must bring about
+# before the import proceeds.
+
+[domain]
+name = "contact_import"
+description = "Controls governing the import of contact records into a store — the consent, opt-in, minimization and residency obligations an import must satisfy, by source."
+
+# ── Obligations — a state the enforcing gate must bring about ────────────────
+
+[control.contact_pii_consent]
+kind = "obligation"
+title = "Contact personal-data consent held"
+description = "The importing user consented to the import of the personal data the contact records hold. The control asserts the consent was held; it names neither whose consent counts in a given jurisdiction nor its form."
+
+[control.explicit_opt_in]
+kind = "obligation"
+title = "Explicit opt-in to the import"
+description = "The import proceeds only on an affirmative opt-in. Silence, a pre-selected default or continued use is not an opt-in. A separate key from the consent control because holding consent and having been asked to opt in are two facts on most platforms."
+
+[control.data_minimization]
+kind = "obligation"
+title = "Only needed contact fields imported"
+description = "The import takes only the contact fields it needs and drops the rest rather than storing them. The set of needed fields belongs to the enforcing layer; the control asserts it was applied."
+
+[control.residency_check]
+kind = "obligation"
+title = "Residency checked before directory sync"
+description = "Before records move from an organization's directory, the regions involved are checked against the approved set. The SET is the gate's input and not this catalog's; an empty or absent set refuses rather than meaning no restriction (see the data_residency catalog's header)."
