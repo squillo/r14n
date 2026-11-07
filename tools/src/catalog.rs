@@ -10,6 +10,39 @@
 //! - 2026-07-06: authored — roadmap item 5 (pack-lifecycle CLI).
 //! - 2026-07-06: DRY pass — `parse` split out of `load`; shared `test_catalog`
 //!   fixture replaces the per-module tempdir dance.
+//! - 2026-11-07: `kind` and `title` are now REQUIRED and `kind` is a closed set, as
+//!   `schema/catalog.schema.json` states ("required rather than defaulted on purpose: a
+//!   loader that defaults a missing kind turns an omission into an assertion nobody
+//!   wrote"). `parse` used to default a missing `kind` to `obligation` and a missing
+//!   `title` to the key, and accepted any `kind` string. New cells only; the existing
+//!   cell and its expected value are unchanged.
+
+/// The closed deontic set `schema/catalog.schema.json` allows for `kind`.
+#[derive(Clone, Copy)]
+enum ControlKind {
+  Permit,
+  Obligation,
+  Prohibition,
+}
+
+impl ControlKind {
+  fn from_token(token: &str) -> ::std::option::Option<Self> {
+    match token {
+      "permit" => ::std::option::Option::Some(Self::Permit),
+      "obligation" => ::std::option::Option::Some(Self::Obligation),
+      "prohibition" => ::std::option::Option::Some(Self::Prohibition),
+      _ => ::std::option::Option::None,
+    }
+  }
+
+  fn as_str(self) -> &'static str {
+    match self {
+      Self::Permit => "permit",
+      Self::Obligation => "obligation",
+      Self::Prohibition => "prohibition",
+    }
+  }
+}
 
 /// One catalog control declaration (the fields the CLI needs).
 pub struct ControlDef {
@@ -53,12 +86,22 @@ pub fn parse(
     .and_then(|c| c.as_table())
     .ok_or_else(|| ::std::format!("{origin}: missing [control.<key>] tables"))?;
   for (key, def) in table {
-    let kind = def.get("kind").and_then(|k| k.as_str()).unwrap_or("obligation");
-    let title = def.get("title").and_then(|t| t.as_str()).unwrap_or(key);
+    let token = def.get("kind").and_then(|k| k.as_str()).ok_or_else(|| {
+      ::std::format!("{origin}: [control.{key}] has no `kind` (required, never defaulted)")
+    })?;
+    let kind = ControlKind::from_token(token).ok_or_else(|| {
+      ::std::format!(
+        "{origin}: [control.{key}] kind {token:?} is not one of permit | obligation | prohibition"
+      )
+    })?;
+    let title = def
+      .get("title")
+      .and_then(|t| t.as_str())
+      .ok_or_else(|| ::std::format!("{origin}: [control.{key}] has no `title` (required)"))?;
     controls.insert(
       key.clone(),
       ControlDef {
-        kind: ::std::string::String::from(kind),
+        kind: ::std::string::String::from(kind.as_str()),
         title: ::std::string::String::from(title),
       },
     );
@@ -97,5 +140,38 @@ mod tests {
     ::std::assert_eq!(keys, ["aph_mandate", "attestation", "signal_notice"]);
     ::std::assert_eq!(cat.controls["aph_mandate"].kind, "permit");
     ::std::assert_eq!(super::test_catalog().domain, cat.domain, "parse path matches load path");
+  }
+
+  /// Why: the schema says `kind` is required, not defaulted. A defaulted kind turns an
+  /// omitted prohibition into an obligation nobody wrote.
+  #[test]
+  fn a_control_without_a_kind_is_refused_not_defaulted() {
+    let raw = "[domain]\nname = \"d\"\n[control.k]\ntitle = \"t\"\n";
+    let err = super::parse(raw, "fixture")
+      .err()
+      .expect("a missing kind is an error");
+    ::std::assert!(err.contains("no `kind`"), "{err}");
+  }
+
+  /// Why: the schema closes `kind` to permit, obligation, prohibition. A loader that accepted any string
+  /// would let a misspelled `prohibtion` pass as a kind nobody defined.
+  #[test]
+  fn a_control_with_an_unknown_kind_is_refused() {
+    let raw = "[domain]\nname = \"d\"\n[control.k]\nkind = \"mandate\"\ntitle = \"t\"\n";
+    let err = super::parse(raw, "fixture")
+      .err()
+      .expect("an unknown kind is an error");
+    ::std::assert!(err.contains("not one of"), "{err}");
+  }
+
+  /// Why: the schema requires `title`. Naming a control after its own key would put an identifier
+  /// where a human-readable title belongs, and every template and report would show it as one.
+  #[test]
+  fn a_control_without_a_title_is_refused_not_named_after_its_key() {
+    let raw = "[domain]\nname = \"d\"\n[control.k]\nkind = \"obligation\"\n";
+    let err = super::parse(raw, "fixture")
+      .err()
+      .expect("a missing title is an error");
+    ::std::assert!(err.contains("no `title`"), "{err}");
   }
 }

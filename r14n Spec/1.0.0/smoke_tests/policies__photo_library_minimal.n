@@ -23,6 +23,6 @@ mod packs {
       { key: "metadata", controls: ["consent_prompt", "usage_description", "no_location_egress"] }
     ]
     legally_required: { controls: ["consent_prompt", "usage_description", "limited_selection"] }
-    prohibited: ["full_library_access"]
+    prohibited: { controls: ["full_library_access"] }
   }
 }

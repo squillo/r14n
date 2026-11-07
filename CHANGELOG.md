@@ -12,6 +12,39 @@ History banner in the spec for normative changes), rather than forking a version
 
 ## [0.1.0-draft]
 
+### Fixed (revision 2026-11-07 — a prohibition that reached the bundle empty, and a catalog loader that defaulted what the schema requires)
+
+- **The `photo_library` minimal pack's `prohibited` list reached the emitted bundle EMPTY.** The
+  pack source wrote the field as a bare list where the published pack type is a `ControlList`. The
+  compiler accepted it and the JSON export normalised the mismatch to an empty prohibition, which
+  reads as "forbids nothing": the fail-open direction for a data-minimisation guard. The drift
+  gate agreed with that bundle because it compares bytes to a pin, not meaning to a contract. The
+  source now writes `{ controls: [...] }`. Both bundles were re-emitted with `@snapp.date` held at
+  its existing value, so the bundle diff is content-only, and the framework bundle's integrity pin
+  in `baselines/1.0.0/lib.n.md` moved in the same change and equals the committed bundle's sha256.
+  The resolver, the schemas, the spec text and every shipped TOML pack are untouched.
+- **`photo_library` now declares `full_library_access`** as a `prohibition` (trigger `always`).
+  Once the field was typed correctly the key became visible, and `catalog_integrity` named it as
+  declared by no catalog. It is a vocabulary entry, not a signal: a prohibition key must never be
+  placed in a caller's universe (the `credential_use` catalog, rule 2).
+- **The `r14n` CLI's catalog loader no longer defaults.** `parse` in `tools/src/catalog.rs` used to
+  default a missing `kind` to `obligation`, a missing `title` to the control's key, and to accept
+  any `kind` string. It now refuses a missing `kind`, a `kind` outside
+  `permit | obligation | prohibition`, and a missing `title`, as `schema/catalog.schema.json`
+  already requires. **This is a behaviour change** for anyone running `validate` against a
+  hand-written catalog that relied on those defaults; every catalog shipped in this repository
+  passes the stricter loader.
+
+### Tests (revision 2026-11-07)
+
+- `resolver/tests/snapp_face_contract.rs` reads the committed Snapp JSON face through a typed
+  contract, so the shape the unfixed export produced is refused rather than coerced, and checks
+  that every pack's control keys are declared by its own domain's catalog. It types the
+  human-readable face for this repository's public CI; it is not evidence about the compiled
+  record.
+- Three loader cells in `tools/src/catalog.rs` pin the refusals above: a missing `kind`, an
+  unknown `kind`, and a missing `title`.
+
 ### Added (revision 2026-11-03 — catalogs for five domains that shipped without one, the training-capture locality axis, and the two install-time decisions recorded; the catalog half of the data-class delta, r14n side)
 
 - **Five Control Catalogs** (was eleven, now sixteen; 23 control keys): `ai_disclosure` (4),

@@ -36,6 +36,17 @@
 #
 # ⚠ `kind` is DOCUMENTATION today — nothing enforces it. See the data_residency catalog's
 # header for the derivation note.
+#
+# ── ON THE PROHIBITION KEY ──────────────────────────────────────────────────
+#
+# `full_library_access` is this domain's one prohibition, and it is invisible to a resolved
+# decision: a resolver intersects the prohibited set with the CALLER'S UNIVERSE, so the key
+# must NEVER be declared in a caller's universe. Every fail-closed fallback resolves to the
+# caller's whole universe, and a prohibition key placed there would become REQUIRED at exactly
+# the moment resolution fails (the credential_use catalog, rule 2). It is documentation and a
+# slot, not a signal: a deployment that must never hold a whole-library grant has to make that
+# structural in the enforcing layer. The key was declared nowhere until a typed cross-check of
+# the packs against their catalogs named it.
 
 [domain]
 name = "photo_library"
@@ -65,3 +76,9 @@ description = "Photo content is processed on the device and not sent off it. Rea
 kind = "obligation"
 title = "Embedded location withheld"
 description = "Location embedded in image metadata is stripped or withheld rather than forwarded. A separate key from `on_device_only` because a deployment may legitimately send an image off device while still never sending where it was taken — and the metadata subject is where that distinction is decided."
+
+[control.full_library_access]
+kind = "prohibition"
+title = "Whole-library authorization held"
+trigger = "always"
+description = "The application holds an authorization to read the entire photo library rather than only a subject-chosen selection; the prohibited counterpart of `limited_selection`."
