@@ -12,6 +12,17 @@ History banner in the spec for normative changes), rather than forking a version
 
 ## [0.1.0-draft]
 
+### Changed (revision 2026-11-08 — the tracking RFC issue for the 2026-11-03 and 2026-11-07 revisions is recorded)
+
+- The 2026-11-03 Process note says the RFC issue was "to be filed at publication" and that none was
+  recorded in this repository's tracked files. It is
+  [#3](https://github.com/squillo/r14n/issues/3), filed on 2026-11-08. It was filed **after** both
+  revisions had landed on `main` (`7abb46e` and `81ecf11`, through PR #2 on 2026-11-07), so it is a
+  record opened for review in the open, not a design review that came first. Its "Process record"
+  section states that PR #2 was merged with administrator rights over the branch rule requiring one
+  approving review, and that it had none.
+- This entry changes no catalog, schema, spec text, resolver behaviour or pack.
+
 ### Fixed (revision 2026-11-07 — a prohibition that reached the bundle empty, and a catalog loader that defaulted what the schema requires)
 
 - **The `photo_library` minimal pack's `prohibited` list reached the emitted bundle EMPTY.** The
@@ -180,6 +191,10 @@ revert any catalog above deliberately.
 Process note: this adds a published schema contract. Per `GOVERNANCE.md` that is RFC territory and
 needs two maintainer approvals. No RFC issue has been filed yet, so nothing here is ratified until
 a maintainer says so.
+
+Maintainer approval recorded 2026-11-08: the maintainer approved this entry on 2026-11-03 in the
+project ledger; that is one maintainer's approval, `GOVERNANCE.md` asks for two, and no independent
+review has happened (see issue #3).
 
 ### Tests (revision 2026-10-31)
 
