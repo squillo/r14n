@@ -120,7 +120,7 @@ fn stripping_comments_changes_no_value_in_any_published_pack() {
 #[test]
 fn every_emitted_keyword_pack_validates_against_the_published_schema() {
   let bundle: ::serde_json::Value =
-    ::serde_json::from_str(&common::read("snapp/r14n_baselines@1.0.0.json"))
+    ::serde_json::from_str(&common::read("snapp/r14n_baselines@0.1.0.json"))
       .expect("baselines bundle is not valid JSON");
   let schema: ::serde_json::Value =
     ::serde_json::from_str(&common::read("schema/pack.schema.json")).expect("pack schema");
@@ -154,7 +154,7 @@ fn every_emitted_keyword_pack_validates_against_the_published_schema() {
 #[test]
 fn the_emitted_shape_needs_no_rename_and_no_wrapping() {
   let bundle: ::serde_json::Value =
-    ::serde_json::from_str(&common::read("snapp/r14n_baselines@1.0.0.json"))
+    ::serde_json::from_str(&common::read("snapp/r14n_baselines@0.1.0.json"))
       .expect("baselines bundle is not valid JSON");
   for (name, pack) in bundle["policies"].as_object().expect("policies") {
     ::std::assert!(

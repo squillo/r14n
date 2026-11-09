@@ -19,7 +19,7 @@ Copyright 2026 Squillo, Inc. <legal@squillo.com>. These Snapp sources are licens
 
 r14n block predicate keywords express regulatory policy packs — a `(profile × domain × subject) → required-controls` mapping, resolved fail-closed — as terse, readable N Lang programs that desugar to the core-book instance form. These keywords extend N's list of Block Predicate Keywords.
 
-**Deliberate minimalism (the Raconteur principle):** a keyword represents a WHOLE domain concept — a regulatory policy pack, a control catalog, a Snapp's compliance declaration — never a field alias. The keyword blocks are `policies`, `catalog` and `snapp_compliance`; the `frameworks` document declares types only (the OPTIONAL `frameworks` prop of a catalog control), not a keyword.
+**Deliberate minimalism (the Raconteur principle):** a keyword represents a WHOLE domain concept — a regulatory policy pack, a control catalog, a Snapp's compliance declaration — never a field alias. The keyword blocks are `policies`, `catalog` and `snapp_compliance`; the `frameworks` and `data_classes` documents declare types and a closed vocabulary only (the OPTIONAL `frameworks` prop of a catalog control; the data classes a Snapp may declare), not keywords.
 
 > **⚠ NOT LEGAL ADVICE.** Nothing declared here states what any law requires or that any configuration is lawful, certified or compliant. A framework link relates a control to an edition of a framework; a compliance declaration states what a Snapp says it touches. Neither is a determination.
 
@@ -32,6 +32,7 @@ mod R14N_SPEC_KEYWORD_POLICIES_1_0_0 {};
 mod R14N_SPEC_KEYWORD_CATALOG_1_0_0 {};
 mod R14N_SPEC_KEYWORD_FRAMEWORKS_1_0_0 {};
 mod R14N_SPEC_KEYWORD_SNAPP_COMPLIANCE_1_0_0 {};
+mod R14N_SPEC_KEYWORD_DATA_CLASSES_1_0_0 {};
 ```
 
 ## Public Re-exports
@@ -42,6 +43,7 @@ mod * {
   pub @use R14N_SPEC_KEYWORD_CATALOG_1_0_0 {}
   pub @use R14N_SPEC_KEYWORD_FRAMEWORKS_1_0_0 {}
   pub @use R14N_SPEC_KEYWORD_SNAPP_COMPLIANCE_1_0_0 {}
+  pub @use R14N_SPEC_KEYWORD_DATA_CLASSES_1_0_0 {}
 }
 ```
 
@@ -65,7 +67,7 @@ Declares a domain's Control Catalog: the jurisdiction-neutral vocabulary of cont
 
 #### `snapp_compliance`
 
-Declares what a Snapp says it touches: the `(domain, subject)` pairs it exercises (a keyed table, domain to subjects) and the data classes it handles (SUBJECT tokens, never profiles). A declaration, not a determination.
+Declares what a Snapp says it touches: the `(domain, subject)` pairs it exercises (a keyed table, domain to subjects) and the data classes it handles (SUBJECT tokens, never profiles; optionally also as the closed `DataClassSet` of `data_classes`). A declaration, not a determination.
 
 - [R14N_SPEC_KEYWORD_SNAPP_COMPLIANCE_1_0_0.n.md](R14N_SPEC_KEYWORD_SNAPP_COMPLIANCE_1_0_0.n.md)
 
@@ -76,6 +78,12 @@ Declares what a Snapp says it touches: the `(domain, subject)` pairs it exercise
 The types behind the OPTIONAL `frameworks` prop of a catalog control: `FrameworkLinks` (a CLOSED set of framework editions, one optional direct prop each), `FrameworkLink` (a closed `relation`, optional `criteria`, optional `review`) and `FrameworkReview`. Ships ahead of its content: no shipped catalog populates it.
 
 - [R14N_SPEC_KEYWORD_FRAMEWORKS_1_0_0.n.md](R14N_SPEC_KEYWORD_FRAMEWORKS_1_0_0.n.md)
+
+#### `data_classes`
+
+The closed vocabulary of data classes a Snapp may declare it handles: nine kinds (`phi`, `pii`, `financial`, `biometric`, `student_record`, `credentials`, `location`, `communications`, `telemetry`), declared as the OPTIONAL props of one type, `DataClassSet`, so a misspelled class is a prop the type does not declare: refused where the type is declared (COMP-438, measured), and not yet across a dependency (measured), where a consumer checks the keys itself. A kind of data, never a statute and never a determination; it carries no criterion identifier. Grows by LAST-position adds only.
+
+- [R14N_SPEC_KEYWORD_DATA_CLASSES_1_0_0.n.md](R14N_SPEC_KEYWORD_DATA_CLASSES_1_0_0.n.md)
 
 ---
 

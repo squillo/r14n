@@ -48,6 +48,7 @@
 //! - 2026-11-07: added the typed catalog cross-check. It found `full_library_access` named by
 //!   a pack and declared by no catalog, hidden until the pack's `prohibited` field was
 //!   written in its typed shape; the header's earlier "control keys are opaque" was wrong.
+//! - 2026-11-08: the bundles were re-emitted as `@com::squillo/r14n` and `@com::squillo/r14n_baselines` 0.1.0, so the files are `snapp/r14n@0.1.0.json` and `snapp/r14n_baselines@0.1.0.json`; this file's paths follow.
 
 #![allow(dead_code)]
 
@@ -203,7 +204,7 @@ fn key(raw: &str) -> ControlKey {
 fn shipped_face() -> FaceDoc {
   let p = common::repo_root()
     .join("snapp")
-    .join("r14n@0.1.0-alpha.1.json");
+    .join("r14n@0.1.0.json");
   let raw =
     ::std::fs::read_to_string(&p).unwrap_or_else(|e| ::std::panic!("read {}: {e}", p.display()));
   ::serde_json::from_str(&raw)

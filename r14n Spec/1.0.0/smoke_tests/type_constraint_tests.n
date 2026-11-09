@@ -969,4 +969,91 @@ mod type_constraint_tests {
       verified_by: 7
     }
   }
+
+  // ── The closed data-class vocabulary (added 2026-11-03; the closed-set form, measured 2026-11-08) ──
+  //
+  // `DataClassSet` is the `FrameworkLinks` idiom: one OPTIONAL `DataClass` prop per class and
+  // `additional_props = false`, so the KEY is what the closure checks. A positive arm proves the type
+  // resolved at all; an unresolvable `<Type>` makes a positive-only suite pass unconditionally, so
+  // each positive is paired with a negative that flips ONE value.
+
+  /// Why: a DataClass with a title and a description must resolve; if it does not, the vocabulary
+  /// is not a type and every later arm in this section is vacuous.
+  #[test]
+  data_class_resolves {
+    class: <DataClass> {
+      title: "Health information"
+      description: "Information about an individual's health, health care or payment for health care."
+    }
+  }
+
+  /// Why: a class with no title cannot be shown to a human reviewer; `title` is REQUIRED.
+  #[test(should_fail = true)]
+  data_class_requires_a_title {
+    class: <DataClass> {
+      description: "Information about an individual's health."
+    }
+  }
+
+  /// Why: the type is CLOSED. A prop nobody declared (a plausible `regime` slip: joining a class to
+  /// a law) must be refused, because the vocabulary names kinds of data and never a regime.
+  #[test(should_fail = true)]
+  data_class_rejects_a_prop_it_does_not_declare {
+    class: <DataClass> {
+      title: "Health information"
+      description: "Information about an individual's health."
+      regime: "example"
+    }
+  }
+
+  /// Why: all nine classes are direct props of the closed set; if one stopped resolving, a Snapp
+  /// that declares it would fail while its siblings still passed.
+  #[test]
+  data_class_set_resolves_for_all_nine_classes {
+    set: <DataClassSet> {
+      phi: { title: "Health information" description: "Visit notes." }
+      pii: { title: "Personal information" description: "Names and email addresses." }
+      financial: { title: "Financial information" description: "Invoices." }
+      biometric: { title: "Biometric information" description: "A voiceprint." }
+      student_record: { title: "Student records" description: "Course grades." }
+      credentials: { title: "Credentials" description: "Access tokens." }
+      location: { title: "Location" description: "A device's coarse region." }
+      communications: { title: "Communications" description: "Call audio." }
+      telemetry: { title: "Telemetry" description: "Crash reports." }
+    }
+  }
+
+  /// Why: the closed form must resolve beside the str form, in the position a Snapp writes it. The
+  /// str form stays REQUIRED, so this also proves the required pair is intact.
+  #[test]
+  snapp_compliance_resolves_with_a_data_class_set {
+    declaration: <SnappCompliance> {
+      exercises: { recording_consent: { subjects: ["telepresence"] } }
+      data_classes: ["communications"]
+      data_class_set: { communications: { title: "Communications" description: "Call audio." } }
+    }
+  }
+
+  /// Why: THE DECIDING ARM. A class the vocabulary does not declare must not compile, or the closed
+  /// form closes nothing. The misspelling `communicatoins` is the slip the open str form accepts.
+  #[test(should_fail = true)]
+  snapp_compliance_rejects_a_data_class_set_key_it_does_not_declare {
+    declaration: <SnappCompliance> {
+      exercises: { recording_consent: { subjects: ["telepresence"] } }
+      data_classes: ["communications"]
+      data_class_set: { communicatoins: { title: "Communications" description: "Call audio." } }
+    }
+  }
+
+  /// Why: an empty set declares that the Snapp handles none, as an empty `data_classes` list does, so
+  /// the two forms can agree. `DataClassSet` carries no `min_props`; if this reddens, the type started
+  /// refusing the empty set and the keyword document's "an empty set declares none" is wrong.
+  #[test]
+  snapp_compliance_accepts_an_empty_data_class_set {
+    declaration: <SnappCompliance> {
+      exercises: { recording_consent: { subjects: ["telepresence"] } }
+      data_classes: []
+      data_class_set: { }
+    }
+  }
 }

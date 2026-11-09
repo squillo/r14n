@@ -13,10 +13,10 @@ to an ABI-consumable dist that the Squillo OS regulatory-policy engine reads thr
 packs are counsel-gated and held out.
 
 ```nlang
-@deps "r14n@0.1.0-alpha.1" {
+@deps "r14n@0.1.0" {
   use { $::* }
-  from      = "../../snapp/r14n@0.1.0-alpha.1.json"
-  integrity = "sha256-1f01c6c2495457dc8e5363bf74bb3491f1f8a25a5aaf8e3f01ca485b9a9bbe20"
+  from      = "../../snapp/r14n@0.1.0.json"
+  integrity = "sha256-ed9c71b51bb8abd3c79606b2c2fe602f6c7f3ca40be7d20d21ebc425684a6b50"
 }
 
 policies "HEALTH_AGGRESSIVE" {
@@ -90,4 +90,10 @@ policies "RECORDING_CONSENT_MINIMAL" {
 // without this line `policy_pack_tests.n` would sit in the tree compiled by nothing.
 #[cfg(test)]
 mod policy_pack_tests {};
+
+// The consumer-side arms for the closed data-class vocabulary. Declared after the sibling
+// above, for the same reason, and with its own `#[cfg(test)]`: an attribute attaches to the item
+// that immediately follows it, so the sibling's attribute does not carry to this line.
+#[cfg(test)]
+mod data_class_consumer_tests {};
 ```

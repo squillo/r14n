@@ -39,6 +39,7 @@
 //!
 //! Revision History
 //! - 2026-10-16: ported from `.github/scripts/snapp_drift_gate.py`.
+//! - 2026-11-08: the bundles were re-emitted as `@com::squillo/r14n` and `@com::squillo/r14n_baselines` 0.1.0, so the files are `snapp/r14n@0.1.0.json` and `snapp/r14n_baselines@0.1.0.json`; this file's path follows, and the expected `@snapp.version` is now derived from `BUNDLE`, so the two cannot drift apart.
 
 mod common;
 
@@ -187,7 +188,12 @@ fn every_keyword_doc_is_declared_and_every_declaration_has_a_file() {
 /// name for weeks.
 #[test]
 fn the_framework_bundle_carries_every_declared_pack_and_agrees_with_its_filename() {
-  const BUNDLE: &str = "snapp/r14n@0.1.0-alpha.1.json";
+  const BUNDLE: &str = "snapp/r14n@0.1.0.json";
+  // The version the filename pins, derived from BUNDLE so the two cannot drift apart.
+  let want = BUNDLE
+    .strip_prefix("snapp/r14n@")
+    .and_then(|rest| rest.strip_suffix(".json"))
+    .expect("BUNDLE is spelled snapp/r14n@<version>.json");
   let doc: ::serde_json::Value =
     ::serde_json::from_str(&common::read(BUNDLE)).expect("framework bundle is not valid JSON");
 
@@ -199,7 +205,7 @@ fn the_framework_bundle_carries_every_declared_pack_and_agrees_with_its_filename
   );
   ::std::assert_eq!(
     meta["version"].as_str(),
-    ::std::option::Option::Some("0.1.0-alpha.1"),
+    ::std::option::Option::Some(want),
     "{BUNDLE}: `@snapp.version` disagrees with the filename consumers pin by. Re-emit \
      rather than editing either."
   );
