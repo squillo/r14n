@@ -1,0 +1,70 @@
+// Consumer-side arms for the closed data-class vocabulary, across the dependency.
+//
+// Why this file is HERE and not in `r14n Spec/1.0.0/smoke_tests/type_constraint_tests.n`: that file
+// runs under the SPEC root, where the types are declared in the Snapp under test and there is no
+// dependency to resolve through. A Snapp that declares its data classes is a DEPENDENT Snapp. This
+// Snapp depends on r14n through the `@deps "r14n@0.1.0"` block in `lib.n.md` (`use { $::* }`), so
+// `SnappCompliance` and `DataClassSet` arrive here by name.
+//
+// What it answers: whether the closure of `DataClassSet` (an undeclared class key is refused, COMP-438,
+// measured in the spec root) still holds ACROSS the dependency. That is a real question here: the
+// coverage boundary in `policy_pack_tests.n` records that scalar atom kind is enforced where a type is
+// declared and NOT across a dep boundary.
+//
+// MEASURED 2026-11-08 (`nlang 0.1.0-dev (12c4c7fea 2026-11-01)`): `SnappCompliance` RESOLVES here (a
+// missing required prop is refused), and `additional_props = false` does NOT cross the dependency: an
+// undeclared class key and an undeclared top-level prop both compile. The two arms that say so are
+// `should_fail` arms and are RED. They stay RED until the compiler carries the closure across a
+// dependency; they are not inverted, ignored or deleted, because a consumer of a declaration has to
+// know the closure is missing, and the keyword document tells it to check the keys itself meanwhile.
+//
+// Every negative flips ONE value (a misspelled class key), never a declaration, and the positive is
+// paired with it, because an unresolvable `<Type>` makes a positive arm pass unconditionally.
+//
+// NOT LEGAL ADVICE: these arms assert SHAPE, never that any data class or control set is lawful.
+
+#[cfg(test)]
+mod data_class_consumer_tests {
+
+  /// Why: a dependent Snapp's declaration in the closed form must resolve across the dependency.
+  #[test]
+  consumer_resolves_a_data_class_set {
+    declaration: <SnappCompliance> {
+      exercises: { recording_consent: { subjects: ["telepresence"] } }
+      data_classes: ["communications"]
+      data_class_set: { communications: { title: "Communications" description: "Call audio." } }
+    }
+  }
+
+  /// Why: the closure must hold across the dependency, or a dependent Snapp's misspelled class
+  /// compiles where the same text in the spec root does not.
+  #[test(should_fail = true)]
+  consumer_rejects_a_data_class_set_key_the_vocabulary_does_not_declare {
+    declaration: <SnappCompliance> {
+      exercises: { recording_consent: { subjects: ["telepresence"] } }
+      data_classes: ["communications"]
+      data_class_set: { communicatoins: { title: "Communications" description: "Call audio." } }
+    }
+  }
+
+  /// Why: proves `SnappCompliance` RESOLVES across the dependency. If it did not, every positive in
+  /// this file would pass unconditionally and every negative would compile, for a reason unrelated to
+  /// the closure. A missing REQUIRED prop is refused only by a type that resolved.
+  #[test(should_fail = true)]
+  consumer_snapp_compliance_still_requires_data_classes {
+    declaration: <SnappCompliance> {
+      exercises: { recording_consent: { subjects: ["telepresence"] } }
+    }
+  }
+
+  /// Why: separates a top-level closure from a nested one. A prop `SnappCompliance` does not declare,
+  /// at the top level of the declaration, across the dependency.
+  #[test(should_fail = true)]
+  consumer_rejects_a_prop_snapp_compliance_does_not_declare {
+    declaration: <SnappCompliance> {
+      exercises: { recording_consent: { subjects: ["telepresence"] } }
+      data_classes: ["communications"]
+      regime: "example"
+    }
+  }
+}

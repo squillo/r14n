@@ -25,7 +25,8 @@ be read against that resolution first has to say WHICH `(domain, subject)` pairs
 WHAT KIND of data it handles. This block is that statement, and it is deliberately the smallest one
 that says both.
 
-**Minimal on purpose.** Two props. A Snapp does not restate packs, controls, profiles or
+**Minimal on purpose.** Two REQUIRED props, and one OPTIONAL closed-set prop appended LAST (the
+closed form of `data_classes`, below). A Snapp does not restate packs, controls, profiles or
 postures here: those belong to the pack, the catalog and the resolver, and a second copy of any of
 them is a place for the two to disagree.
 
@@ -48,7 +49,18 @@ snapp_compliance "MY_SNAPP" {
   (a `/`-delimited tag such as the fictional `example/region`); a subject names WHAT THE ACTIVITY
   IS. A data class is a kind of thing a Snapp handles, so it is spelled as a subject token, in the
   grammar of `Subject.key`: `^[a-z][a-z0-9_]{0,63}$`. A `/` can never appear in one.
-- **Both props are REQUIRED**, because absence must not read as an answer. `data_classes` may be
+- **`data_class_set`** is OPTIONAL and is the CLOSED form of `data_classes`: a `DataClassSet` (the
+  `data_classes` keyword document) keyed by the classes the Snapp handles, each value a `DataClass`
+  (a title and a sentence). A misspelled class is a key the type does not declare. Where the type is
+  declared the compiler refuses it (COMP-438, measured below); in a dependent Snapp it does not yet
+  (also measured below), so a consumer checks every key against the nine itself. A misspelled string
+  in `data_classes` is a new class everywhere. An
+  empty set declares none, as an empty `data_classes` list does. It is appended LAST so that nothing
+  already declared stops compiling; the str form stays REQUIRED. When both are present they SHOULD
+  agree; a consumer that finds them disagreeing reads their UNION, and reads a class from the KEY,
+  never from its title. The types cannot express either rule (each is a cross-field rule), so they
+  are carried here and by the consumer's tests.
+- **The first two props are REQUIRED**, because absence must not read as an answer. `data_classes` may be
   EMPTY, and EMPTY IS MEANINGFUL: it says the Snapp declares that it handles none, where an absent
   list says nothing was declared.
 
@@ -82,6 +94,21 @@ negative was also run alone as a plain positive test to read the diagnostic that
 | a domain KEY outside `^[a-z][a-z0-9_]{0,63}$` | NOT ENFORCED | accepted |
 | a profile-shaped token (`example/region`) in `data_classes` | NOT ENFORCED | accepted |
 | a non-string item in `subjects` or `data_classes` | NOT ENFORCED | accepted |
+
+The OPTIONAL `data_class_set` prop, measured 2026-11-08 on `nlang 0.1.0-dev (12c4c7fea 2026-11-01)`
+(binary sha256 `a7665e6b4c7e914f…`) in this Snapp's own tree, by the arms named in the last column of
+`smoke_tests/type_constraint_tests.n`. The negative was also run once alone as a plain positive test
+to read the diagnostic that refused it.
+
+| Probe | Result | Diagnostic |
+|---|---|---|
+| a class key `DataClassSet` does not declare (`communicatoins`), nested in a `SnappCompliance` | ENFORCED | COMP-438 (`snapp_compliance_rejects_a_data_class_set_key_it_does_not_declare`) |
+| a `data_class_set` beside `data_classes` | resolves | (`snapp_compliance_resolves_with_a_data_class_set`) |
+| an empty `data_class_set` | NOT REFUSED, by design (no `min_props`) | accepted (`snapp_compliance_accepts_an_empty_data_class_set`) |
+| a `SnappCompliance` that omits `data_class_set` | NOT REFUSED, by design (optional) | accepted (every earlier positive arm omits it) |
+| ACROSS A DEPENDENCY (`baselines/1.0.0`): a `SnappCompliance` with no `data_classes` | ENFORCED | refused (`consumer_snapp_compliance_still_requires_data_classes`, in `baselines/1.0.0/data_class_consumer_tests.n`) |
+| across a dependency: a class key `DataClassSet` does not declare | NOT ENFORCED | compiles; the `should_fail` arm is RED (`consumer_rejects_a_data_class_set_key_the_vocabulary_does_not_declare`) |
+| across a dependency: a prop `SnappCompliance` does not declare | NOT ENFORCED | compiles; RED (`consumer_rejects_a_prop_snapp_compliance_does_not_declare`). The COMP-438 row of the first table holds where the type is declared only |
 
 Where a row is not enforced it is pinned as an INVERTED TRIPWIRE in
 `smoke_tests/type_constraint_tests.n` — green while the gap stands, red the day the compiler
@@ -127,6 +154,14 @@ pub mod * blocks "SnappCompliance" {
       description  = "The data classes this Snapp handles, as SUBJECT tokens (`^[a-z][a-z0-9_]{0,63}$`) — never profiles. REQUIRED, and EMPTY IS MEANINGFUL: an empty list declares that the Snapp handles none, where an absent one declares nothing. Item atom kind and token shape are NOT enforced by this type (list items do not enforce; a `format` facet is not applied); they are left to the block's JSON schema."
       priority     = 2
     }
+    // Appended LAST: the closed form of `data_classes` (the `data_classes` keyword document). A key
+    // `DataClassSet` does not declare is refused, MEASURED (COMP-438) in this nested position by
+    // `snapp_compliance_rejects_a_data_class_set_key_it_does_not_declare`.
+    data_class_set? {
+      type        = <DataClassSet>
+      description = "OPTIONAL closed form of `data_classes`: an object keyed by the classes this Snapp handles, each key one of the nine `DataClassSet` declares, so a misspelled class is refused as an undeclared prop (COMP-438) and is never a new class. Each value is a `DataClass` (a title and a sentence). An empty set declares none. The str form above stays REQUIRED and unchanged. When both are present they SHOULD agree, and a consumer reads their UNION."
+      priority    = 3
+    }
   }
 }
 
@@ -171,5 +206,6 @@ pub mod * blocks "ExercisedDomain" {
 
 - [R14N_SPEC_KEYWORD_POLICIES_1_0_0.n.md](R14N_SPEC_KEYWORD_POLICIES_1_0_0.n.md) — `Subject`, whose `key` grammar a subject token shares
 - [R14N_SPEC_KEYWORD_CATALOG_1_0_0.n.md](R14N_SPEC_KEYWORD_CATALOG_1_0_0.n.md) — the domains a Snapp's `exercises` keys name
+- [R14N_SPEC_KEYWORD_DATA_CLASSES_1_0_0.n.md](R14N_SPEC_KEYWORD_DATA_CLASSES_1_0_0.n.md) — `DataClass` and `DataClassSet`, the closed vocabulary `data_class_set` takes
 - r14n `spec/RLPS-v0.1.md` §2 — domains, subjects and the `(profile × domain × subject)` resolution
 - `docs/not-legal-advice.md` — what a declaration does and does not claim

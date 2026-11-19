@@ -12,6 +12,49 @@ History banner in the spec for normative changes), rather than forking a version
 
 ## [0.1.0-draft]
 
+### Added (revision 2026-11-08 — a closed data-class vocabulary and a closed-set prop for `snapp_compliance`)
+
+- **A closed data-class vocabulary** (`data_classes`): nine kinds of data a Snapp may declare it
+  handles — `phi`, `pii`, `financial`, `biometric`, `student_record`, `credentials`, `location`,
+  `communications`, `telemetry` — declared as the OPTIONAL props of one closed type, `DataClassSet`
+  (`additional_props = false`), each a `DataClass` with a title and a description. A kind of data,
+  never a statute: it carries no criterion identifier, names no regime, and does not say which law
+  applies. Grows by last-position adds only. A class is a SUBJECT token, never a profile.
+- **`SnappCompliance` gains an OPTIONAL `data_class_set`**, appended last, the closed form of
+  `data_classes`. The str `data_classes` stays REQUIRED and unchanged: nothing already declared stops
+  compiling. When both are present they SHOULD agree, and a consumer reads their union.
+- **What is enforced, measured** on `nlang 0.1.0-dev (12c4c7fea 2026-11-01)`. Where the types are
+  declared, a class key `DataClassSet` does not declare is refused (COMP-438). In a DEPENDENT Snapp it
+  is not: `additional_props = false` does not cross a dependency in this toolchain. Until it does, a
+  consumer that reads a declaration checks every key against the nine itself. The keyword document
+  tabulates every measured row.
+- **Not taken: a typed-path form.** The first design named each class as a keyed instance that a
+  dependent Snapp would reach by path. It does not compile: a keyed instance cannot be written `pub`
+  (SYN-9052), so no member could have been reached from another Snapp.
+- **The compliance types stay declared in `*`.** A type declared at the root (`pub blocks`) was measured
+  NOT to be reached by a dependent Snapp's `use { $::* }`: a missing required prop compiled there. So
+  `SnappCompliance` keeps its `pub mod *` declaration, and the two new types use it too.
+- The framework bundle is re-emitted, and the integrity pin the baselines Snapp holds on it is refreshed
+  in the same change. The baselines Snapp gains a consumer-side test module.
+- The resolver, the schemas and every pack are untouched. A resolver does not read a data class, and no
+  resolution varies on one.
+- **Process.** This revision touches the Snapp tree only. The RFC issue that `GOVERNANCE.md` §Change
+  process asks for is to be filed before it lands on `main`.
+
+### Tests (revision 2026-11-08, Snapp tree)
+
+- New gate `tools/tests/snapp_data_classes.rs`. It checks that the vocabulary is the closed first nine,
+  in order, each an OPTIONAL `DataClass` prop of `DataClassSet` at its priority with a description, and
+  each a subject token; that both types are closed and the set has no `min_props`; that the document
+  carries the disclaimer and no criterion-identifier shape; that it is declared and re-exported in the
+  keyword index; that the compliance types are declared in `*`; and that `SnappCompliance` declares
+  `data_class_set` last and optional, in the source and in the emitted bundle.
+- New compiler arms: seven in `r14n Spec/1.0.0/smoke_tests/type_constraint_tests.n` (the Snapp framework
+  suite grows from 79 to 86, all green) and four in `baselines/1.0.0/data_class_consumer_tests.n`. Two
+  of the four are RED by design. They are the `should_fail` arms recording that an undeclared class key
+  and an undeclared prop compile across a dependency, and they stay red until the compiler closes that
+  gap.
+
 ### Changed (revision 2026-11-08 — the tracking RFC issue for the 2026-11-03 and 2026-11-07 revisions is recorded)
 
 - The 2026-11-03 Process note says the RFC issue was "to be filed at publication" and that none was

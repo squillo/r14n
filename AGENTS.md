@@ -65,12 +65,14 @@ export SOURCE_DATE_EPOCH="$(git log -1 --format=%ct -- 'r14n Spec/1.0.0' baselin
 
 # check -> build -> export, for BOTH Snapps, framework first.
 nlang check  -r "r14n Spec/1.0.0"
+nlang test   -r "r14n Spec/1.0.0"     # the type-constraint suite (smoke_tests/, 86 arms); see rule 5
 nlang export -r "r14n Spec/1.0.0" -f json     # writes snapp/r14n@<ver>.json
 # The export above changes the framework bundle's bytes WHEN ITS CONTENT CHANGED, which
 # INVALIDATES the integrity pin in baselines/1.0.0/lib.n.md. Refresh it in the same change:
-#   shasum -a 256 "snapp/r14n@0.1.0-alpha.1.json"   -> paste as sha256-<hex>
+#   shasum -a 256 "snapp/r14n@<ver>.json"   -> paste as sha256-<hex>
 nlang check  -r baselines/1.0.0
-nlang test   -r baselines/1.0.0     # 23-arm node-validation suite; see rule 5
+nlang test   -r baselines/1.0.0     # node-validation suite: policy_pack_tests.n (23 arms) and
+                                     # data_class_consumer_tests.n (4 arms, 2 RED by design); see rule 5
 nlang export -r baselines/1.0.0 -f json
 ```
 
@@ -111,7 +113,9 @@ Five rules, each one something that has already gone wrong here:
    derivable from nothing.
 
 5. **Run `nlang test`, and read what it tells you about the TYPES.** `baselines/1.0.0`
-   carries a node-validation suite (`policy_pack_tests.n`, 23 arms) in which the compiler is
+   carries a node-validation suite (`policy_pack_tests.n`, 23 arms; `data_class_consumer_tests.n`,
+   4 arms, two of them RED by design until the compiler carries `additional_props = false` across
+   a dependency) in which the compiler is
    the assertion engine. Two things about it are load-bearing:
 
    **Every asserted type carries BOTH a positive and a negative arm.** An unresolvable
